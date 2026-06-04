@@ -1,115 +1,210 @@
 package com.petclinic.service;
 
-import com.petclinic.dao.UserDAO;
-import com.petclinic.model.User;
-import com.petclinic.util.EmailUtil;
+import com.petclinic.dao.CustomerDAO;
+import com.petclinic.model.Customer;
+import com.petclinic.util.OtpStore;
+import com.petclinic.util.OtpUtil;
 import com.petclinic.util.PasswordUtil;
 
+import java.sql.SQLException;
 import java.time.LocalDateTime;
-import java.util.Optional;
 import java.util.UUID;
 
-/**
- * Business logic cho Authentication.
- * Servlet gọi Service, Service gọi DAO — không có JDBC trong Servlet.
- */
 public class AuthService {
 
-    private final UserDAO userDAO = new UserDAO();
+    private final CustomerDAO customerDAO = new CustomerDAO();
 
-    // ── Login ─────────────────────────────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════════════════════
+    //  LOGIN
+    // ══════════════════════════════════════════════════════════════════════════
 
     /**
-     * Xác thực đăng nhập.
-     * @return User nếu hợp lệ, empty nếu sai email/password hoặc bị khóa.
+     * Authenticate by email or phone.
+     * @return Customer on success, null on failure.
      */
-    public Optional<User> login(String email, String plainPassword) {
-        Optional<User> opt = userDAO.findByEmail(email.trim().toLowerCase());
-        if (opt.isEmpty()) return Optional.empty();
+    public Customer login(String identifier, String rawPassword) throws SQLException {
+        Customer customer = identifier.contains("@")
+                ? customerDAO.findByEmail(identifier)
+                : customerDAO.findByPhone(identifier);
 
-        User user = opt.get();
-        if (!user.isActive()) return Optional.empty();                     // tài khoản bị khóa
-        if (!PasswordUtil.verify(plainPassword, user.getPasswordHash()))
-            return Optional.empty();
-
-        return Optional.of(user);
+        if (customer == null) return null;
+        if (!PasswordUtil.verifyPassword(rawPassword, customer.getPasswordHash())) return null;
+        return customer;
     }
 
-    // ── Register ──────────────────────────────────────────────────────────────
-
-    public enum RegisterResult { SUCCESS, EMAIL_EXISTS, INVALID_INPUT }
+    /**
+     * Generate a new Remember-Me token, persist it into Customers table, return the token string.
+     */
+    public String createRememberMeToken(int customerId) throws SQLException {
+        String token = UUID.randomUUID().toString().replace("-", "");
+        LocalDateTime expiredTime = LocalDateTime.now().plusDays(30);
+        customerDAO.saveRememberMeToken(customerId, token, expiredTime);
+        return token;
+    }
 
     /**
-     * Đăng ký tài khoản Customer mới.
+     * Resolve a Remember-Me cookie token to a Customer.
+     * Returns null if token not found or expired.
      */
-    public RegisterResult register(String fullName, String email,
-                                   String phone,    String plainPassword) {
-        if (fullName == null || fullName.isBlank()
-         || email    == null || email.isBlank()
-         || plainPassword == null || plainPassword.length() < 6) {
-            return RegisterResult.INVALID_INPUT;
+    public Customer resolveRememberMeToken(String token) throws SQLException {
+        Customer customer = customerDAO.findByRememberMeToken(token);
+        if (customer == null) return null;
+        if (customer.getTokenExpiredTime() == null ||
+                LocalDateTime.now().isAfter(customer.getTokenExpiredTime())) {
+            customerDAO.clearRememberMeToken(customer.getCustomerID());
+            return null;
+        }
+        return customer;
+    }
+
+    /**
+     * Clear Remember-Me token by the raw token string (on logout).
+     */
+    public void invalidateRememberMeToken(String token) throws SQLException {
+        if (token == null) return;
+        Customer customer = customerDAO.findByRememberMeToken(token);
+        if (customer != null) customerDAO.clearRememberMeToken(customer.getCustomerID());
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    //  REGISTER  (Step 1 – send OTPs)
+    // ══════════════════════════════════════════════════════════════════════════
+
+    public enum SendOtpResult { OK, EMAIL_TAKEN, PHONE_TAKEN, SEND_FAILED }
+
+    /**
+     * Validate data, check uniqueness, send OTPs to email (and phone if provided).
+     */
+    public SendOtpResult initiateRegistration(String fullName, String email,
+                                              String phone, String rawPassword)
+            throws SQLException {
+
+        if (!PasswordUtil.isStrongPassword(rawPassword)) {
+            throw new IllegalArgumentException("Password does not meet strength requirements.");
+        }
+        if (customerDAO.existsByEmail(email)) return SendOtpResult.EMAIL_TAKEN;
+        if (phone != null && !phone.isBlank() && customerDAO.existsByPhone(phone))
+            return SendOtpResult.PHONE_TAKEN;
+
+        // Send email OTP
+        try {
+            String emailOtp = OtpUtil.generateOtp();
+            OtpStore.save(otpKey(email, "reg-email"), emailOtp);
+            OtpUtil.sendOtpEmail(email, emailOtp, "register");
+        } catch (Exception e) {
+            e.printStackTrace();
+            return SendOtpResult.SEND_FAILED;
         }
 
-        String normalizedEmail = email.trim().toLowerCase();
-        if (userDAO.existsByEmail(normalizedEmail)) {
-            return RegisterResult.EMAIL_EXISTS;
+        // Send phone OTP (non-blocking – phone is optional)
+        if (phone != null && !phone.isBlank()) {
+            try {
+                String phoneOtp = OtpUtil.generateOtp();
+                OtpStore.save(otpKey(phone, "reg-phone"), phoneOtp);
+                OtpUtil.sendOtpSms(phone, phoneOtp, "register");
+            } catch (Exception e) {
+                e.printStackTrace();
+                // SMS failure is non-fatal for now; frontend will show partial warning
+            }
         }
 
-        User user = new User();
-        user.setFullName(fullName.trim());
-        user.setEmail(normalizedEmail);
-        user.setPhone(phone != null ? phone.trim() : null);
-        user.setPasswordHash(PasswordUtil.hash(plainPassword));
-        user.setRoleId(5); // Customer — khớp với seed data
+        return SendOtpResult.OK;
+    }
 
-        userDAO.insert(user);
+    // ══════════════════════════════════════════════════════════════════════════
+    //  REGISTER  (Step 2 – verify OTPs and create account)
+    // ══════════════════════════════════════════════════════════════════════════
+
+    public enum RegisterResult { SUCCESS, WRONG_EMAIL_OTP, WRONG_PHONE_OTP, EMAIL_TAKEN, PHONE_TAKEN }
+
+    public RegisterResult completeRegistration(String fullName, String email,
+                                               String phone, String rawPassword,
+                                               String emailOtp, String phoneOtp)
+            throws SQLException {
+
+        // Double-check uniqueness (edge case: registered while user was filling OTPs)
+        if (customerDAO.existsByEmail(email)) return RegisterResult.EMAIL_TAKEN;
+
+        // Verify email OTP (mandatory)
+        if (!OtpStore.verify(otpKey(email, "reg-email"), emailOtp))
+            return RegisterResult.WRONG_EMAIL_OTP;
+
+        // Verify phone OTP only if phone was provided
+        if (phone != null && !phone.isBlank()) {
+            if (customerDAO.existsByPhone(phone)) return RegisterResult.PHONE_TAKEN;
+            if (!OtpStore.verify(otpKey(phone, "reg-phone"), phoneOtp))
+                return RegisterResult.WRONG_PHONE_OTP;
+        }
+
+        // Persist
+        Customer customer = new Customer(fullName, email,
+                phone != null && phone.isBlank() ? null : phone,
+                PasswordUtil.hashPassword(rawPassword));
+        customerDAO.insert(customer);
         return RegisterResult.SUCCESS;
     }
 
-    // ── Forgot Password ───────────────────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════════════════════
+    //  FORGOT PASSWORD  (Step 1 – send OTP)
+    // ══════════════════════════════════════════════════════════════════════════
 
-    /**
-     * Tạo reset token và gửi email.
-     * Luôn trả về true để tránh user enumeration attack
-     * (không để lộ email nào tồn tại trong hệ thống).
-     */
-    public boolean requestPasswordReset(String email, String baseUrl) {
-        Optional<User> opt = userDAO.findByEmail(email.trim().toLowerCase());
-        if (opt.isEmpty()) return true; // silent fail
+    public enum ForgotResult { OK, USER_NOT_FOUND, SEND_FAILED }
 
-        User user = opt.get();
-        String token  = UUID.randomUUID().toString().replace("-", "");
-        LocalDateTime expiry = LocalDateTime.now().plusMinutes(30);
+    public ForgotResult initiateForgotPassword(String identifier) throws SQLException {
+        Customer customer = identifier.contains("@")
+                ? customerDAO.findByEmail(identifier)
+                : customerDAO.findByPhone(identifier);
 
-        userDAO.saveResetToken(user.getUserId(), token, expiry);
+        if (customer == null) return ForgotResult.USER_NOT_FOUND;
 
-        String resetLink = baseUrl + "/reset-password?token=" + token;
+        String otp = OtpUtil.generateOtp();
         try {
-            EmailUtil.sendResetPasswordEmail(user.getEmail(), resetLink);
+            if (identifier.contains("@")) {
+                OtpStore.save(otpKey(identifier, "forgot"), otp);
+                OtpUtil.sendOtpEmail(identifier, otp, "forgot");
+            } else {
+                OtpStore.save(otpKey(identifier, "forgot"), otp);
+                OtpUtil.sendOtpSms(identifier, otp, "forgot");
+            }
         } catch (Exception e) {
-            // Log lỗi nhưng không ném ra ngoài — UX vẫn thấy "email đã gửi"
-            System.err.println("[AuthService] Failed to send reset email: " + e.getMessage());
+            e.printStackTrace();
+            return ForgotResult.SEND_FAILED;
         }
-        return true;
+        return ForgotResult.OK;
     }
 
-    // ── Reset Password ────────────────────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════════════════════
+    //  FORGOT PASSWORD  (Step 2 – verify OTP)
+    // ══════════════════════════════════════════════════════════════════════════
 
-    public enum ResetResult { SUCCESS, INVALID_TOKEN, EXPIRED_TOKEN, WEAK_PASSWORD }
+    public boolean verifyForgotOtp(String identifier, String inputOtp) {
+        return OtpStore.verify(otpKey(identifier, "forgot"), inputOtp);
+    }
 
-    /**
-     * Đặt lại mật khẩu bằng token.
-     */
-    public ResetResult resetPassword(String token, String newPassword) {
-        if (newPassword == null || newPassword.length() < 6) {
-            return ResetResult.WEAK_PASSWORD;
-        }
+    // ══════════════════════════════════════════════════════════════════════════
+    //  FORGOT PASSWORD  (Step 3 – reset password)
+    // ══════════════════════════════════════════════════════════════════════════
 
-        Optional<User> opt = userDAO.findByValidResetToken(token);
-        if (opt.isEmpty()) return ResetResult.INVALID_TOKEN;  // không tồn tại hoặc hết hạn
+    public enum ResetResult { SUCCESS, USER_NOT_FOUND, WEAK_PASSWORD, NOT_VERIFIED }
 
-        User user = opt.get();
-        userDAO.updatePassword(user.getUserId(), PasswordUtil.hash(newPassword));
+    public ResetResult resetPassword(String identifier, String rawPassword,
+                                     boolean isVerified) throws SQLException {
+        if (!isVerified) return ResetResult.NOT_VERIFIED;
+        if (!PasswordUtil.isStrongPassword(rawPassword)) return ResetResult.WEAK_PASSWORD;
+
+        Customer customer = identifier.contains("@")
+                ? customerDAO.findByEmail(identifier)
+                : customerDAO.findByPhone(identifier);
+        if (customer == null) return ResetResult.USER_NOT_FOUND;
+
+        customerDAO.updatePassword(customer.getCustomerID(),
+                PasswordUtil.hashPassword(rawPassword));
         return ResetResult.SUCCESS;
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    private String otpKey(String identifier, String purpose) {
+        return identifier.trim().toLowerCase() + ":" + purpose;
     }
 }
