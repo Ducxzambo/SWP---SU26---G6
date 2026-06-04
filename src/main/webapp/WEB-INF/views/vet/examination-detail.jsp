@@ -1,7 +1,7 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
 <%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
-<%@ taglib prefix="fn"  uri="http://java.sun.com/jsp/jstl/functions" %>
+<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -24,11 +24,11 @@
         <div class="sidebar-logo">🐾 PetClinic</div>
         <nav>
             <a href="${pageContext.request.contextPath}/vet/examination" class="nav-item active">
-                🩺 Hàng chờ khám
+                 Hàng chờ khám
             </a>
         </nav>
         <div class="sidebar-user">
-            👤 ${sessionScope.staff.fullName}
+             ${sessionScope.staff.fullName}
             <a href="${pageContext.request.contextPath}/auth/logout" class="logout-link">Đăng xuất</a>
         </div>
     </aside>
@@ -42,7 +42,7 @@
         <c:if test="${not empty record}">
 
             <div class="page-header">
-                <h1>📋 Bệnh Án #${record.recordID}</h1>
+                <h1> Bệnh Án #${record.recordID}</h1>
                 <p class="page-sub">Thông tin khám bệnh – chỉ xem</p>
             </div>
 
@@ -66,7 +66,7 @@
                 <div class="pet-info-item">
                     <span class="label">Ngày khám</span>
                     <span class="value">
-                        <fmt:formatDate value="${record.createdAt}" pattern="dd/MM/yyyy HH:mm"/>
+                        <c:out value="${fn:substring(record.createdAt, 8, 10)}/${fn:substring(record.createdAt, 5, 7)}/${fn:substring(record.createdAt, 0, 4)} ${fn:substring(record.createdAt, 11, 16)}"/>
                     </span>
                 </div>
             </div>
@@ -74,7 +74,7 @@
             <%-- Vitals --%>
             <div class="card">
                 <div class="card-header">
-                    <span class="card-title">📊 Chỉ số sinh tồn</span>
+                    <span class="card-title"> Thông số</span>
                 </div>
                 <div class="card-body">
                     <div class="form-row col-2">
@@ -107,7 +107,7 @@
             <%-- Clinical notes --%>
             <div class="card">
                 <div class="card-header">
-                    <span class="card-title">📝 Ghi chú lâm sàng</span>
+                    <span class="card-title"> Ghi chú lâm sàng</span>
                 </div>
                 <div class="card-body">
                     <div class="record-field">
@@ -129,7 +129,7 @@
             <c:if test="${record.hasPrescription()}">
                 <div class="card">
                     <div class="card-header">
-                        <span class="card-title">💊 Đơn thuốc</span>
+                        <span class="card-title"> Đơn thuốc</span>
                     </div>
                     <div class="card-body" style="padding:0;">
                         <table class="data-table">
@@ -202,7 +202,7 @@
             <div class="pet-info-strip">
                 <div class="pet-info-item">
                     <span class="label">Thú cưng</span>
-                    <span class="value">🐾 <c:out value="${appointment.petName}"/></span>
+                    <span class="value"> <c:out value="${appointment.petName}"/></span>
                 </div>
                 <div class="pet-info-item">
                     <span class="label">Chủ nhân</span>
@@ -210,8 +210,7 @@
                 </div>
                 <div class="pet-info-item">
                     <span class="label">Bác sĩ</span>
-                    <span class="value"><c:out
-                            value="${appointment.vetName != null ? appointment.vetName : sessionScope.staff.fullName}"/></span>
+                    <span class="value"><c:out value="${appointment.vetName != null ? appointment.vetName : sessionScope.staff.fullName}"/></span>
                 </div>
                 <div class="pet-info-item">
                     <span class="label">Dịch vụ</span>
@@ -220,7 +219,7 @@
                 <div class="pet-info-item">
                     <span class="label">Trạng thái</span>
                     <span class="value">
-                        <span class="badge badge-info">🩺 Đang khám</span>
+                        <span class="badge badge-info"> Đang khám</span>
                     </span>
                 </div>
             </div>
@@ -229,10 +228,9 @@
             <c:if test="${not empty history}">
                 <div class="card">
                     <div class="card-header">
-                        <span class="card-title">📂 Lịch sử khám bệnh (${fn:length(history)} lần)</span>
+                        <span class="card-title"> Lịch sử khám bệnh (${fn:length(history)} lần)</span>
                         <button type="button" class="btn btn-outline btn-sm" id="toggleHistoryBtn"
-                                onclick="toggleHistory()">Hiện / Ẩn
-                        </button>
+                                onclick="toggleHistory()">Hiện / Ẩn</button>
                     </div>
                     <div id="historySection" style="display:none; padding:16px 24px;">
                         <c:forEach items="${history}" var="h" varStatus="vs">
@@ -240,9 +238,8 @@
                                 <div class="history-item-header" onclick="toggleAccordion(this)">
                                     <span>
                                         <strong>#${vs.count}</strong> –
-                                        <fmt:formatDate value="${h.createdAt}" pattern="dd/MM/yyyy"/>
-                                        &nbsp;|&nbsp; <c:out
-                                            value="${h.diagnosis != null ? h.diagnosis : 'Chưa có chẩn đoán'}"/>
+                                        <c:out value="${fn:substring(h.createdAt, 8, 10)}/${fn:substring(h.createdAt, 5, 7)}/${fn:substring(h.createdAt, 0, 4)}"/>
+                                        &nbsp;|&nbsp; <c:out value="${h.diagnosis != null ? h.diagnosis : 'Chưa có chẩn đoán'}"/>
                                     </span>
                                     <span class="toggle-icon">▼</span>
                                 </div>
@@ -261,14 +258,12 @@
                                     </dl>
                                     <c:if test="${h.hasPrescription()}">
                                         <div style="margin-top:12px;">
-                                            <strong style="font-size:13px;">💊 Đơn thuốc:</strong>
+                                            <strong style="font-size:13px;"> Đơn thuốc:</strong>
                                             <table class="prescription-table" style="margin-top:8px;">
                                                 <thead>
                                                 <tr>
-                                                    <th>Thuốc</th>
-                                                    <th>Liều dùng</th>
-                                                    <th>SL</th>
-                                                    <th>Đơn vị</th>
+                                                    <th>Thuốc</th><th>Liều dùng</th>
+                                                    <th>SL</th><th>Đơn vị</th>
                                                 </tr>
                                                 </thead>
                                                 <tbody>
@@ -300,7 +295,7 @@
                     <%-- Vitals --%>
                 <div class="card">
                     <div class="card-header">
-                        <span class="card-title">📊 Chỉ số sinh tồn</span>
+                        <span class="card-title"> Thông số</span>
                     </div>
                     <div class="card-body">
                         <div class="form-row col-2">
@@ -325,7 +320,7 @@
                     <%-- Clinical notes --%>
                 <div class="card">
                     <div class="card-header">
-                        <span class="card-title">📝 Ghi chú lâm sàng</span>
+                        <span class="card-title"> Ghi chú lâm sàng</span>
                     </div>
                     <div class="card-body">
                         <div class="form-group">
@@ -334,8 +329,7 @@
                             </label>
                             <textarea id="symptoms" name="symptoms" class="form-control"
                                       rows="3" placeholder="Mô tả triệu chứng quan sát được..."
-                                      required><c:out
-                                    value='${not empty symptoms ? symptoms : param.symptoms}'/></textarea>
+                                      required><c:out value='${not empty symptoms ? symptoms : param.symptoms}'/></textarea>
                         </div>
                         <div class="form-group">
                             <label class="form-label" for="diagnosis">
@@ -343,14 +337,12 @@
                             </label>
                             <textarea id="diagnosis" name="diagnosis" class="form-control"
                                       rows="3" placeholder="Kết quả chẩn đoán..."
-                                      required><c:out
-                                    value='${not empty diagnosis ? diagnosis : param.diagnosis}'/></textarea>
+                                      required><c:out value='${not empty diagnosis ? diagnosis : param.diagnosis}'/></textarea>
                         </div>
                         <div class="form-group">
                             <label class="form-label" for="treatmentPlan">Phác đồ điều trị</label>
                             <textarea id="treatmentPlan" name="treatmentPlan" class="form-control"
-                                      rows="3" placeholder="Hướng dẫn điều trị, chú ý chăm sóc..."><c:out
-                                    value='${not empty treatmentPlan ? treatmentPlan : param.treatmentPlan}'/></textarea>
+                                      rows="3" placeholder="Hướng dẫn điều trị, chú ý chăm sóc..."><c:out value='${not empty treatmentPlan ? treatmentPlan : param.treatmentPlan}'/></textarea>
                         </div>
                         <div class="form-group">
                             <label class="form-label" for="followUpDate">Ngày tái khám</label>
@@ -365,7 +357,7 @@
                     <%-- Prescription --%>
                 <div class="card">
                     <div class="card-header">
-                        <span class="card-title">💊 Đơn thuốc</span>
+                        <span class="card-title"> Đơn thuốc</span>
                         <span style="font-size:13px;color:var(--text-soft);">Để trống nếu không kê đơn</span>
                     </div>
                     <div class="card-body">
@@ -387,17 +379,17 @@
                             + Thêm thuốc vào đơn
                         </button>
 
-                            <%-- Medicine stock data for JS --%>
+                            <%-- Sửa lại cú pháp JSON an toàn --%>
                         <script id="medicineData" type="application/json">
                             [
                             <c:forEach items="${medicines}" var="m" varStatus="vs">
                                 {
                                 "id":    ${m.medicineID},
-                                "name": "<c:out value='${m.name}'/>",
-                                "unit": "<c:out value='${m.unit}'/>",
+                                "name":  "<c:out value='${m.name}'/>",
+                                "unit":  "<c:out value='${m.unit}'/>",
                                 "price": ${m.unitPrice},
                                 "stock": ${m.stockQty}
-                                }<c:if test="${!vs.last}">,</c:if>
+                                }${not vs.last ? ',' : ''}
                             </c:forEach>
                             ]
                         </script>
@@ -409,7 +401,7 @@
                     <a href="${pageContext.request.contextPath}/vet/examination"
                        class="btn btn-outline btn-lg">Hủy bỏ</a>
                     <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
-                        ✅ Lưu bệnh án & Hoàn thành khám
+                        Lưu bệnh án & Hoàn thành khám
                     </button>
                 </div>
 
@@ -426,8 +418,7 @@
             <div class="card">
                 <div class="empty-state">
                     <div class="empty-icon">⚠️</div>
-                    <p>Không tìm thấy dữ liệu. <a href="${pageContext.request.contextPath}/vet/examination">Quay lại
-                        hàng chờ</a></p>
+                    <p>Không tìm thấy dữ liệu. <a href="${pageContext.request.contextPath}/vet/examination">Quay lại hàng chờ</a></p>
                 </div>
             </div>
         </c:if>
@@ -440,7 +431,7 @@
     /* ── Medicine data ────────────────────────────────────────────────────────── */
     const MEDICINES = JSON.parse(document.getElementById('medicineData')?.textContent || '[]');
 
-    /* ── Build <select> options ───────────────────────────────────────────────── */
+    /* ── Sửa lại hàm build để đồng bộ thuộc tính data-stock ───────────────────── */
     function buildMedicineSelect(selectedId) {
         let html = '<option value="">— Chọn thuốc —</option>';
         MEDICINES.forEach(m => {
@@ -460,12 +451,11 @@
         const tbody = document.getElementById('prescriptionBody');
         const tr = document.createElement('tr');
         tr.dataset.row = rowIndex;
-
         tr.innerHTML = `
         <td>
             <select name="medicineID[]" class="form-control" onchange="onMedicineChange(this)"
                     style="padding-left:10px;">
-                ${buildMedicineSelect()}
+                \${buildMedicineSelect()}
             </select>
         </td>
         <td>
@@ -485,7 +475,7 @@
     }
 
     function onMedicineChange(sel) {
-        const opt = sel.options[sel.selectedIndex];
+        const opt  = sel.options[sel.selectedIndex];
         const stock = opt.dataset.stock;
         const stockCell = sel.closest('tr').querySelector('.stock-cell');
         if (stock !== undefined && opt.value) {
@@ -523,7 +513,7 @@
     const examForm = document.getElementById('examForm');
     if (examForm) {
         examForm.addEventListener('submit', function (e) {
-            const symptoms = document.getElementById('symptoms')?.value.trim();
+            const symptoms  = document.getElementById('symptoms')?.value.trim();
             const diagnosis = document.getElementById('diagnosis')?.value.trim();
 
             if (!symptoms || !diagnosis) {
@@ -533,8 +523,8 @@
             }
 
             // Validate prescription rows
-            const medSelects = document.querySelectorAll('[name="medicineID[]"]');
-            const qtyInputs = document.querySelectorAll('[name="quantity[]"]');
+            const medSelects  = document.querySelectorAll('[name="medicineID[]"]');
+            const qtyInputs   = document.querySelectorAll('[name="quantity[]"]');
             let valid = true;
 
             medSelects.forEach((sel, i) => {
@@ -544,17 +534,17 @@
                     alert('Số lượng thuốc phải lớn hơn 0.');
                     valid = false;
                 }
+
                 // warn if exceeds stock
-                const opt = sel.options[sel.selectedIndex];
+                const opt   = sel.options[sel.selectedIndex];
                 const stock = parseInt(opt.dataset.stock || 0);
-                const need = parseInt(qty || 0);
+                const need  = parseInt(qty || 0);
                 if (need > stock) {
                     if (!confirm(`Thuốc "${opt.text.split(' (')[0]}" chỉ còn ${stock} trong kho, bạn muốn kê ${need}. Tiếp tục?`)) {
                         valid = false;
                     }
                 }
             });
-
             if (!valid) e.preventDefault();
             else {
                 document.getElementById('submitBtn').disabled = true;
