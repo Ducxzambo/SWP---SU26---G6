@@ -20,6 +20,7 @@ public class AuthService {
 
     /**
      * Authenticate by email or phone.
+     *
      * @return Customer on success, null on failure.
      */
     public Customer login(String identifier, String rawPassword) throws SQLException {
@@ -70,8 +71,6 @@ public class AuthService {
     //  REGISTER  (Step 1 – send OTPs)
     // ══════════════════════════════════════════════════════════════════════════
 
-    public enum SendOtpResult { OK, EMAIL_TAKEN, PHONE_TAKEN, SEND_FAILED }
-
     /**
      * Validate data, check uniqueness, send OTPs to email (and phone if provided).
      */
@@ -111,12 +110,6 @@ public class AuthService {
         return SendOtpResult.OK;
     }
 
-    // ══════════════════════════════════════════════════════════════════════════
-    //  REGISTER  (Step 2 – verify OTPs and create account)
-    // ══════════════════════════════════════════════════════════════════════════
-
-    public enum RegisterResult { SUCCESS, WRONG_EMAIL_OTP, WRONG_PHONE_OTP, EMAIL_TAKEN, PHONE_TAKEN }
-
     public RegisterResult completeRegistration(String fullName, String email,
                                                String phone, String rawPassword,
                                                String emailOtp, String phoneOtp)
@@ -145,10 +138,8 @@ public class AuthService {
     }
 
     // ══════════════════════════════════════════════════════════════════════════
-    //  FORGOT PASSWORD  (Step 1 – send OTP)
+    //  REGISTER  (Step 2 – verify OTPs and create account)
     // ══════════════════════════════════════════════════════════════════════════
-
-    public enum ForgotResult { OK, USER_NOT_FOUND, SEND_FAILED }
 
     public ForgotResult initiateForgotPassword(String identifier) throws SQLException {
         Customer customer = identifier.contains("@")
@@ -173,19 +164,13 @@ public class AuthService {
         return ForgotResult.OK;
     }
 
-    // ══════════════════════════════════════════════════════════════════════════
-    //  FORGOT PASSWORD  (Step 2 – verify OTP)
-    // ══════════════════════════════════════════════════════════════════════════
-
     public boolean verifyForgotOtp(String identifier, String inputOtp) {
         return OtpStore.verify(otpKey(identifier, "forgot"), inputOtp);
     }
 
     // ══════════════════════════════════════════════════════════════════════════
-    //  FORGOT PASSWORD  (Step 3 – reset password)
+    //  FORGOT PASSWORD  (Step 1 – send OTP)
     // ══════════════════════════════════════════════════════════════════════════
-
-    public enum ResetResult { SUCCESS, USER_NOT_FOUND, WEAK_PASSWORD, NOT_VERIFIED }
 
     public ResetResult resetPassword(String identifier, String rawPassword,
                                      boolean isVerified) throws SQLException {
@@ -202,9 +187,25 @@ public class AuthService {
         return ResetResult.SUCCESS;
     }
 
-    // ── Helpers ──────────────────────────────────────────────────────────────
-
     private String otpKey(String identifier, String purpose) {
         return identifier.trim().toLowerCase() + ":" + purpose;
     }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    //  FORGOT PASSWORD  (Step 2 – verify OTP)
+    // ══════════════════════════════════════════════════════════════════════════
+
+    public enum SendOtpResult {OK, EMAIL_TAKEN, PHONE_TAKEN, SEND_FAILED}
+
+    // ══════════════════════════════════════════════════════════════════════════
+    //  FORGOT PASSWORD  (Step 3 – reset password)
+    // ══════════════════════════════════════════════════════════════════════════
+
+    public enum RegisterResult {SUCCESS, WRONG_EMAIL_OTP, WRONG_PHONE_OTP, EMAIL_TAKEN, PHONE_TAKEN}
+
+    public enum ForgotResult {OK, USER_NOT_FOUND, SEND_FAILED}
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    public enum ResetResult {SUCCESS, USER_NOT_FOUND, WEAK_PASSWORD, NOT_VERIFIED}
 }
