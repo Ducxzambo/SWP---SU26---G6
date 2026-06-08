@@ -13,14 +13,14 @@
 
 <div class="layout">
     <aside class="sidebar">
-        <div class="sidebar-logo">🐾 PetClinic</div>
+        <div class="sidebar-logo">PetClinic</div>
         <nav>
             <a href="${pageContext.request.contextPath}/vet/examination" class="nav-item active">
-                🩺 Hàng chờ khám
+                Hàng chờ khám
             </a>
         </nav>
         <div class="sidebar-user">
-            👤 ${sessionScope.staff.fullName}
+             ${sessionScope.staff.fullName}
             <a href="${pageContext.request.contextPath}/auth/logout" class="logout-link">Đăng xuất</a>
         </div>
     </aside>
@@ -56,7 +56,7 @@
             <c:choose>
                 <c:when test="${empty queue}">
                     <div class="empty-state">
-                        <div class="empty-icon">🎉</div>
+                        <div class="empty-icon"></div>
                         <p>Không có bệnh nhân nào đang chờ hoặc đang khám.</p>
                     </div>
                 </c:when>
@@ -84,10 +84,10 @@
                                 <td>
                                     <c:choose>
                                         <c:when test="${appt.status == 'InProgress'}">
-                                            <span class="badge badge-info">🩺 Đang khám</span>
+                                            <span class="badge badge-info"> Đang khám</span>
                                         </c:when>
                                         <c:otherwise>
-                                            <span class="badge badge-warning">⏳ Chờ khám</span>
+                                            <span class="badge badge-warning"> Chờ khám</span>
                                         </c:otherwise>
                                     </c:choose>
                                 </td>
@@ -97,15 +97,13 @@
                                             <%-- Start examination: Arrived → InProgress --%>
                                             <a href="${pageContext.request.contextPath}/vet/examination?action=start&appointmentID=${appt.appointmentID}"
                                                class="btn btn-primary btn-sm"
-                                               onclick="return confirm('Bắt đầu khám cho ${appt.petName}?')">
-                                                🩺 Bắt đầu khám
+                                               onclick="return confirm('Bắt đầu khám cho ${appt.petName}?')">Bắt đầu khám
                                             </a>
                                         </c:when>
                                         <c:when test="${appt.status == 'InProgress'}">
                                             <%-- Continue: go to examination form --%>
                                             <a href="${pageContext.request.contextPath}/vet/examination?action=form&appointmentID=${appt.appointmentID}"
-                                               class="btn btn-secondary btn-sm">
-                                                📋 Tiếp tục khám
+                                               class="btn btn-secondary btn-sm">Tiếp tục khám
                                             </a>
                                         </c:when>
                                     </c:choose>

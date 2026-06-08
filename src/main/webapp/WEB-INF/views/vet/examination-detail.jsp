@@ -379,20 +379,7 @@
                             + Thêm thuốc vào đơn
                         </button>
 
-                            <%-- Sửa lại cú pháp JSON an toàn --%>
-                        <script id="medicineData" type="application/json">
-                            [
-                            <c:forEach items="${medicines}" var="m" varStatus="vs">
-                                {
-                                "id":    ${m.medicineID},
-                                "name":  "<c:out value='${m.name}'/>",
-                                "unit":  "<c:out value='${m.unit}'/>",
-                                "price": ${m.unitPrice},
-                                "stock": ${m.stockQty}
-                                }${not vs.last ? ',' : ''}
-                            </c:forEach>
-                            ]
-                        </script>
+                            <%-- MEDICINES array moved to bottom script block --%>
                     </div>
                 </div>
 
@@ -427,57 +414,78 @@
 </div>
 
 <%-- ── Scripts ─────────────────────────────────────────────────────────────── --%>
-<script>
-    /* ── Medicine data ────────────────────────────────────────────────────────── */
-    const MEDICINES = JSON.parse(document.getElementById('medicineData')?.textContent || '[]');
 
-    /* ── Sửa lại hàm build để đồng bộ thuộc tính data-stock ───────────────────── */
+<%--
+    FIX: MEDICINES phải được khai báo TRƯỚC buildMedicineSelect().
+         Dùng JSP scriptlet để xuất JSON an toàn (tránh c:out escape dấu nháy đơn).
+         Đặt ngoài c:if để đảm bảo luôn render dù branch nào được hiển thị.
+--%>
+<script>
+    <%-- Xuất mảng MEDICINES dưới dạng JSON chuẩn, dùng fn:replace để escape nháy đơn trong tên thuốc --%>
+    const MEDICINES = [
+        <c:forEach items="${medicines}" var="m" varStatus="vs">
+        {
+            "id":    ${m.medicineID},
+            "name":  "<c:out value='${m.name}' escapeXml='false'/>".replace(/"/g,'&quot;'),
+            "unit":  "<c:out value='${m.unit}' escapeXml='false'/>".replace(/"/g,'&quot;'),
+            "price": ${m.unitPrice != null ? m.unitPrice : 0},
+            "stock": ${m.stockQty}
+        }<c:if test="${!vs.last}">,</c:if>
+        </c:forEach>
+    ];
+</script>
+
+<script>
+    /* ── Build select HTML từ MEDICINES array ───────────────────────────────── */
     function buildMedicineSelect(selectedId) {
         let html = '<option value="">— Chọn thuốc —</option>';
-        MEDICINES.forEach(m => {
+        MEDICINES.forEach(function(m) {
             const sel = (selectedId && m.id == selectedId) ? ' selected' : '';
-            html += `<option value="${m.id}" data-unit="${m.unit}" data-price="${m.price}" data-stock="${m.stock}"${sel}>
-                    ${m.name} (${m.unit}) — còn ${m.stock}
-                 </option>`;
+            html += '<option value="' + m.id + '"'
+                  + ' data-unit="'  + m.unit  + '"'
+                  + ' data-price="' + m.price + '"'
+                  + ' data-stock="' + m.stock + '"'
+                  + sel + '>'
+                  + m.name + ' (' + m.unit + ') — còn ' + m.stock
+                  + '</option>';
         });
         return html;
     }
 
     /* ── Add prescription row ─────────────────────────────────────────────────── */
-    let rowIndex = 0;
+    var rowIndex = 0;
 
     function addPrescriptionRow() {
         rowIndex++;
-        const tbody = document.getElementById('prescriptionBody');
-        const tr = document.createElement('tr');
+        var tbody = document.getElementById('prescriptionBody');
+        var tr = document.createElement('tr');
         tr.dataset.row = rowIndex;
-        tr.innerHTML = `
-        <td>
-            <select name="medicineID[]" class="form-control" onchange="onMedicineChange(this)"
-                    style="padding-left:10px;">
-                \${buildMedicineSelect()}
-            </select>
-        </td>
-        <td>
-            <input type="text" name="dosage[]" class="form-control"
-                   placeholder="VD: 2 lần/ngày, 1 viên/lần">
-        </td>
-        <td>
-            <input type="number" name="quantity[]" class="form-control"
-                   min="1" step="1" value="1" style="width:80px;">
-        </td>
-        <td class="stock-cell" style="color:var(--text-soft);font-size:13px;">—</td>
-        <td>
-            <button type="button" class="remove-row-btn" onclick="removeRow(this)" title="Xóa hàng">×</button>
-        </td>
-    `;
+        tr.innerHTML =
+            '<td>'
+          +   '<select name="medicineID[]" class="form-control" onchange="onMedicineChange(this)"'
+          +         ' style="padding-left:10px;">'
+          +     buildMedicineSelect()
+          +   '</select>'
+          + '</td>'
+          + '<td>'
+          +   '<input type="text" name="dosage[]" class="form-control"'
+          +         ' placeholder="VD: 2 lần/ngày, 1 viên/lần">'
+          + '</td>'
+          + '<td>'
+          +   '<input type="number" name="quantity[]" class="form-control"'
+          +         ' min="1" step="1" value="1" style="width:80px;">'
+          + '</td>'
+          + '<td class="stock-cell" style="color:var(--text-soft);font-size:13px;">—</td>'
+          + '<td>'
+          +   '<button type="button" class="remove-row-btn" onclick="removeRow(this)" title="Xóa hàng">×</button>'
+          + '</td>';
         tbody.appendChild(tr);
     }
 
     function onMedicineChange(sel) {
-        const opt  = sel.options[sel.selectedIndex];
-        const stock = opt.dataset.stock;
-        const stockCell = sel.closest('tr').querySelector('.stock-cell');
+        var opt   = sel.options[sel.selectedIndex];
+        var stock = opt.dataset.stock;
+        var stockCell = sel.closest('tr').querySelector('.stock-cell');
         if (stock !== undefined && opt.value) {
             stockCell.textContent = stock + ' ' + (opt.dataset.unit || '');
             stockCell.style.color = parseInt(stock) < 5 ? 'var(--red-400)' : 'var(--text-soft)';
@@ -493,13 +501,13 @@
 
     /* ── History section toggle ───────────────────────────────────────────────── */
     function toggleHistory() {
-        const s = document.getElementById('historySection');
+        var s = document.getElementById('historySection');
         if (s) s.style.display = s.style.display === 'none' ? 'block' : 'none';
     }
 
     function toggleAccordion(header) {
-        const body = header.nextElementSibling;
-        const icon = header.querySelector('.toggle-icon');
+        var body = header.nextElementSibling;
+        var icon = header.querySelector('.toggle-icon');
         if (body.classList.contains('open')) {
             body.classList.remove('open');
             if (icon) icon.textContent = '▼';
@@ -510,11 +518,11 @@
     }
 
     /* ── Form validation ──────────────────────────────────────────────────────── */
-    const examForm = document.getElementById('examForm');
+    var examForm = document.getElementById('examForm');
     if (examForm) {
         examForm.addEventListener('submit', function (e) {
-            const symptoms  = document.getElementById('symptoms')?.value.trim();
-            const diagnosis = document.getElementById('diagnosis')?.value.trim();
+            var symptoms  = document.getElementById('symptoms')  ? document.getElementById('symptoms').value.trim()  : '';
+            var diagnosis = document.getElementById('diagnosis') ? document.getElementById('diagnosis').value.trim() : '';
 
             if (!symptoms || !diagnosis) {
                 e.preventDefault();
@@ -523,35 +531,40 @@
             }
 
             // Validate prescription rows
-            const medSelects  = document.querySelectorAll('[name="medicineID[]"]');
-            const qtyInputs   = document.querySelectorAll('[name="quantity[]"]');
-            let valid = true;
+            var medSelects = document.querySelectorAll('[name="medicineID[]"]');
+            var qtyInputs  = document.querySelectorAll('[name="quantity[]"]');
+            var valid = true;
 
-            medSelects.forEach((sel, i) => {
+            medSelects.forEach(function(sel, i) {
                 if (sel.value === '') return; // skip empty rows
-                const qty = qtyInputs[i]?.value;
+                var qty = qtyInputs[i] ? qtyInputs[i].value : null;
                 if (!qty || parseInt(qty) < 1) {
                     alert('Số lượng thuốc phải lớn hơn 0.');
                     valid = false;
                 }
 
                 // warn if exceeds stock
-                const opt   = sel.options[sel.selectedIndex];
-                const stock = parseInt(opt.dataset.stock || 0);
-                const need  = parseInt(qty || 0);
+                var opt   = sel.options[sel.selectedIndex];
+                var stock = parseInt(opt.dataset.stock || 0);
+                var need  = parseInt(qty || 0);
                 if (need > stock) {
-                    if (!confirm(`Thuốc "${opt.text.split(' (')[0]}" chỉ còn ${stock} trong kho, bạn muốn kê ${need}. Tiếp tục?`)) {
+                    var medName = opt.text.split(' (')[0];
+                    if (!confirm('Thuốc "' + medName + '" chỉ còn ' + stock + ' trong kho, bạn muốn kê ' + need + '. Tiếp tục?')) {
                         valid = false;
                     }
                 }
             });
-            if (!valid) e.preventDefault();
-            else {
+            if (!valid) {
+                e.preventDefault();
+            } else {
                 document.getElementById('submitBtn').disabled = true;
-                document.getElementById('submitBtn').textContent = '⏳ Đang lưu…';
+                document.getElementById('submitBtn').textContent = 'Đang lưu…';
             }
         });
     }
+</script>
+
+
 </script>
 
 <script src="${pageContext.request.contextPath}/js/dashboard.js"></script>

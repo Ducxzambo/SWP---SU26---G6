@@ -130,7 +130,7 @@
                                             <input type="hidden" name="vetID" value="${appt.assignedVetID}">
                                         </c:if>
                                         <button type="submit" class="btn btn-primary btn-sm">
-                                            ✅ Check-in
+                                             Check-in
                                         </button>
                                     </form>
                                 </td>
