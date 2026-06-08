@@ -14,13 +14,13 @@
 <%-- ── Sidebar / nav placeholder ────────────────────────────────────────── --%>
 <div class="layout">
     <aside class="sidebar">
-        <div class="sidebar-logo">🐾 PetClinic</div>
+        <div class="sidebar-logo"> PetClinic</div>
         <nav>
             <a href="${pageContext.request.contextPath}/receptionist/checkin" class="nav-item active">
-                ✅ Check-in
+                 Check-in
             </a>
             <a href="${pageContext.request.contextPath}/receptionist/appointments" class="nav-item">
-                📅 Lịch hẹn
+                 Lịch hẹn
             </a>
         </nav>
         <div class="sidebar-user">
@@ -65,7 +65,7 @@
         <form action="${pageContext.request.contextPath}/receptionist/checkin"
               method="get" class="search-bar">
             <div class="input-wrap">
-                <span class="input-icon">🔍</span>
+                <span class="input-icon"></span>
                 <input type="text" name="q" class="form-control"
                        placeholder="Tìm theo tên chủ hoặc tên thú cưng..."
                        value="<c:out value='${keyword}'/>">
@@ -82,7 +82,7 @@
             <c:choose>
                 <c:when test="${empty appointments}">
                     <div class="empty-state">
-                        <div class="empty-icon">📋</div>
+                        <div class="empty-icon"></div>
                         <p>Không có lịch hẹn nào cần check-in hôm nay.</p>
                     </div>
                 </c:when>
