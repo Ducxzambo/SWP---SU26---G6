@@ -1,18 +1,22 @@
 package com.petclinic.servlet.auth;
 
 import com.petclinic.service.AuthService;
-import com.petclinic.service.AuthService.*;
-
+import com.petclinic.service.AuthService.ForgotResult;
+import com.petclinic.service.AuthService.ResetResult;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
-import jakarta.servlet.http.*;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
+
 import java.io.IOException;
 
 /**
  * Forgot-password flow (3 pages):
- *   /auth/forgot            – enter email or phone
- *   /auth/forgot/verify     – enter OTP
- *   /auth/forgot/reset      – enter new password
+ * /auth/forgot            – enter email or phone
+ * /auth/forgot/verify     – enter OTP
+ * /auth/forgot/reset      – enter new password
  */
 @WebServlet(urlPatterns = {"/auth/forgot", "/auth/forgot/verify", "/auth/forgot/reset"})
 public class ForgotPasswordServlet extends HttpServlet {
@@ -30,14 +34,16 @@ public class ForgotPasswordServlet extends HttpServlet {
         switch (path) {
             case "/auth/forgot/verify":
                 if (session == null || session.getAttribute("forgot_identifier") == null) {
-                    resp.sendRedirect(req.getContextPath() + "/auth/forgot"); return;
+                    resp.sendRedirect(req.getContextPath() + "/auth/forgot");
+                    return;
                 }
                 req.getRequestDispatcher("/WEB-INF/views/auth/forgot-verify.jsp").forward(req, resp);
                 break;
 
             case "/auth/forgot/reset":
                 if (session == null || !Boolean.TRUE.equals(session.getAttribute("forgot_verified"))) {
-                    resp.sendRedirect(req.getContextPath() + "/auth/forgot"); return;
+                    resp.sendRedirect(req.getContextPath() + "/auth/forgot");
+                    return;
                 }
                 req.getRequestDispatcher("/WEB-INF/views/auth/forgot-reset.jsp").forward(req, resp);
                 break;
@@ -56,10 +62,17 @@ public class ForgotPasswordServlet extends HttpServlet {
         String path = req.getServletPath();
 
         switch (path) {
-            case "/auth/forgot":         handleForgotStep1(req, resp); break;
-            case "/auth/forgot/verify":  handleForgotStep2(req, resp); break;
-            case "/auth/forgot/reset":   handleForgotStep3(req, resp); break;
-            default: resp.sendRedirect(req.getContextPath() + "/auth/forgot");
+            case "/auth/forgot":
+                handleForgotStep1(req, resp);
+                break;
+            case "/auth/forgot/verify":
+                handleForgotStep2(req, resp);
+                break;
+            case "/auth/forgot/reset":
+                handleForgotStep3(req, resp);
+                break;
+            default:
+                resp.sendRedirect(req.getContextPath() + "/auth/forgot");
         }
     }
 
@@ -108,7 +121,10 @@ public class ForgotPasswordServlet extends HttpServlet {
 
         HttpSession session = req.getSession(false);
         String identifier = session != null ? (String) session.getAttribute("forgot_identifier") : null;
-        if (identifier == null) { resp.sendRedirect(req.getContextPath() + "/auth/forgot"); return; }
+        if (identifier == null) {
+            resp.sendRedirect(req.getContextPath() + "/auth/forgot");
+            return;
+        }
 
         String otp = req.getParameter("otp");
         if (otp == null || otp.isBlank()) {
@@ -134,14 +150,15 @@ public class ForgotPasswordServlet extends HttpServlet {
 
         HttpSession session = req.getSession(false);
         String identifier = session != null ? (String) session.getAttribute("forgot_identifier") : null;
-        boolean verified  = session != null && Boolean.TRUE.equals(session.getAttribute("forgot_verified"));
+        boolean verified = session != null && Boolean.TRUE.equals(session.getAttribute("forgot_verified"));
 
         if (identifier == null || !verified) {
-            resp.sendRedirect(req.getContextPath() + "/auth/forgot"); return;
+            resp.sendRedirect(req.getContextPath() + "/auth/forgot");
+            return;
         }
 
         String password = req.getParameter("password");
-        String confirm  = req.getParameter("confirmPassword");
+        String confirm = req.getParameter("confirmPassword");
 
         if (password == null || password.isBlank()) {
             req.setAttribute("error", "Vui lòng nhập mật khẩu mới.");
@@ -159,7 +176,7 @@ public class ForgotPasswordServlet extends HttpServlet {
             switch (result) {
                 case WEAK_PASSWORD:
                     req.setAttribute("error",
-                        "Mật khẩu phải có ít nhất 6 ký tự, bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt.");
+                            "Mật khẩu phải có ít nhất 6 ký tự, bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt.");
                     req.getRequestDispatcher("/WEB-INF/views/auth/forgot-reset.jsp").forward(req, resp);
                     return;
                 case USER_NOT_FOUND:

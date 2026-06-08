@@ -2,38 +2,46 @@ package com.petclinic.servlet.auth;
 
 import com.petclinic.dao.CustomerDAO;
 import com.petclinic.model.Customer;
-
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
-import jakarta.servlet.http.*;
-import java.io.*;
-import java.net.*;
-import java.nio.charset.StandardCharsets;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import org.json.JSONObject;  // Add org.json dependency
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 
 /**
  * Google OAuth 2.0 login flow.
- *
+ * <p>
  * Maven dependency:
- *   <dependency>
- *     <groupId>org.json</groupId>
- *     <artifactId>json</artifactId>
- *     <version>20240303</version>
- *   </dependency>
- *
+ * <dependency>
+ * <groupId>org.json</groupId>
+ * <artifactId>json</artifactId>
+ * <version>20240303</version>
+ * </dependency>
+ * <p>
  * Google Cloud Console setup:
- *   1. Create OAuth 2.0 Client ID (Web application)
- *   2. Add Authorized redirect URI: http://localhost:8080/petclinic/auth/google/callback
- *   3. Set env vars: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+ * 1. Create OAuth 2.0 Client ID (Web application)
+ * 2. Add Authorized redirect URI: http://localhost:9999/petclinic/auth/google/callback
+ * 3. Set env vars: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
  */
 @WebServlet(urlPatterns = {"/auth/google", "/auth/google/callback"})
 public class GoogleAuthServlet extends HttpServlet {
 
     // ── Read from environment variables (never hard-code secrets) ────────────
-    private static final String CLIENT_ID     = System.getenv("GOOGLE_CLIENT_ID");
+    private static final String CLIENT_ID = System.getenv("GOOGLE_CLIENT_ID");
     private static final String CLIENT_SECRET = System.getenv("GOOGLE_CLIENT_SECRET");
-    private static final String REDIRECT_URI  = "http://localhost:8080/petclinic/auth/google/callback";
-    private static final String SCOPE         = "openid email profile";
+    private static final String REDIRECT_URI = "http://localhost:9999/petclinic/auth/google/callback";
+    private static final String SCOPE = "openid email profile";
 
     private final CustomerDAO customerDAO = new CustomerDAO();
 
@@ -50,18 +58,18 @@ public class GoogleAuthServlet extends HttpServlet {
             req.getSession(true).setAttribute("oauth_state", state);
 
             String authUrl = "https://accounts.google.com/o/oauth2/v2/auth"
-                + "?client_id="     + URLEncoder.encode(CLIENT_ID, "UTF-8")
-                + "&redirect_uri="  + URLEncoder.encode(REDIRECT_URI, "UTF-8")
-                + "&response_type=code"
-                + "&scope="         + URLEncoder.encode(SCOPE, "UTF-8")
-                + "&state="         + state
-                + "&access_type=offline";
+                    + "?client_id=" + URLEncoder.encode(CLIENT_ID, "UTF-8")
+                    + "&redirect_uri=" + URLEncoder.encode(REDIRECT_URI, "UTF-8")
+                    + "&response_type=code"
+                    + "&scope=" + URLEncoder.encode(SCOPE, "UTF-8")
+                    + "&state=" + state
+                    + "&access_type=offline";
             resp.sendRedirect(authUrl);
             return;
         }
 
         // ── GET /auth/google/callback: exchange code for token ─────────────
-        String code  = req.getParameter("code");
+        String code = req.getParameter("code");
         String state = req.getParameter("state");
         HttpSession session = req.getSession(false);
 
@@ -81,13 +89,13 @@ public class GoogleAuthServlet extends HttpServlet {
             // Exchange auth code for access token
             String tokenResponse = exchangeCodeForToken(code);
             JSONObject tokenJson = new JSONObject(tokenResponse);
-            String accessToken   = tokenJson.getString("access_token");
+            String accessToken = tokenJson.getString("access_token");
 
             // Get user info from Google
             String userInfoResponse = fetchUserInfo(accessToken);
-            JSONObject userInfo     = new JSONObject(userInfoResponse);
+            JSONObject userInfo = new JSONObject(userInfoResponse);
 
-            String email    = userInfo.getString("email");
+            String email = userInfo.getString("email");
             String fullName = userInfo.optString("name", email);
 
             // Find or create customer
@@ -123,11 +131,11 @@ public class GoogleAuthServlet extends HttpServlet {
         conn.setDoOutput(true);
         conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
 
-        String body = "code="          + URLEncoder.encode(code,          "UTF-8")
-                    + "&client_id="    + URLEncoder.encode(CLIENT_ID,     "UTF-8")
-                    + "&client_secret="+ URLEncoder.encode(CLIENT_SECRET, "UTF-8")
-                    + "&redirect_uri=" + URLEncoder.encode(REDIRECT_URI,  "UTF-8")
-                    + "&grant_type=authorization_code";
+        String body = "code=" + URLEncoder.encode(code, "UTF-8")
+                + "&client_id=" + URLEncoder.encode(CLIENT_ID, "UTF-8")
+                + "&client_secret=" + URLEncoder.encode(CLIENT_SECRET, "UTF-8")
+                + "&redirect_uri=" + URLEncoder.encode(REDIRECT_URI, "UTF-8")
+                + "&grant_type=authorization_code";
 
         try (OutputStream os = conn.getOutputStream()) {
             os.write(body.getBytes(StandardCharsets.UTF_8));
