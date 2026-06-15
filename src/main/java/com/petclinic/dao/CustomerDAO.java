@@ -65,7 +65,7 @@ public class CustomerDAO {
 
     public int insert(Customer customer) throws SQLException {
         String sql = "INSERT INTO Customers (FullName, Email, Phone, PasswordHash, IsActive) "
-                + "VALUES (?, ?, ?, ?, 1)";
+                   + "VALUES (?, ?, ?, ?, 1)";
         try (Connection c = DBConnection.getConnection();
              PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setString(1, customer.getFullName());
@@ -95,7 +95,7 @@ public class CustomerDAO {
     public void saveRememberMeToken(int customerId, String token, LocalDateTime expiredTime)
             throws SQLException {
         String sql = "UPDATE Customers SET RememberMeToken = ?, TokenExpiredTime = ? "
-                + "WHERE CustomerID = ?";
+                   + "WHERE CustomerID = ?";
         try (Connection c = DBConnection.getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, token);
@@ -118,7 +118,7 @@ public class CustomerDAO {
 
     public void clearRememberMeToken(int customerId) throws SQLException {
         String sql = "UPDATE Customers SET RememberMeToken = NULL, TokenExpiredTime = NULL "
-                + "WHERE CustomerID = ?";
+                   + "WHERE CustomerID = ?";
         try (Connection c = DBConnection.getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, customerId);

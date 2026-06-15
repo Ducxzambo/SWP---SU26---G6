@@ -73,7 +73,8 @@ public class AuthService {
     public enum SendOtpResult { OK, EMAIL_TAKEN, PHONE_TAKEN, SEND_FAILED }
 
     /**
-     * Validate data, check uniqueness, send OTPs to email (and phone if provided).
+     * Validate data, check uniqueness, send OTP to email only.
+     * Phone is validated by format only (no SMS).
      */
     public SendOtpResult initiateRegistration(String fullName, String email,
                                               String phone, String rawPassword)
@@ -86,7 +87,7 @@ public class AuthService {
         if (phone != null && !phone.isBlank() && customerDAO.existsByPhone(phone))
             return SendOtpResult.PHONE_TAKEN;
 
-        // Send email OTP
+        // Send email OTP (only channel)
         try {
             String emailOtp = OtpUtil.generateOtp();
             OtpStore.save(otpKey(email, "reg-email"), emailOtp);
@@ -96,76 +97,51 @@ public class AuthService {
             return SendOtpResult.SEND_FAILED;
         }
 
-        // Send phone OTP (non-blocking – phone is optional)
-        if (phone != null && !phone.isBlank()) {
-            try {
-                String phoneOtp = OtpUtil.generateOtp();
-                OtpStore.save(otpKey(phone, "reg-phone"), phoneOtp);
-                OtpUtil.sendOtpSms(phone, phoneOtp, "register");
-            } catch (Exception e) {
-                e.printStackTrace();
-                // SMS failure is non-fatal for now; frontend will show partial warning
-            }
-        }
-
         return SendOtpResult.OK;
     }
 
     // ══════════════════════════════════════════════════════════════════════════
-    //  REGISTER  (Step 2 – verify OTPs and create account)
+    //  REGISTER  (Step 2 – verify email OTP and create account)
     // ══════════════════════════════════════════════════════════════════════════
 
-    public enum RegisterResult { SUCCESS, WRONG_EMAIL_OTP, WRONG_PHONE_OTP, EMAIL_TAKEN, PHONE_TAKEN }
+    public enum RegisterResult { SUCCESS, WRONG_EMAIL_OTP, EMAIL_TAKEN, PHONE_TAKEN }
 
     public RegisterResult completeRegistration(String fullName, String email,
                                                String phone, String rawPassword,
-                                               String emailOtp, String phoneOtp)
+                                               String emailOtp)
             throws SQLException {
 
-        // Double-check uniqueness (edge case: registered while user was filling OTPs)
+        // Double-check uniqueness (edge case: registered while user was filling OTP)
         if (customerDAO.existsByEmail(email)) return RegisterResult.EMAIL_TAKEN;
+        if (phone != null && !phone.isBlank() && customerDAO.existsByPhone(phone))
+            return RegisterResult.PHONE_TAKEN;
 
-        // Verify email OTP (mandatory)
+        // Verify email OTP
         if (!OtpStore.verify(otpKey(email, "reg-email"), emailOtp))
             return RegisterResult.WRONG_EMAIL_OTP;
 
-        // Verify phone OTP only if phone was provided
-        if (phone != null && !phone.isBlank()) {
-            if (customerDAO.existsByPhone(phone)) return RegisterResult.PHONE_TAKEN;
-            if (!OtpStore.verify(otpKey(phone, "reg-phone"), phoneOtp))
-                return RegisterResult.WRONG_PHONE_OTP;
-        }
-
         // Persist
         Customer customer = new Customer(fullName, email,
-                phone != null && phone.isBlank() ? null : phone,
+                (phone == null || phone.isBlank()) ? null : phone,
                 PasswordUtil.hashPassword(rawPassword));
         customerDAO.insert(customer);
         return RegisterResult.SUCCESS;
     }
 
     // ══════════════════════════════════════════════════════════════════════════
-    //  FORGOT PASSWORD  (Step 1 – send OTP)
+    //  FORGOT PASSWORD  (Step 1 – send OTP via email only)
     // ══════════════════════════════════════════════════════════════════════════
 
-    public enum ForgotResult { OK, USER_NOT_FOUND, SEND_FAILED }
+    public enum ForgotResult { OK, USER_NOT_FOUND, INVALID_FORMAT, SEND_FAILED }
 
-    public ForgotResult initiateForgotPassword(String identifier) throws SQLException {
-        Customer customer = identifier.contains("@")
-                ? customerDAO.findByEmail(identifier)
-                : customerDAO.findByPhone(identifier);
-
+    public ForgotResult initiateForgotPassword(String email) throws SQLException {
+        Customer customer = customerDAO.findByEmail(email);
         if (customer == null) return ForgotResult.USER_NOT_FOUND;
 
         String otp = OtpUtil.generateOtp();
         try {
-            if (identifier.contains("@")) {
-                OtpStore.save(otpKey(identifier, "forgot"), otp);
-                OtpUtil.sendOtpEmail(identifier, otp, "forgot");
-            } else {
-                OtpStore.save(otpKey(identifier, "forgot"), otp);
-                OtpUtil.sendOtpSms(identifier, otp, "forgot");
-            }
+            OtpStore.save(otpKey(email, "forgot"), otp);
+            OtpUtil.sendOtpEmail(email, otp, "forgot");
         } catch (Exception e) {
             e.printStackTrace();
             return ForgotResult.SEND_FAILED;
@@ -177,8 +153,8 @@ public class AuthService {
     //  FORGOT PASSWORD  (Step 2 – verify OTP)
     // ══════════════════════════════════════════════════════════════════════════
 
-    public boolean verifyForgotOtp(String identifier, String inputOtp) {
-        return OtpStore.verify(otpKey(identifier, "forgot"), inputOtp);
+    public boolean verifyForgotOtp(String email, String inputOtp) {
+        return OtpStore.verify(otpKey(email, "forgot"), inputOtp);
     }
 
     // ══════════════════════════════════════════════════════════════════════════
@@ -187,14 +163,12 @@ public class AuthService {
 
     public enum ResetResult { SUCCESS, USER_NOT_FOUND, WEAK_PASSWORD, NOT_VERIFIED }
 
-    public ResetResult resetPassword(String identifier, String rawPassword,
+    public ResetResult resetPassword(String email, String rawPassword,
                                      boolean isVerified) throws SQLException {
         if (!isVerified) return ResetResult.NOT_VERIFIED;
         if (!PasswordUtil.isStrongPassword(rawPassword)) return ResetResult.WEAK_PASSWORD;
 
-        Customer customer = identifier.contains("@")
-                ? customerDAO.findByEmail(identifier)
-                : customerDAO.findByPhone(identifier);
+        Customer customer = customerDAO.findByEmail(email);
         if (customer == null) return ResetResult.USER_NOT_FOUND;
 
         customerDAO.updatePassword(customer.getCustomerID(),

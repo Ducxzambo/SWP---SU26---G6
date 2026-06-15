@@ -11,14 +11,22 @@ import java.io.IOException;
 /**
  * Registration flow (multi-step):
  *   GET  /auth/register        → show registration form
- *   POST /auth/register        → validate + send OTPs → redirect to OTP page
+ *   POST /auth/register        → validate + send email OTP → redirect to OTP page
  *   GET  /auth/register/verify → show OTP verification form
- *   POST /auth/register/verify → verify OTPs + create account
+ *   POST /auth/register/verify → verify email OTP + create account
+ *
+ * Phone: format-only validation (10 digits, starts with 0). No SMS sent.
  */
 @WebServlet(urlPatterns = {"/auth/register", "/auth/register/verify"})
 public class RegisterServlet extends HttpServlet {
 
     private final AuthService authService = new AuthService();
+
+    // Regex: email cơ bản, phone Việt Nam (10 chữ số, bắt đầu bằng 0)
+    private static final java.util.regex.Pattern EMAIL_RE =
+            java.util.regex.Pattern.compile("^[\\w.+\\-]+@[\\w\\-]+(\\.[\\w\\-]+)+$");
+    private static final java.util.regex.Pattern PHONE_RE =
+            java.util.regex.Pattern.compile("^0\\d{9}$");
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
@@ -26,14 +34,11 @@ public class RegisterServlet extends HttpServlet {
 
         String path = req.getServletPath();
         if ("/auth/register/verify".equals(path)) {
-            // Guard: must have pending registration in session
             HttpSession session = req.getSession(false);
             if (session == null || session.getAttribute("pendingReg") == null) {
                 resp.sendRedirect(req.getContextPath() + "/auth/register");
                 return;
             }
-            String phone = (String) session.getAttribute("pendingReg_phone");
-            req.setAttribute("hasPhone", phone != null && !phone.isBlank());
             req.getRequestDispatcher("/WEB-INF/views/auth/register-verify.jsp").forward(req, resp);
         } else {
             req.getRequestDispatcher("/WEB-INF/views/auth/register.jsp").forward(req, resp);
@@ -54,7 +59,7 @@ public class RegisterServlet extends HttpServlet {
         }
     }
 
-    // ── Step 1: collect data, send OTPs ──────────────────────────────────────
+    // ── Step 1: validate → send email OTP ────────────────────────────────────
     private void handleRegister(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
 
@@ -64,30 +69,44 @@ public class RegisterServlet extends HttpServlet {
         String password = req.getParameter("password");
         String confirm  = req.getParameter("confirmPassword");
 
-        // Basic server-side validation
+        // Required fields
         if (isEmpty(fullName) || isEmpty(email) || isEmpty(password)) {
             forwardRegisterWithError(req, resp, "Vui lòng nhập đầy đủ thông tin bắt buộc.");
             return;
         }
+        // Email format
+        if (!EMAIL_RE.matcher(email.trim()).matches()) {
+            forwardRegisterWithError(req, resp, "Email không đúng định dạng.");
+            return;
+        }
+        // Password match
         if (!password.equals(confirm)) {
             forwardRegisterWithError(req, resp, "Mật khẩu xác nhận không khớp.");
             return;
         }
+        // Password strength
         if (!com.petclinic.util.PasswordUtil.isStrongPassword(password)) {
             forwardRegisterWithError(req, resp,
-                "Mật khẩu phải có ít nhất 6 ký tự, bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt.");
+                    "Mật khẩu phải có ít nhất 6 ký tự, bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt.");
+            return;
+        }
+        // Phone format (optional field – only validate if provided)
+        if (!isEmpty(phone) && !PHONE_RE.matcher(phone.trim()).matches()) {
+            forwardRegisterWithError(req, resp,
+                    "Số điện thoại không hợp lệ. Vui lòng nhập đúng 10 chữ số, bắt đầu bằng 0.");
             return;
         }
 
         try {
-            SendOtpResult result = authService.initiateRegistration(fullName, email, phone, password);
+            SendOtpResult result = authService.initiateRegistration(
+                    fullName, email.trim(), isEmpty(phone) ? null : phone.trim(), password);
             switch (result) {
                 case EMAIL_TAKEN:
                     forwardRegisterWithError(req, resp, "Email này đã được đăng ký."); return;
                 case PHONE_TAKEN:
                     forwardRegisterWithError(req, resp, "Số điện thoại này đã được đăng ký."); return;
                 case SEND_FAILED:
-                    forwardRegisterWithError(req, resp, "Không thể gửi mã xác minh. Vui lòng thử lại."); return;
+                    forwardRegisterWithError(req, resp, "Không thể gửi mã xác minh qua email. Vui lòng thử lại."); return;
                 default:
                     break;
             }
@@ -100,19 +119,18 @@ public class RegisterServlet extends HttpServlet {
             return;
         }
 
-        // Save pending registration data in session (NOT the password in plain text long-term)
         HttpSession session = req.getSession(true);
         session.setAttribute("pendingReg",          "true");
         session.setAttribute("pendingReg_fullName", fullName);
-        session.setAttribute("pendingReg_email",    email);
-        session.setAttribute("pendingReg_phone",    phone);
-        session.setAttribute("pendingReg_password", password);   // held briefly for OTP step
-        session.setMaxInactiveInterval(60 * 15);                  // 15 min OTP window
+        session.setAttribute("pendingReg_email",    email.trim());
+        session.setAttribute("pendingReg_phone",    isEmpty(phone) ? null : phone.trim());
+        session.setAttribute("pendingReg_password", password);
+        session.setMaxInactiveInterval(60 * 15); // 15 min OTP window
 
         resp.sendRedirect(req.getContextPath() + "/auth/register/verify");
     }
 
-    // ── Step 2: verify OTPs and create account ────────────────────────────────
+    // ── Step 2: verify email OTP → create account ────────────────────────────
     private void handleVerify(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
 
@@ -127,40 +145,44 @@ public class RegisterServlet extends HttpServlet {
         String phone    = (String) session.getAttribute("pendingReg_phone");
         String password = (String) session.getAttribute("pendingReg_password");
         String emailOtp = req.getParameter("emailOtp");
-        String phoneOtp = req.getParameter("phoneOtp");
+
+        if (isEmpty(emailOtp) || emailOtp.trim().length() != 6) {
+            req.setAttribute("error", "Vui lòng nhập đủ 6 chữ số của mã xác minh.");
+            req.getRequestDispatcher("/WEB-INF/views/auth/register-verify.jsp").forward(req, resp);
+            return;
+        }
 
         try {
             RegisterResult result = authService.completeRegistration(
-                    fullName, email, phone, password, emailOtp, phoneOtp);
+                    fullName, email, phone, password, emailOtp.trim());
 
             switch (result) {
                 case WRONG_EMAIL_OTP:
-                    forwardVerifyWithError(req, resp, "Mã xác minh email không đúng hoặc đã hết hạn.", phone);
-                    return;
-                case WRONG_PHONE_OTP:
-                    forwardVerifyWithError(req, resp, "Mã xác minh điện thoại không đúng hoặc đã hết hạn.", phone);
+                    req.setAttribute("error", "Mã xác minh không đúng hoặc đã hết hạn.");
+                    req.getRequestDispatcher("/WEB-INF/views/auth/register-verify.jsp").forward(req, resp);
                     return;
                 case EMAIL_TAKEN:
-                    forwardVerifyWithError(req, resp, "Email này vừa được đăng ký. Vui lòng dùng email khác.", phone);
+                    req.setAttribute("error", "Email này vừa được đăng ký. Vui lòng dùng email khác.");
+                    req.getRequestDispatcher("/WEB-INF/views/auth/register-verify.jsp").forward(req, resp);
                     return;
                 case PHONE_TAKEN:
-                    forwardVerifyWithError(req, resp, "Số điện thoại này vừa được đăng ký.", phone);
+                    req.setAttribute("error", "Số điện thoại này vừa được đăng ký.");
+                    req.getRequestDispatcher("/WEB-INF/views/auth/register-verify.jsp").forward(req, resp);
                     return;
                 case SUCCESS:
-                    // Clean up session pending data
                     session.removeAttribute("pendingReg");
                     session.removeAttribute("pendingReg_fullName");
                     session.removeAttribute("pendingReg_email");
                     session.removeAttribute("pendingReg_phone");
                     session.removeAttribute("pendingReg_password");
-                    session.setAttribute("flashSuccess",
-                        "Đăng ký thành công! Vui lòng đăng nhập.");
+                    session.setAttribute("flashSuccess", "Đăng ký thành công! Vui lòng đăng nhập.");
                     resp.sendRedirect(req.getContextPath() + "/auth/login");
                     return;
             }
         } catch (Exception e) {
             e.printStackTrace();
-            forwardVerifyWithError(req, resp, "Lỗi hệ thống, vui lòng thử lại.", phone);
+            req.setAttribute("error", "Lỗi hệ thống, vui lòng thử lại.");
+            req.getRequestDispatcher("/WEB-INF/views/auth/register-verify.jsp").forward(req, resp);
         }
     }
 
@@ -173,14 +195,6 @@ public class RegisterServlet extends HttpServlet {
         req.setAttribute("email",    req.getParameter("email"));
         req.setAttribute("phone",    req.getParameter("phone"));
         req.getRequestDispatcher("/WEB-INF/views/auth/register.jsp").forward(req, resp);
-    }
-
-    private void forwardVerifyWithError(HttpServletRequest req, HttpServletResponse resp,
-                                        String msg, String phone)
-            throws ServletException, IOException {
-        req.setAttribute("error",    msg);
-        req.setAttribute("hasPhone", phone != null && !phone.isBlank());
-        req.getRequestDispatcher("/WEB-INF/views/auth/register-verify.jsp").forward(req, resp);
     }
 
     private boolean isEmpty(String s) { return s == null || s.isBlank(); }

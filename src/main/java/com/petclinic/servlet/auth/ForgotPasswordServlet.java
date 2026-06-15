@@ -10,14 +10,17 @@ import java.io.IOException;
 
 /**
  * Forgot-password flow (3 pages):
- *   /auth/forgot            – enter email or phone
- *   /auth/forgot/verify     – enter OTP
+ *   /auth/forgot            – enter email
+ *   /auth/forgot/verify     – enter OTP (sent to email)
  *   /auth/forgot/reset      – enter new password
  */
 @WebServlet(urlPatterns = {"/auth/forgot", "/auth/forgot/verify", "/auth/forgot/reset"})
 public class ForgotPasswordServlet extends HttpServlet {
 
     private final AuthService authService = new AuthService();
+
+    private static final java.util.regex.Pattern EMAIL_RE =
+            java.util.regex.Pattern.compile("^[\\w.+\\-]+@[\\w\\-]+(\\.[\\w\\-]+)+$");
 
     // ── GET ───────────────────────────────────────────────────────────────────
     @Override
@@ -29,7 +32,7 @@ public class ForgotPasswordServlet extends HttpServlet {
 
         switch (path) {
             case "/auth/forgot/verify":
-                if (session == null || session.getAttribute("forgot_identifier") == null) {
+                if (session == null || session.getAttribute("forgot_email") == null) {
                     resp.sendRedirect(req.getContextPath() + "/auth/forgot"); return;
                 }
                 req.getRequestDispatcher("/WEB-INF/views/auth/forgot-verify.jsp").forward(req, resp);
@@ -63,26 +66,35 @@ public class ForgotPasswordServlet extends HttpServlet {
         }
     }
 
-    // ── Step 1: identifier entry ──────────────────────────────────────────────
+    // ── Step 1: nhập email ────────────────────────────────────────────────────
     private void handleForgotStep1(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
 
-        String identifier = req.getParameter("identifier");
-        if (identifier == null || identifier.isBlank()) {
-            req.setAttribute("error", "Vui lòng nhập email hoặc số điện thoại.");
+        String email = req.getParameter("email");
+        if (email == null || email.isBlank()) {
+            req.setAttribute("error", "Vui lòng nhập địa chỉ email.");
+            req.getRequestDispatcher("/WEB-INF/views/auth/forgot.jsp").forward(req, resp);
+            return;
+        }
+        email = email.trim();
+        if (!EMAIL_RE.matcher(email).matches()) {
+            req.setAttribute("error", "Địa chỉ email không đúng định dạng.");
+            req.setAttribute("email", email);
             req.getRequestDispatcher("/WEB-INF/views/auth/forgot.jsp").forward(req, resp);
             return;
         }
 
         try {
-            ForgotResult result = authService.initiateForgotPassword(identifier.trim());
+            ForgotResult result = authService.initiateForgotPassword(email);
             switch (result) {
                 case USER_NOT_FOUND:
-                    req.setAttribute("error", "Không tìm thấy tài khoản với thông tin này.");
+                    req.setAttribute("error", "Không tìm thấy tài khoản với email này.");
+                    req.setAttribute("email", email);
                     req.getRequestDispatcher("/WEB-INF/views/auth/forgot.jsp").forward(req, resp);
                     return;
                 case SEND_FAILED:
                     req.setAttribute("error", "Không thể gửi mã xác minh. Vui lòng thử lại.");
+                    req.setAttribute("email", email);
                     req.getRequestDispatcher("/WEB-INF/views/auth/forgot.jsp").forward(req, resp);
                     return;
                 default:
@@ -96,28 +108,28 @@ public class ForgotPasswordServlet extends HttpServlet {
         }
 
         HttpSession session = req.getSession(true);
-        session.setAttribute("forgot_identifier", identifier.trim());
+        session.setAttribute("forgot_email", email);
         session.setMaxInactiveInterval(60 * 15);
 
         resp.sendRedirect(req.getContextPath() + "/auth/forgot/verify");
     }
 
-    // ── Step 2: OTP verification ──────────────────────────────────────────────
+    // ── Step 2: xác minh OTP ─────────────────────────────────────────────────
     private void handleForgotStep2(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
 
         HttpSession session = req.getSession(false);
-        String identifier = session != null ? (String) session.getAttribute("forgot_identifier") : null;
-        if (identifier == null) { resp.sendRedirect(req.getContextPath() + "/auth/forgot"); return; }
+        String email = session != null ? (String) session.getAttribute("forgot_email") : null;
+        if (email == null) { resp.sendRedirect(req.getContextPath() + "/auth/forgot"); return; }
 
         String otp = req.getParameter("otp");
-        if (otp == null || otp.isBlank()) {
-            req.setAttribute("error", "Vui lòng nhập mã xác minh.");
+        if (otp == null || otp.isBlank() || otp.trim().length() != 6) {
+            req.setAttribute("error", "Vui lòng nhập đủ 6 chữ số của mã xác minh.");
             req.getRequestDispatcher("/WEB-INF/views/auth/forgot-verify.jsp").forward(req, resp);
             return;
         }
 
-        boolean verified = authService.verifyForgotOtp(identifier, otp.trim());
+        boolean verified = authService.verifyForgotOtp(email, otp.trim());
         if (!verified) {
             req.setAttribute("error", "Mã xác minh không đúng hoặc đã hết hạn.");
             req.getRequestDispatcher("/WEB-INF/views/auth/forgot-verify.jsp").forward(req, resp);
@@ -128,15 +140,15 @@ public class ForgotPasswordServlet extends HttpServlet {
         resp.sendRedirect(req.getContextPath() + "/auth/forgot/reset");
     }
 
-    // ── Step 3: reset password ────────────────────────────────────────────────
+    // ── Step 3: đặt lại mật khẩu ─────────────────────────────────────────────
     private void handleForgotStep3(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
 
         HttpSession session = req.getSession(false);
-        String identifier = session != null ? (String) session.getAttribute("forgot_identifier") : null;
-        boolean verified  = session != null && Boolean.TRUE.equals(session.getAttribute("forgot_verified"));
+        String email     = session != null ? (String) session.getAttribute("forgot_email") : null;
+        boolean verified = session != null && Boolean.TRUE.equals(session.getAttribute("forgot_verified"));
 
-        if (identifier == null || !verified) {
+        if (email == null || !verified) {
             resp.sendRedirect(req.getContextPath() + "/auth/forgot"); return;
         }
 
@@ -155,11 +167,11 @@ public class ForgotPasswordServlet extends HttpServlet {
         }
 
         try {
-            ResetResult result = authService.resetPassword(identifier, password, verified);
+            ResetResult result = authService.resetPassword(email, password, verified);
             switch (result) {
                 case WEAK_PASSWORD:
                     req.setAttribute("error",
-                        "Mật khẩu phải có ít nhất 6 ký tự, bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt.");
+                            "Mật khẩu phải có ít nhất 6 ký tự, bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt.");
                     req.getRequestDispatcher("/WEB-INF/views/auth/forgot-reset.jsp").forward(req, resp);
                     return;
                 case USER_NOT_FOUND:
@@ -167,8 +179,7 @@ public class ForgotPasswordServlet extends HttpServlet {
                     req.getRequestDispatcher("/WEB-INF/views/auth/forgot-reset.jsp").forward(req, resp);
                     return;
                 case SUCCESS:
-                    // Cleanup session
-                    session.removeAttribute("forgot_identifier");
+                    session.removeAttribute("forgot_email");
                     session.removeAttribute("forgot_verified");
                     session.setAttribute("flashSuccess", "Đặt lại mật khẩu thành công! Vui lòng đăng nhập.");
                     resp.sendRedirect(req.getContextPath() + "/auth/login");

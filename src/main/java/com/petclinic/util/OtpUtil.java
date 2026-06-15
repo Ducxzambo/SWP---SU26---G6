@@ -27,16 +27,17 @@ import java.util.Properties;
 public class OtpUtil {
 
     // ── Email config (replace with real SMTP credentials) ──────────────────
-    private static final String SMTP_HOST     = "smtp.gmail.com";
-    private static final int    SMTP_PORT     = 587;
-    private static final String EMAIL_FROM    = "noreply@petclinic.com";
-    private static final String EMAIL_USER    = System.getenv("SMTP_USER");    // set env var
-    private static final String EMAIL_PASS    = System.getenv("SMTP_PASS");
+    private static final String SMTP_HOST = "smtp.gmail.com";
+    private static final int SMTP_PORT = 587;
+
+    private static final String EMAIL_FROM = "haminhtx@gmail.com";
+    private static final String EMAIL_USER = "haminhtx@gmail.com";
+    private static final String EMAIL_PASS = "bfrm wcwz pnve ludp";
 
     // ── Twilio config ───────────────────────────────────────────────────────
     private static final String TWILIO_ACCOUNT_SID = System.getenv("TWILIO_SID");
-    private static final String TWILIO_AUTH_TOKEN  = System.getenv("TWILIO_TOKEN");
-    private static final String TWILIO_FROM_PHONE  = System.getenv("TWILIO_PHONE");  // e.g. +1234567890
+    private static final String TWILIO_AUTH_TOKEN = System.getenv("TWILIO_TOKEN");
+    private static final String TWILIO_FROM_PHONE = System.getenv("TWILIO_PHONE");// e.g. +1234567890
 
     private static final SecureRandom RANDOM = new SecureRandom();
     public  static final int OTP_EXPIRE_MINUTES = 10;
@@ -49,6 +50,9 @@ public class OtpUtil {
 
     /** Send OTP via email using JavaMail. */
     public static void sendOtpEmail(String toEmail, String otp, String purpose) throws MessagingException, UnsupportedEncodingException {
+        System.out.println("EMAIL_USER = " + EMAIL_USER);
+        System.out.println("EMAIL_PASS = " + EMAIL_PASS);
+
         Properties props = new Properties();
         props.put("mail.smtp.auth",            "true");
         props.put("mail.smtp.starttls.enable", "true");

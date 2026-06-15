@@ -34,7 +34,7 @@
     </c:if>
 
     <div class="info-box">
-      <strong>🔐 Tạo mật khẩu mới</strong>
+      <strong>Tạo mật khẩu mới</strong>
       Mật khẩu mới phải khác mật khẩu cũ và đáp ứng các yêu cầu bên dưới.
     </div>
 
@@ -44,7 +44,7 @@
       <div class="form-group">
         <label for="password">Mật khẩu mới <span style="color:var(--red-err)">*</span></label>
         <div class="input-wrap">
-          <span class="input-icon">🔒</span>
+          <span class="input-icon"></span>
           <input type="password" id="password" name="password" class="form-control"
                  placeholder="Mật khẩu mới" autocomplete="new-password" required>
           <button type="button" class="toggle-pwd" id="togglePwd"
@@ -94,7 +94,7 @@
   cfm.addEventListener('input', () => {
     if (!cfm.value) { msg.textContent = ''; return; }
     const match = pwd.value === cfm.value;
-    msg.textContent = match ? '✓ Mật khẩu khớp' : '✗ Mật khẩu không khớp';
+    msg.textContent = match ? 'Mật khẩu khớp' : 'Mật khẩu không khớp';
     msg.style.color = match ? 'var(--green-500)' : 'var(--red-err)';
   });
 

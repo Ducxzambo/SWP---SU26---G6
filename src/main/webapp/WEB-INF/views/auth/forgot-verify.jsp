@@ -34,7 +34,7 @@
     </c:if>
 
     <div class="info-box">
-      <strong>📨 Mã đã được gửi</strong>
+      <strong>Mã đã được gửi</strong>
       Mã xác minh 6 chữ số đã được gửi đến
       <span class="highlight">${sessionScope.forgot_identifier}</span>.
       <br>Mã có hiệu lực trong <strong>10 phút</strong>.

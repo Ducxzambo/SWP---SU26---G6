@@ -47,7 +47,7 @@ function togglePassword(inputId, btnId) {
 }
 
 // ── OTP input: auto-advance between digit boxes ──────────────────────────
-function initOtpInputs(groupId, hiddenId) {
+function initOtpInputs(groupId, hiddenId, onChange) {
   const group  = document.getElementById(groupId);
   const hidden = document.getElementById(hiddenId);
   if (!group || !hidden) return;
@@ -88,6 +88,8 @@ function initOtpInputs(groupId, hiddenId) {
 
   function syncHidden() {
     hidden.value = Array.from(digits).map(d => d.value).join('');
+    // Thông báo cho caller biết giá trị đã thay đổi
+    if (typeof onChange === 'function') onChange(hidden.value);
   }
 }
 

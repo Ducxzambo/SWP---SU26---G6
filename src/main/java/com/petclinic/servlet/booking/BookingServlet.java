@@ -1,0 +1,406 @@
+package com.petclinic.servlet.booking;
+
+import com.petclinic.dao.*;
+import com.petclinic.model.*;
+import com.petclinic.service.BookingService;
+import com.petclinic.service.PaymentService;
+
+import jakarta.servlet.ServletException;
+import jakarta.servlet.annotation.WebServlet;
+import jakarta.servlet.http.*;
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
+import java.util.stream.Collectors;
+
+/**
+ * Booking wizard:
+ *   GET  /booking/new          → Step 1: service + pet + slot picker
+ *   POST /booking/new          → Validate → Step 2 confirm
+ *   GET  /booking/confirm      → Step 2 confirm page (from session)
+ *   POST /booking/confirm      → Create Pending appointments → Step 3 payment
+ *   GET  /booking/payment      → Step 3 payment page (full / partial)
+ *   POST /booking/payment      → Call PayOS, redirect to QR checkout
+ */
+@WebServlet(urlPatterns = {"/booking/new", "/booking/confirm", "/booking/payment"})
+public class BookingServlet extends HttpServlet {
+
+    private final ServiceDAO     serviceDAO     = new ServiceDAO();
+    private final PetDAO         petDAO         = new PetDAO();
+    private final BookingService bookingSvc     = new BookingService();
+    private final PaymentService paymentSvc     = new PaymentService();
+
+    // ── GET ───────────────────────────────────────────────────────────────────
+    @Override
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp)
+            throws ServletException, IOException {
+
+        Customer customer = requireLogin(req, resp);
+        if (customer == null) return;
+
+        try {
+            switch (req.getServletPath()) {
+                case "/booking/confirm": handleConfirmGet(req, resp, customer); break;
+                case "/booking/payment": handlePaymentGet(req, resp, customer); break;
+                default:                handleStep1Get(req, resp, customer);    break;
+            }
+        } catch (Exception e) { e.printStackTrace(); throw new ServletException(e); }
+    }
+
+    // ── POST ──────────────────────────────────────────────────────────────────
+    @Override
+    protected void doPost(HttpServletRequest req, HttpServletResponse resp)
+            throws ServletException, IOException {
+
+        req.setCharacterEncoding("UTF-8");
+        Customer customer = requireLogin(req, resp);
+        if (customer == null) return;
+
+        try {
+            switch (req.getServletPath()) {
+                case "/booking/confirm": handleConfirmPost(req, resp, customer); break;
+                case "/booking/payment": handlePaymentPost(req, resp, customer); break;
+                default:                handleStep1Post(req, resp, customer);    break;
+            }
+        } catch (Exception e) { e.printStackTrace(); throw new ServletException(e); }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    //  STEP 1 – Service / Pet / Slot picker
+    // ══════════════════════════════════════════════════════════════════════════
+    private void handleStep1Get(HttpServletRequest req, HttpServletResponse resp, Customer customer)
+            throws Exception {
+
+        List<ServiceCategory> cats = serviceDAO.findAllCategoriesWithServices();
+        if (cats == null) cats = Collections.emptyList();
+
+        List<Pet>             pets = petDAO.findByCustomer(customer.getCustomerID());
+        if (pets == null) pets = Collections.emptyList();
+
+        // Prefill from URL params (from quick-access links)
+        String prefillCat = req.getParameter("prefillCategory");
+        String prefillSvc = req.getParameter("prefillService");
+
+        // Default slot generation with no services selected yet
+        Map<LocalDate, List<TimeSlot>> slots = bookingSvc.generateSlots(Collections.emptyList());
+        if (slots == null) slots = new HashMap<>();
+
+        req.setAttribute("categories",     cats);
+        req.setAttribute("navCategories",  cats);
+        req.setAttribute("pets",           pets);
+        req.setAttribute("today",          LocalDate.now().toString());
+        req.setAttribute("slotsJson",      slotsToJson(slots));
+        req.setAttribute("categoriesJson", categoriesToJson(cats));
+        req.setAttribute("prefillCat",     prefillCat != null ? prefillCat : "");
+        req.setAttribute("prefillSvc",     prefillSvc != null ? prefillSvc : "");
+        req.getRequestDispatcher("/WEB-INF/views/booking/new.jsp").forward(req, resp);
+    }
+
+    private void handleStep1Post(HttpServletRequest req, HttpServletResponse resp, Customer customer)
+            throws Exception {
+
+        String[] svcIds    = req.getParameterValues("serviceIds");
+        String[] petIds    = req.getParameterValues("petIds");
+        String   slotKey   = req.getParameter("slotKey");     // single slot
+        String   inpatient = req.getParameter("isInpatient");
+        String   iDate     = req.getParameter("inpatientDate");
+        String   iPeriod   = req.getParameter("inpatientPeriod"); // "morning"/"afternoon"
+        String   notes     = req.getParameter("notes");
+
+        boolean isInpatient = "true".equals(inpatient);
+
+        // ── Validation ──────────────────────────────────────────────────────
+        if (svcIds == null || svcIds.length == 0) {
+            forwardStep1Error(req, resp, customer, "Vui lòng chọn ít nhất một dịch vụ."); return;
+        }
+        if (petIds == null || petIds.length == 0) {
+            forwardStep1Error(req, resp, customer, "Vui lòng chọn ít nhất một thú cưng."); return;
+        }
+        if (!isInpatient && (slotKey == null || slotKey.isBlank())) {
+            forwardStep1Error(req, resp, customer, "Vui lòng chọn một khung giờ."); return;
+        }
+        if (isInpatient && (iDate == null || iDate.isBlank())) {
+            forwardStep1Error(req, resp, customer, "Vui lòng chọn ngày nhập viện."); return;
+        }
+        if (isInpatient && (iPeriod == null || iPeriod.isBlank())) {
+            forwardStep1Error(req, resp, customer, "Vui lòng chọn buổi sáng hoặc chiều."); return;
+        }
+
+        // Load details for confirm page
+        List<Integer> svcIdList = Arrays.stream(svcIds).map(Integer::parseInt).collect(Collectors.toList());
+        List<Integer> petIdList = Arrays.stream(petIds).map(Integer::parseInt).collect(Collectors.toList());
+        List<Service> selectedServices = serviceDAO.findByIds(svcIdList);
+        List<Pet>     selectedPets     = petDAO.findByCustomer(customer.getCustomerID()).stream()
+                .filter(p -> petIdList.contains(p.getPetID())).collect(Collectors.toList());
+
+        // Compute total price: sum(service.price) × pets
+        BigDecimal total = selectedServices.stream()
+                .map(s -> s.getPrice() != null ? s.getPrice() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .multiply(BigDecimal.valueOf(selectedPets.size()));
+
+        long depositAmount = bookingSvc.computeDeposit(total, isInpatient);
+
+        // Store in session
+        HttpSession sess = req.getSession(true);
+        sess.setAttribute("bk_svcIds",     svcIds);
+        sess.setAttribute("bk_petIds",     petIds);
+        sess.setAttribute("bk_slotKey",    slotKey);
+        sess.setAttribute("bk_isInpatient",isInpatient);
+        sess.setAttribute("bk_iDate",      iDate);
+        sess.setAttribute("bk_iPeriod",    iPeriod);
+        sess.setAttribute("bk_notes",      notes);
+        sess.setAttribute("bk_total",      total);
+        sess.setAttribute("bk_deposit",    depositAmount);
+
+        // Forward to confirm
+        req.setAttribute("selectedServices", selectedServices);
+        req.setAttribute("selectedPets",     selectedPets);
+        req.setAttribute("slotKey",          slotKey);
+        req.setAttribute("isInpatient",      isInpatient);
+        req.setAttribute("inpatientDate",    iDate);
+        req.setAttribute("inpatientPeriod",  "morning".equals(iPeriod) ? "Buổi sáng (08:00–12:00)" : "Buổi chiều (13:30–17:30)");
+        req.setAttribute("notes",            notes);
+        req.setAttribute("totalPrice",       total);
+        req.setAttribute("depositAmount",    depositAmount);
+        req.setAttribute("navCategories",    serviceDAO.findAllCategoriesWithServices());
+        req.getRequestDispatcher("/WEB-INF/views/booking/confirm.jsp").forward(req, resp);
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    //  STEP 2 – Confirm (GET = re-show from session, POST = create Pending)
+    // ══════════════════════════════════════════════════════════════════════════
+    private void handleConfirmGet(HttpServletRequest req, HttpServletResponse resp, Customer customer)
+            throws Exception {
+        HttpSession sess = req.getSession(false);
+        if (sess == null || sess.getAttribute("bk_svcIds") == null) {
+            resp.sendRedirect(req.getContextPath() + "/booking/new"); return;
+        }
+        // Re-build display attrs from session
+        String[]  svcIds = (String[]) sess.getAttribute("bk_svcIds");
+        String[]  petIds = (String[]) sess.getAttribute("bk_petIds");
+        List<Integer> svcIdList = Arrays.stream(svcIds).map(Integer::parseInt).collect(Collectors.toList());
+        List<Integer> petIdList = Arrays.stream(petIds).map(Integer::parseInt).collect(Collectors.toList());
+        List<Service> svcs = serviceDAO.findByIds(svcIdList);
+        if (svcs == null) svcs = Collections.emptyList();
+        List<Pet> allPets = petDAO.findByCustomer(customer.getCustomerID());
+        if (allPets == null) allPets = Collections.emptyList();
+        List<Pet> petsSelected = allPets.stream()
+                .filter(p -> petIdList.contains(p.getPetID())).collect(Collectors.toList());
+        req.setAttribute("selectedServices", svcs);
+        req.setAttribute("selectedPets",     petsSelected);
+        req.setAttribute("slotKey",          sess.getAttribute("bk_slotKey"));
+        req.setAttribute("isInpatient",      sess.getAttribute("bk_isInpatient"));
+        req.setAttribute("inpatientDate",    sess.getAttribute("bk_iDate"));
+        boolean isMorning = "morning".equals(sess.getAttribute("bk_iPeriod"));
+        req.setAttribute("inpatientPeriod",  isMorning ? "Buổi sáng (08:00–12:00)" : "Buổi chiều (13:30–17:30)");
+        req.setAttribute("notes",            sess.getAttribute("bk_notes"));
+        req.setAttribute("totalPrice",       sess.getAttribute("bk_total"));
+        req.setAttribute("depositAmount",    sess.getAttribute("bk_deposit"));
+        List<ServiceCategory> navCategories = serviceDAO.findAllCategoriesWithServices();
+        if (navCategories == null) navCategories = Collections.emptyList();
+        req.setAttribute("navCategories",    navCategories);
+        req.getRequestDispatcher("/WEB-INF/views/booking/confirm.jsp").forward(req, resp);
+    }
+
+    private void handleConfirmPost(HttpServletRequest req, HttpServletResponse resp, Customer customer)
+            throws Exception {
+
+        HttpSession sess = req.getSession(false);
+        if (sess == null || sess.getAttribute("bk_svcIds") == null) {
+            resp.sendRedirect(req.getContextPath() + "/booking/new"); return;
+        }
+
+        String[]  svcIds      = (String[]) sess.getAttribute("bk_svcIds");
+        String[]  petIds      = (String[]) sess.getAttribute("bk_petIds");
+        String    slotKey     = (String)   sess.getAttribute("bk_slotKey");
+        boolean   isInpatient = (Boolean)  sess.getAttribute("bk_isInpatient");
+        String    iDate       = (String)   sess.getAttribute("bk_iDate");
+        String    iPeriod     = (String)   sess.getAttribute("bk_iPeriod");
+        String    notes       = (String)   sess.getAttribute("bk_notes");
+        BigDecimal total      = (BigDecimal) sess.getAttribute("bk_total");
+        long       deposit    = ((Number)  sess.getAttribute("bk_deposit")).longValue();
+
+        List<Integer> svcIdList = Arrays.stream(svcIds).map(Integer::parseInt).collect(Collectors.toList());
+        List<Integer> petIdList = Arrays.stream(petIds).map(Integer::parseInt).collect(Collectors.toList());
+
+        // Create Pending appointments (do NOT count toward capacity yet)
+        List<Integer> apptIds = bookingSvc.createAppointments(
+                customer.getCustomerID(), petIdList, svcIdList,
+                slotKey, isInpatient, iDate, iPeriod);
+
+        if (apptIds.isEmpty()) {
+            sess.setAttribute("flashError", "Không thể tạo lịch hẹn. Vui lòng thử lại.");
+            resp.sendRedirect(req.getContextPath() + "/booking/new"); return;
+        }
+
+        int primaryApptId = apptIds.get(0);
+
+        // Create Unpaid invoice for the primary appointment
+        int invoiceId = paymentSvc.createInvoice(customer.getCustomerID(), primaryApptId, total);
+        // Add service line items
+        List<Service> svcs = serviceDAO.findByIds(svcIdList);
+        for (Service s : svcs) {
+            paymentSvc.addInvoiceItem(invoiceId, "Service", s.getName(),
+                    BigDecimal.valueOf(petIdList.size()), s.getPrice());
+        }
+
+        // Store in session for payment step
+        sess.setAttribute("pay_apptId",   primaryApptId);
+        sess.setAttribute("pay_apptIds",  apptIds);
+        sess.setAttribute("pay_invoiceId",invoiceId);
+        sess.setAttribute("pay_total",    total);
+        sess.setAttribute("pay_deposit",  deposit);
+        sess.setAttribute("pay_inpatient",isInpatient);
+
+        // Clear booking session
+        clearBookingSession(sess);
+
+        resp.sendRedirect(req.getContextPath() + "/booking/payment");
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    //  STEP 3 – Payment page + PayOS redirect
+    // ══════════════════════════════════════════════════════════════════════════
+    private void handlePaymentGet(HttpServletRequest req, HttpServletResponse resp, Customer customer)
+            throws Exception {
+
+        HttpSession sess = req.getSession(false);
+        if (sess == null || sess.getAttribute("pay_invoiceId") == null) {
+            resp.sendRedirect(req.getContextPath() + "/appointments"); return;
+        }
+
+        req.setAttribute("totalPrice",   sess.getAttribute("pay_total"));
+        req.setAttribute("depositAmount",sess.getAttribute("pay_deposit"));
+        req.setAttribute("apptId",       sess.getAttribute("pay_apptId"));
+        req.setAttribute("invoiceId",    sess.getAttribute("pay_invoiceId"));
+        req.setAttribute("isInpatient",  sess.getAttribute("pay_inpatient"));
+        List<ServiceCategory> navCategories = serviceDAO.findAllCategoriesWithServices();
+        if (navCategories == null) navCategories = Collections.emptyList();
+        req.setAttribute("navCategories", navCategories);
+        req.getRequestDispatcher("/WEB-INF/views/booking/payment.jsp").forward(req, resp);
+    }
+
+    private void handlePaymentPost(HttpServletRequest req, HttpServletResponse resp, Customer customer)
+            throws Exception {
+
+        HttpSession sess = req.getSession(false);
+        if (sess == null || sess.getAttribute("pay_invoiceId") == null) {
+            resp.sendRedirect(req.getContextPath() + "/appointments"); return;
+        }
+
+        String payType   = req.getParameter("payType"); // "full" or "partial"
+        int    invoiceId = (int) sess.getAttribute("pay_invoiceId");
+        int    apptId    = (int) sess.getAttribute("pay_apptId");
+        BigDecimal total = (BigDecimal) sess.getAttribute("pay_total");
+        long   deposit   = ((Number) sess.getAttribute("pay_deposit")).longValue();
+        boolean isInpatient = (Boolean) sess.getAttribute("pay_inpatient");
+
+        boolean isFullPayment = "full".equals(payType);
+        long amountVnd = isFullPayment ? total.longValue() : deposit;
+
+        String desc = "PetClinic #" + invoiceId;
+        String checkoutUrl = paymentSvc.createPaymentLink(
+                invoiceId, apptId, amountVnd, desc, isFullPayment);
+
+        if (checkoutUrl == null || checkoutUrl.isBlank()) {
+            req.getSession().setAttribute("flashError",
+                "Không thể tạo liên kết thanh toán. Vui lòng thử lại.");
+            resp.sendRedirect(req.getContextPath() + "/booking/payment");
+            return;
+        }
+
+        // Redirect customer to PayOS checkout (VietQR page)
+        resp.sendRedirect(checkoutUrl);
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private void forwardStep1Error(HttpServletRequest req, HttpServletResponse resp,
+                                   Customer customer, String msg) throws Exception {
+        req.setAttribute("error", msg);
+        handleStep1Get(req, resp, customer);
+    }
+
+    private void clearBookingSession(HttpSession sess) {
+        for (String k : new String[]{"bk_svcIds","bk_petIds","bk_slotKey","bk_isInpatient",
+                                     "bk_iDate","bk_iPeriod","bk_notes","bk_total","bk_deposit"}) {
+            sess.removeAttribute(k);
+        }
+    }
+
+    private Customer requireLogin(HttpServletRequest req, HttpServletResponse resp)
+            throws IOException {
+        HttpSession sess = req.getSession(false);
+        Customer c = sess != null ? (Customer) sess.getAttribute("customer") : null;
+        if (c == null) resp.sendRedirect(req.getContextPath() + "/auth/login");
+        return c;
+    }
+
+    // ── JSON serialisers ──────────────────────────────────────────────────────
+
+    private String slotsToJson(Map<LocalDate, List<TimeSlot>> slots) {
+        if (slots == null) slots = new HashMap<>();
+
+        StringBuilder sb = new StringBuilder("{");
+        boolean fd = true;
+        for (Map.Entry<LocalDate, List<TimeSlot>> e : slots.entrySet()) {
+            if (!fd) sb.append(","); fd = false;
+            sb.append("\"").append(e.getKey()).append("\":[");
+            boolean fs = true;
+            List<TimeSlot> slotList = e.getValue();
+            if (slotList != null) {
+                for (TimeSlot ts : slotList) {
+                    if (ts == null) continue;
+                    if (!fs) sb.append(","); fs = false;
+                    sb.append("{")
+                      .append("\"key\":\"").append(esc(ts.getSlotKey())).append("\",")
+                      .append("\"display\":\"").append(esc(ts.getDisplayTime())).append("\",")
+                      .append("\"available\":").append(ts.isAvailable()).append(",")
+                      .append("\"load\":").append(ts.getCurrentLoad()).append(",")
+                      .append("\"cap\":").append(ts.getMaxCapacity()).append(",")
+                      .append("\"fill\":").append(ts.getFillPercent())
+                      .append("}");
+                }
+            }
+            sb.append("]");
+        }
+        return sb.append("}").toString();
+    }
+
+    private String categoriesToJson(List<ServiceCategory> cats) {
+        if (cats == null) cats = Collections.emptyList();
+
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < cats.size(); i++) {
+            ServiceCategory cat = cats.get(i);
+            if (cat == null) continue;
+            if (i > 0) sb.append(",");
+            sb.append("{\"id\":").append(cat.getCategoryID())
+              .append(",\"name\":\"").append(esc(cat.getName())).append("\"")
+              .append(",\"services\":[");
+            List<Service> services = cat.getServices();
+            if (services != null) {
+                for (int j = 0; j < services.size(); j++) {
+                    Service s = services.get(j);
+                    if (s == null) continue;
+                    if (j > 0) sb.append(",");
+                    BigDecimal price = s.getPrice();
+                    sb.append("{\"id\":").append(s.getServiceID())
+                      .append(",\"name\":\"").append(esc(s.getName())).append("\"")
+                      .append(",\"price\":").append(price != null ? price : BigDecimal.ZERO)
+                      .append(",\"duration\":").append(s.getDurationMinutes())
+                      .append("}");
+                }
+            }
+            sb.append("]}");
+        }
+        return sb.append("]").toString();
+    }
+
+    private String esc(String s) {
+        return s == null ? "" : s.replace("\\","\\\\").replace("\"","\\\"");
+    }
+}

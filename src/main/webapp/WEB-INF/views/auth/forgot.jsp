@@ -34,19 +34,19 @@
     </c:if>
 
     <div class="info-box">
-      <strong>🔑 Quên mật khẩu?</strong>
-      Nhập email hoặc số điện thoại đã đăng ký. Chúng tôi sẽ gửi mã xác minh để bạn đặt lại mật khẩu.
+      <strong>Quên mật khẩu?</strong>
+      Nhập email đã đăng ký. Chúng tôi sẽ gửi mã xác minh để bạn đặt lại mật khẩu.
     </div>
 
     <form action="${pageContext.request.contextPath}/auth/forgot"
           method="post" id="forgotForm" novalidate>
 
       <div class="form-group">
-        <label for="identifier">Email hoặc Số điện thoại</label>
+        <label for="email">Email</label>
         <div class="input-wrap">
           <span class="input-icon">✉</span>
-          <input type="text" id="identifier" name="identifier" class="form-control"
-                 placeholder="email@example.com hoặc 09xxxxxxxx"
+          <input type="email" id="email" name="email" class="form-control"
+                 placeholder="email@example.com"
                  autocomplete="username" required autofocus>
         </div>
       </div>

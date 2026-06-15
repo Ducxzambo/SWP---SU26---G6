@@ -30,9 +30,10 @@ import org.json.JSONObject;  // Add org.json dependency
 public class GoogleAuthServlet extends HttpServlet {
 
     // ── Read from environment variables (never hard-code secrets) ────────────
-    private static final String CLIENT_ID     = System.getenv("GOOGLE_CLIENT_ID");
+    // Use environment variables instead
+    private static final String CLIENT_ID = System.getenv("GOOGLE_CLIENT_ID");
     private static final String CLIENT_SECRET = System.getenv("GOOGLE_CLIENT_SECRET");
-    private static final String REDIRECT_URI  = "http://localhost:8080/petclinic/auth/google/callback";
+    private static final String REDIRECT_URI  = "http://localhost:8080/PetClinicWeb/auth/google/callback";
     private static final String SCOPE         = "openid email profile";
 
     private final CustomerDAO customerDAO = new CustomerDAO();
@@ -50,29 +51,30 @@ public class GoogleAuthServlet extends HttpServlet {
             req.getSession(true).setAttribute("oauth_state", state);
 
             String authUrl = "https://accounts.google.com/o/oauth2/v2/auth"
-                + "?client_id="     + URLEncoder.encode(CLIENT_ID, "UTF-8")
-                + "&redirect_uri="  + URLEncoder.encode(REDIRECT_URI, "UTF-8")
-                + "&response_type=code"
-                + "&scope="         + URLEncoder.encode(SCOPE, "UTF-8")
-                + "&state="         + state
-                + "&access_type=offline";
+                    + "?client_id="     + URLEncoder.encode(CLIENT_ID, "UTF-8")
+                    + "&redirect_uri="  + URLEncoder.encode(REDIRECT_URI, "UTF-8")
+                    + "&response_type=code"
+                    + "&scope="         + URLEncoder.encode(SCOPE, "UTF-8")
+                    + "&state="         + state
+                    + "&access_type=offline";
             resp.sendRedirect(authUrl);
             return;
         }
 
         // ── GET /auth/google/callback: exchange code for token ─────────────
-        String code  = req.getParameter("code");
-        String state = req.getParameter("state");
-        HttpSession session = req.getSession(false);
+        String code           = req.getParameter("code");
+        String stateParam     = req.getParameter("state");
+        HttpSession session   = req.getSession(false);
 
-        // CSRF check
-        if (session == null || !state.equals(session.getAttribute("oauth_state"))) {
+        // CSRF check — guard tất cả null case trước khi so sánh
+        String savedState = (session != null) ? (String) session.getAttribute("oauth_state") : null;
+        if (savedState == null || !savedState.equals(stateParam)) {
             resp.sendRedirect(req.getContextPath() + "/auth/login?error=oauth_state");
             return;
         }
         session.removeAttribute("oauth_state");
 
-        if (code == null) {
+        if (code == null || code.isBlank()) {
             resp.sendRedirect(req.getContextPath() + "/auth/login?error=oauth_denied");
             return;
         }
@@ -101,8 +103,8 @@ public class GoogleAuthServlet extends HttpServlet {
                 customer = customerDAO.findById(id);
             }
 
-            // Create session
-            session = req.getSession(true);
+            // Create session (dùng lại session hiện có, không tạo mới)
+            if (session == null) session = req.getSession(true);
             session.setAttribute("customer", customer);
             session.setMaxInactiveInterval(60 * 60 * 8);
 
@@ -124,10 +126,10 @@ public class GoogleAuthServlet extends HttpServlet {
         conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
 
         String body = "code="          + URLEncoder.encode(code,          "UTF-8")
-                    + "&client_id="    + URLEncoder.encode(CLIENT_ID,     "UTF-8")
-                    + "&client_secret="+ URLEncoder.encode(CLIENT_SECRET, "UTF-8")
-                    + "&redirect_uri=" + URLEncoder.encode(REDIRECT_URI,  "UTF-8")
-                    + "&grant_type=authorization_code";
+                + "&client_id="    + URLEncoder.encode(CLIENT_ID,     "UTF-8")
+                + "&client_secret="+ URLEncoder.encode(CLIENT_SECRET, "UTF-8")
+                + "&redirect_uri=" + URLEncoder.encode(REDIRECT_URI,  "UTF-8")
+                + "&grant_type=authorization_code";
 
         try (OutputStream os = conn.getOutputStream()) {
             os.write(body.getBytes(StandardCharsets.UTF_8));

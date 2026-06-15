@@ -58,11 +58,11 @@
     <form action="${pageContext.request.contextPath}/auth/login" method="post" id="loginForm" novalidate>
 
       <div class="form-group">
-        <label for="identifier">Email hoặc Số điện thoại</label>
+        <label for="identifier">Email hoặc Tên đăng nhập</label>
         <div class="input-wrap">
-          <span class="input-icon">✉</span>
+          <span class="input-icon"></span>
           <input type="text" id="identifier" name="identifier" class="form-control"
-                 placeholder="email@example.com hoặc 09xxxxxxxx"
+                 placeholder="email@example.com hoặc 0xxxxxxxxx"
                  value="<c:out value='${requestScope.identifier}'/>"
                  autocomplete="username" required>
         </div>
@@ -71,7 +71,7 @@
       <div class="form-group">
         <label for="password">Mật khẩu</label>
         <div class="input-wrap">
-          <span class="input-icon">🔒</span>
+          <span class="input-icon"></span>
           <input type="password" id="password" name="password" class="form-control"
                  placeholder="••••••••" autocomplete="current-password" required>
           <button type="button" class="toggle-pwd" id="togglePwd"
