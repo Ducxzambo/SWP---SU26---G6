@@ -9,7 +9,7 @@ import jakarta.servlet.http.*;
 import java.io.IOException;
 
 /**
- * Registration flow (multi-step):
+ * Registration flow:
  *   GET  /auth/register        → show registration form
  *   POST /auth/register        → validate + send email OTP → redirect to OTP page
  *   GET  /auth/register/verify → show OTP verification form

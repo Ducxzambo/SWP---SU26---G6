@@ -19,7 +19,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.stream.Collectors;
 
 /**
- * Two endpoints:
  *   POST /payment/webhook   – PayOS async webhook (server-to-server)
  *   GET  /payment/result    – Customer return URL after PayOS checkout
  */

@@ -11,26 +11,9 @@ import java.net.*;
 import java.nio.charset.StandardCharsets;
 import org.json.JSONObject;  // Add org.json dependency
 
-/**
- * Google OAuth 2.0 login flow.
- *
- * Maven dependency:
- *   <dependency>
- *     <groupId>org.json</groupId>
- *     <artifactId>json</artifactId>
- *     <version>20240303</version>
- *   </dependency>
- *
- * Google Cloud Console setup:
- *   1. Create OAuth 2.0 Client ID (Web application)
- *   2. Add Authorized redirect URI: http://localhost:8080/petclinic/auth/google/callback
- *   3. Set env vars: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
- */
 @WebServlet(urlPatterns = {"/auth/google", "/auth/google/callback"})
 public class GoogleAuthServlet extends HttpServlet {
 
-    // ── Read from environment variables (never hard-code secrets) ────────────
-    // Use environment variables instead
     private static final String CLIENT_ID = System.getenv("GOOGLE_CLIENT_ID");
     private static final String CLIENT_SECRET = System.getenv("GOOGLE_CLIENT_SECRET");
     private static final String REDIRECT_URI  = "http://localhost:8080/PetClinicWeb/auth/google/callback";

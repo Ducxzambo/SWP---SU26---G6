@@ -18,10 +18,6 @@ public class AuthService {
     //  LOGIN
     // ══════════════════════════════════════════════════════════════════════════
 
-    /**
-     * Authenticate by email or phone.
-     * @return Customer on success, null on failure.
-     */
     public Customer login(String identifier, String rawPassword) throws SQLException {
         Customer customer = identifier.contains("@")
                 ? customerDAO.findByEmail(identifier)
