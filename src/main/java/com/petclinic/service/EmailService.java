@@ -47,6 +47,38 @@ public class EmailService {
     // ── Public API ────────────────────────────────────────────────────────────
 
     /**
+     * Sent when a Pending/Confirmed appointment's end time has passed
+     * but the customer did not show up or the slot was not completed.
+     */
+    public void sendOverdueNotification(Customer customer, Appointment appt) {
+        sendAsync(() -> {
+            String subject = "[PetClinic] Thông báo: Lịch hẹn #" + appt.getAppointmentID()
+                    + " đã qua thời gian hẹn";
+            String body = "<!DOCTYPE html><html><head><meta charset='UTF-8'></head><body>"
+                    + "<div style='font-family:sans-serif;max-width:560px;margin:auto;padding:24px;'>"
+                    + "<h2 style='color:#856404;'>⚠️ PetClinic – Lịch hẹn đã qua giờ</h2>"
+                    + "<p>Xin chào <strong>" + esc(customer.getFullName()) + "</strong>,</p>"
+                    + "<p>Chúng tôi nhận thấy lịch hẹn sau <strong>đã qua thời gian hẹn</strong> "
+                    + "mà không có thông tin hoàn thành:</p>"
+                    + "<div style='background:#fff3cd;border:1px solid #ffc107;border-radius:10px;"
+                    +      "padding:18px 20px;margin:20px 0;'>"
+                    + "<table style='width:100%;border-collapse:collapse;font-size:14px;'>"
+                    + row("Dịch vụ",  esc(appt.getServiceName()))
+                    + row("Thú cưng", esc(appt.getPetName()))
+                    + row("Thời gian", fmtAppt(appt))
+                    + row("Trạng thái", "<span style='color:#856404;font-weight:600;'>Quá giờ</span>")
+                    + "</table></div>"
+                    + "<p>Nếu bạn đã đến khám, vui lòng liên hệ chúng tôi để cập nhật.</p>"
+                    + "<p>Nếu bạn không thể đến, lịch hẹn sẽ bị đánh dấu <strong>Vắng mặt</strong> sau 24 giờ.</p>"
+                    + "<p style='font-size:13px;color:#8c8680;'>Hotline: <strong>(028) 123 456 789</strong></p>"
+                    + "</div></body></html>";
+            send(customer.getEmail(), subject, body);
+            LOG.info("Overdue notification sent to " + customer.getEmail()
+                    + " for appt #" + appt.getAppointmentID());
+        });
+    }
+
+    /**
      * Called after payment confirmed.
      * Sends invoice + booking confirmation, then schedules two reminders.
      */
@@ -94,44 +126,44 @@ public class EmailService {
                 : "<span style='color:#856404;font-weight:600;'>Đặt cọc " + fmt(paid) + "₫ / " + fmt(total) + "₫</span>";
 
         return "<!DOCTYPE html><html><head><meta charset='UTF-8'></head><body>"
-             + "<div style='font-family:sans-serif;max-width:560px;margin:auto;padding:24px;'>"
-             + "<h2 style='color:#0f3d24;'>🐾 PetClinic – Xác nhận đặt lịch</h2>"
-             + "<p>Xin chào <strong>" + esc(customer.getFullName()) + "</strong>,</p>"
-             + "<p>Lịch khám của bạn đã được xác nhận thành công.</p>"
-             + "<div style='background:#f0faf4;border:1px solid #d6f0e2;border-radius:10px;"
-             +      "padding:18px 20px;margin:20px 0;'>"
-             + "<table style='width:100%;border-collapse:collapse;font-size:14px;'>"
-             + row("Dịch vụ",    esc(appt.getServiceName()))
-             + row("Thú cưng",   esc(appt.getPetName()))
-             + row("Thời gian",  fmtAppt(appt))
-             + row("Bác sĩ",     appt.getVetName() != null ? esc(appt.getVetName()) : "Sẽ được phân công")
-             + row("Thanh toán", paymentNote)
-             + "</table></div>"
-             + "<p style='font-size:13px;color:#8c8680;'>Nếu cần thay đổi lịch, vui lòng liên hệ trước ít nhất 12 giờ.</p>"
-             + "<p style='font-size:13px;color:#8c8680;'>Hotline: <strong>(028) 123 456 789</strong></p>"
-             + "<hr style='border:none;border-top:1px solid #d8d4cc;margin:20px 0;'>"
-             + "<p style='font-size:12px;color:#b8b4ae;text-align:center;'>© 2025 PetClinic. 123 Đường ABC, Q.1, TP.HCM</p>"
-             + "</div></body></html>";
+                + "<div style='font-family:sans-serif;max-width:560px;margin:auto;padding:24px;'>"
+                + "<h2 style='color:#0f3d24;'>🐾 PetClinic – Xác nhận đặt lịch</h2>"
+                + "<p>Xin chào <strong>" + esc(customer.getFullName()) + "</strong>,</p>"
+                + "<p>Lịch khám của bạn đã được xác nhận thành công.</p>"
+                + "<div style='background:#f0faf4;border:1px solid #d6f0e2;border-radius:10px;"
+                +      "padding:18px 20px;margin:20px 0;'>"
+                + "<table style='width:100%;border-collapse:collapse;font-size:14px;'>"
+                + row("Dịch vụ",    esc(appt.getServiceName()))
+                + row("Thú cưng",   esc(appt.getPetName()))
+                + row("Thời gian",  fmtAppt(appt))
+                + row("Bác sĩ",     appt.getVetName() != null ? esc(appt.getVetName()) : "Sẽ được phân công")
+                + row("Thanh toán", paymentNote)
+                + "</table></div>"
+                + "<p style='font-size:13px;color:#8c8680;'>Nếu cần thay đổi lịch, vui lòng liên hệ trước ít nhất 12 giờ.</p>"
+                + "<p style='font-size:13px;color:#8c8680;'>Hotline: <strong>(028) 123 456 789</strong></p>"
+                + "<hr style='border:none;border-top:1px solid #d8d4cc;margin:20px 0;'>"
+                + "<p style='font-size:12px;color:#b8b4ae;text-align:center;'>© 2025 PetClinic. 123 Đường ABC, Q.1, TP.HCM</p>"
+                + "</div></body></html>";
     }
 
     private String buildReminderHtml(Customer customer, Appointment appt, int hoursAhead) {
         return "<!DOCTYPE html><html><head><meta charset='UTF-8'></head><body>"
-             + "<div style='font-family:sans-serif;max-width:560px;margin:auto;padding:24px;'>"
-             + "<h2 style='color:#0f3d24;'>🐾 PetClinic – Nhắc lịch khám</h2>"
-             + "<p>Xin chào <strong>" + esc(customer.getFullName()) + "</strong>,</p>"
-             + "<p>Đây là nhắc nhở: bạn có lịch khám <strong>còn " + hoursAhead + " giờ nữa</strong>.</p>"
-             + "<div style='background:#fff3cd;border:1px solid #ffc107;border-radius:10px;"
-             +      "padding:18px 20px;margin:20px 0;'>"
-             + "<table style='width:100%;border-collapse:collapse;font-size:14px;'>"
-             + row("Dịch vụ",  esc(appt.getServiceName()))
-             + row("Thú cưng", esc(appt.getPetName()))
-             + row("Thời gian",fmtAppt(appt))
-             + "</table></div>"
-             + "<p style='font-size:13px;color:#8c8680;'>Địa chỉ: 123 Đường ABC, Q.1, TP.HCM</p>"
-             + "<p style='font-size:13px;color:#8c8680;'>Hotline: <strong>(028) 123 456 789</strong></p>"
-             + "<hr style='border:none;border-top:1px solid #d8d4cc;margin:20px 0;'>"
-             + "<p style='font-size:12px;color:#b8b4ae;text-align:center;'>© 2025 PetClinic</p>"
-             + "</div></body></html>";
+                + "<div style='font-family:sans-serif;max-width:560px;margin:auto;padding:24px;'>"
+                + "<h2 style='color:#0f3d24;'>🐾 PetClinic – Nhắc lịch khám</h2>"
+                + "<p>Xin chào <strong>" + esc(customer.getFullName()) + "</strong>,</p>"
+                + "<p>Đây là nhắc nhở: bạn có lịch khám <strong>còn " + hoursAhead + " giờ nữa</strong>.</p>"
+                + "<div style='background:#fff3cd;border:1px solid #ffc107;border-radius:10px;"
+                +      "padding:18px 20px;margin:20px 0;'>"
+                + "<table style='width:100%;border-collapse:collapse;font-size:14px;'>"
+                + row("Dịch vụ",  esc(appt.getServiceName()))
+                + row("Thú cưng", esc(appt.getPetName()))
+                + row("Thời gian",fmtAppt(appt))
+                + "</table></div>"
+                + "<p style='font-size:13px;color:#8c8680;'>Địa chỉ: 123 Đường ABC, Q.1, TP.HCM</p>"
+                + "<p style='font-size:13px;color:#8c8680;'>Hotline: <strong>(028) 123 456 789</strong></p>"
+                + "<hr style='border:none;border-top:1px solid #d8d4cc;margin:20px 0;'>"
+                + "<p style='font-size:12px;color:#b8b4ae;text-align:center;'>© 2025 PetClinic</p>"
+                + "</div></body></html>";
     }
 
     // ── Core send ─────────────────────────────────────────────────────────────
@@ -185,7 +217,7 @@ public class EmailService {
 
     private String row(String label, String value) {
         return "<tr><td style='padding:7px 0;color:#8c8680;width:130px;'>" + label + "</td>"
-             + "<td style='padding:7px 0;font-weight:500;'>" + value + "</td></tr>";
+                + "<td style='padding:7px 0;font-weight:500;'>" + value + "</td></tr>";
     }
 
     private String fmtAppt(Appointment a) {

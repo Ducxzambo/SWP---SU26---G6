@@ -68,13 +68,13 @@ public class ReminderSchedulerListener implements ServletContextListener {
      */
     private List<Appointment> findUpcomingConfirmed() throws Exception {
         String sql = "SELECT a.*, p.Name AS PetName, s.Name AS ServiceName, "
-                + "sc.Name AS CategoryName, st.FullName AS VetName "
-                + "FROM Appointments a "
-                + "JOIN Pets p ON a.PetID = p.PetID "
-                + "JOIN Services s ON a.ServiceID = s.ServiceID "
-                + "JOIN ServiceCategories sc ON s.CategoryID = sc.CategoryID "
-                + "LEFT JOIN Staff st ON a.AssignedVetID = st.StaffID "
-                + "WHERE a.Status = 'Confirmed' AND a.AppointmentDate >= ?";
+                   + "sc.Name AS CategoryName, st.FullName AS VetName "
+                   + "FROM Appointments a "
+                   + "JOIN Pets p ON a.PetID = p.PetID "
+                   + "JOIN Services s ON a.ServiceID = s.ServiceID "
+                   + "JOIN ServiceCategories sc ON s.CategoryID = sc.CategoryID "
+                   + "LEFT JOIN Staff st ON a.AssignedVetID = st.StaffID "
+                   + "WHERE a.Status = 'Confirmed' AND a.AppointmentDate >= ?";
 
         List<Appointment> list = new ArrayList<>();
         LocalDateTime now = LocalDateTime.now();

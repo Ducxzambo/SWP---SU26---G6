@@ -74,10 +74,7 @@ public class BookingServlet extends HttpServlet {
             throws Exception {
 
         List<ServiceCategory> cats = serviceDAO.findAllCategoriesWithServices();
-        if (cats == null) cats = Collections.emptyList();
-
         List<Pet>             pets = petDAO.findByCustomer(customer.getCustomerID());
-        if (pets == null) pets = Collections.emptyList();
 
         // Prefill from URL params (from quick-access links)
         String prefillCat = req.getParameter("prefillCategory");
@@ -85,7 +82,6 @@ public class BookingServlet extends HttpServlet {
 
         // Default slot generation with no services selected yet
         Map<LocalDate, List<TimeSlot>> slots = bookingSvc.generateSlots(Collections.emptyList());
-        if (slots == null) slots = new HashMap<>();
 
         req.setAttribute("categories",     cats);
         req.setAttribute("navCategories",  cats);
@@ -184,10 +180,7 @@ public class BookingServlet extends HttpServlet {
         List<Integer> svcIdList = Arrays.stream(svcIds).map(Integer::parseInt).collect(Collectors.toList());
         List<Integer> petIdList = Arrays.stream(petIds).map(Integer::parseInt).collect(Collectors.toList());
         List<Service> svcs = serviceDAO.findByIds(svcIdList);
-        if (svcs == null) svcs = Collections.emptyList();
-        List<Pet> allPets = petDAO.findByCustomer(customer.getCustomerID());
-        if (allPets == null) allPets = Collections.emptyList();
-        List<Pet> petsSelected = allPets.stream()
+        List<Pet> petsSelected = petDAO.findByCustomer(customer.getCustomerID()).stream()
                 .filter(p -> petIdList.contains(p.getPetID())).collect(Collectors.toList());
         req.setAttribute("selectedServices", svcs);
         req.setAttribute("selectedPets",     petsSelected);
@@ -199,9 +192,7 @@ public class BookingServlet extends HttpServlet {
         req.setAttribute("notes",            sess.getAttribute("bk_notes"));
         req.setAttribute("totalPrice",       sess.getAttribute("bk_total"));
         req.setAttribute("depositAmount",    sess.getAttribute("bk_deposit"));
-        List<ServiceCategory> navCategories = serviceDAO.findAllCategoriesWithServices();
-        if (navCategories == null) navCategories = Collections.emptyList();
-        req.setAttribute("navCategories",    navCategories);
+        req.setAttribute("navCategories",    serviceDAO.findAllCategoriesWithServices());
         req.getRequestDispatcher("/WEB-INF/views/booking/confirm.jsp").forward(req, resp);
     }
 
@@ -277,9 +268,7 @@ public class BookingServlet extends HttpServlet {
         req.setAttribute("apptId",       sess.getAttribute("pay_apptId"));
         req.setAttribute("invoiceId",    sess.getAttribute("pay_invoiceId"));
         req.setAttribute("isInpatient",  sess.getAttribute("pay_inpatient"));
-        List<ServiceCategory> navCategories = serviceDAO.findAllCategoriesWithServices();
-        if (navCategories == null) navCategories = Collections.emptyList();
-        req.setAttribute("navCategories", navCategories);
+        req.setAttribute("navCategories",serviceDAO.findAllCategoriesWithServices());
         req.getRequestDispatcher("/WEB-INF/views/booking/payment.jsp").forward(req, resp);
     }
 
@@ -307,7 +296,7 @@ public class BookingServlet extends HttpServlet {
 
         if (checkoutUrl == null || checkoutUrl.isBlank()) {
             req.getSession().setAttribute("flashError",
-                "Không thể tạo liên kết thanh toán. Vui lòng thử lại.");
+                    "Không thể tạo liên kết thanh toán. Vui lòng thử lại.");
             resp.sendRedirect(req.getContextPath() + "/booking/payment");
             return;
         }
@@ -326,7 +315,7 @@ public class BookingServlet extends HttpServlet {
 
     private void clearBookingSession(HttpSession sess) {
         for (String k : new String[]{"bk_svcIds","bk_petIds","bk_slotKey","bk_isInpatient",
-                                     "bk_iDate","bk_iPeriod","bk_notes","bk_total","bk_deposit"}) {
+                "bk_iDate","bk_iPeriod","bk_notes","bk_total","bk_deposit"}) {
             sess.removeAttribute(k);
         }
     }
@@ -342,28 +331,26 @@ public class BookingServlet extends HttpServlet {
     // ── JSON serialisers ──────────────────────────────────────────────────────
 
     private String slotsToJson(Map<LocalDate, List<TimeSlot>> slots) {
-        if (slots == null) slots = new HashMap<>();
-
         StringBuilder sb = new StringBuilder("{");
         boolean fd = true;
         for (Map.Entry<LocalDate, List<TimeSlot>> e : slots.entrySet()) {
             if (!fd) sb.append(","); fd = false;
             sb.append("\"").append(e.getKey()).append("\":[");
             boolean fs = true;
-            List<TimeSlot> slotList = e.getValue();
-            if (slotList != null) {
-                for (TimeSlot ts : slotList) {
-                    if (ts == null) continue;
-                    if (!fs) sb.append(","); fs = false;
-                    sb.append("{")
-                      .append("\"key\":\"").append(esc(ts.getSlotKey())).append("\",")
-                      .append("\"display\":\"").append(esc(ts.getDisplayTime())).append("\",")
-                      .append("\"available\":").append(ts.isAvailable()).append(",")
-                      .append("\"load\":").append(ts.getCurrentLoad()).append(",")
-                      .append("\"cap\":").append(ts.getMaxCapacity()).append(",")
-                      .append("\"fill\":").append(ts.getFillPercent())
-                      .append("}");
-                }
+            for (TimeSlot ts : e.getValue()) {
+                if (!fs) sb.append(","); fs = false;
+                sb.append("{")
+                        .append("\"key\":\"").append(ts.getSlotKey()).append("\",")
+                        .append("\"display\":\"").append(ts.getDisplayTime()).append("\",")
+                        .append("\"available\":").append(ts.isAvailable()).append(",")
+                        .append("\"load\":").append(ts.getCurrentLoad()).append(",")
+                        .append("\"cap\":").append((int) ts.getMaxCapacity()).append(",")
+                        .append("\"fill\":").append(ts.getFillPercent()).append(",")
+                        .append("\"groomLoad\":").append(ts.getGroomLoad()).append(",")
+                        .append("\"groomCap\":").append(ts.getGroomCap()).append(",")
+                        .append("\"vetLoad\":").append(ts.getVetLoad()).append(",")
+                        .append("\"vetCap\":").append(ts.getVetCap())
+                        .append("}");
             }
             sb.append("]");
         }
@@ -371,28 +358,22 @@ public class BookingServlet extends HttpServlet {
     }
 
     private String categoriesToJson(List<ServiceCategory> cats) {
-        if (cats == null) cats = Collections.emptyList();
-
         StringBuilder sb = new StringBuilder("[");
         for (int i = 0; i < cats.size(); i++) {
             ServiceCategory cat = cats.get(i);
-            if (cat == null) continue;
             if (i > 0) sb.append(",");
             sb.append("{\"id\":").append(cat.getCategoryID())
-              .append(",\"name\":\"").append(esc(cat.getName())).append("\"")
-              .append(",\"services\":[");
-            List<Service> services = cat.getServices();
-            if (services != null) {
-                for (int j = 0; j < services.size(); j++) {
-                    Service s = services.get(j);
-                    if (s == null) continue;
+                    .append(",\"name\":\"").append(esc(cat.getName())).append("\"")
+                    .append(",\"services\":[");
+            if (cat.getServices() != null) {
+                for (int j = 0; j < cat.getServices().size(); j++) {
+                    Service s = cat.getServices().get(j);
                     if (j > 0) sb.append(",");
-                    BigDecimal price = s.getPrice();
                     sb.append("{\"id\":").append(s.getServiceID())
-                      .append(",\"name\":\"").append(esc(s.getName())).append("\"")
-                      .append(",\"price\":").append(price != null ? price : BigDecimal.ZERO)
-                      .append(",\"duration\":").append(s.getDurationMinutes())
-                      .append("}");
+                            .append(",\"name\":\"").append(esc(s.getName())).append("\"")
+                            .append(",\"price\":").append(s.getPrice())
+                            .append(",\"duration\":").append(s.getDurationMinutes())
+                            .append("}");
                 }
             }
             sb.append("]}");

@@ -35,8 +35,17 @@
         <div class="result-row"><span>Dịch vụ</span><strong>${appt.serviceName}</strong></div>
         <div class="result-row"><span>Thú cưng</span><strong>${appt.petName}</strong></div>
         <div class="result-row"><span>Thời gian</span>
-          <strong>${appt.appointmentDate.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"))}
-                  lúc ${appt.startTime.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))}</strong>
+          <%--
+            Sửa lỗi: bản gốc dùng
+              ${appt.appointmentDate.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"))}
+            Cú pháp này KHÔNG hợp lệ trong JSP EL — EL không cho phép gọi static
+            method (DateTimeFormatter.ofPattern) hay method chain kiểu Java thuần.
+            Điều này sẽ gây lỗi runtime (PropertyNotFoundException / ELException),
+            khiến trang bị lỗi 500. Sửa lại dùng đúng các getter "formatted..."
+            mà model Appointment đã cung cấp sẵn, nhất quán với các JSP khác trong
+            cùng dự án (xem appointments.jsp, appointment-detail.jsp).
+          --%>
+          <strong>${appt.formattedAppointmentDate} lúc ${appt.formattedStartTime}</strong>
         </div>
         <div class="result-row"><span>Trạng thái</span>
           <span class="status-badge status-confirmed">Đã xác nhận</span>
@@ -47,7 +56,7 @@
       </div>
 
       <div class="result-email-note">
-        📧 Hóa đơn và thông tin lịch hẹn đã được gửi vào email của bạn.
+        Hóa đơn và thông tin lịch hẹn đã được gửi vào email của bạn.
         Chúng tôi sẽ nhắc nhở trước 48 giờ và 18 giờ.
       </div>
 
@@ -60,7 +69,7 @@
     <c:otherwise>
 
       <!-- PENDING / UNKNOWN -->
-      <div class="result-icon result-icon--pending">⏳</div>
+      <div class="result-icon result-icon--pending"></div>
       <h1 class="result-title result-title--pending">Đang chờ xác nhận thanh toán</h1>
       <p class="result-subtitle">
         Lịch hẹn đã được tạo và đang ở trạng thái <strong>Chờ xác nhận</strong>.
@@ -73,8 +82,8 @@
           <div class="result-row"><span>Mã lịch hẹn</span><strong>#${appt.appointmentID}</strong></div>
           <div class="result-row"><span>Dịch vụ</span><strong>${appt.serviceName}</strong></div>
           <div class="result-row"><span>Thời gian</span>
-            <strong>${appt.appointmentDate.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"))}
-                    lúc ${appt.startTime.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))}</strong>
+            <%-- Sửa lỗi tương tự phần trên: thay .format(DateTimeFormatter...) bằng getter có sẵn --%>
+            <strong>${appt.formattedAppointmentDate} lúc ${appt.formattedStartTime}</strong>
           </div>
           <div class="result-row"><span>Trạng thái</span>
             <span class="status-badge status-pending">Chờ xác nhận</span>
@@ -90,24 +99,13 @@
       </div>
 
       <!-- Auto-refresh to check payment status -->
-      <script>
-        let checks = 0;
-        const apptId = '${appt.appointmentID}';
-        if (apptId) {
-          const timer = setInterval(async () => {
-            checks++;
-            if (checks > 10) { clearInterval(timer); return; }
-            try {
-              const r = await fetch('${ctx}/appointments/status?id=' + apptId);
-              const d = await r.json();
-              if (d.status === 'Confirmed') {
-                clearInterval(timer);
-                location.reload();
-              }
-            } catch(e) {}
-          }, 3000);
-        }
-      </script>
+      <c:if test="${not empty appt}">
+        <script>
+          window.APP_CTX = '${ctx}';
+          window.PAYMENT_RESULT_APPT_ID = '${appt.appointmentID}';
+        </script>
+        <script src="${ctx}/js/payment.js"></script>
+      </c:if>
 
     </c:otherwise>
   </c:choose>

@@ -109,11 +109,14 @@
       Ước tính chi phí
     </div>
     <table class="confirm-table">
-      <c:set var="totalCost" value="0"/>
+      <%--
+        Sửa lỗi: đã loại bỏ biến "totalCost" và "lineCount" cũ — đây là dead code,
+        được set nhưng không bao giờ được dùng để tính toán hay hiển thị (giá trị
+        hiển thị thực tế lấy từ biến request-scope "totalPrice" do controller tính sẵn).
+        "lineCount" còn bị gán đè 2 lần liên tiếp trong bản gốc, là dấu hiệu code thử
+        nghiệm còn sót lại. Giữ lại đúng phần đang thực sự render ra UI.
+      --%>
       <c:forEach var="svc" items="${selectedServices}">
-        <c:set var="lineCount" value="${isInpatient ? selectedPets.size() : (slotKeys.size() * selectedPets.size())}"/>
-        <%-- Sửa lineCount: bỏ slotKeys, dùng 1 slot cố định --%>
-        <c:set var="lineCount" value="${selectedPets.size()}"/>
         <tr>
           <td>${svc.name}
             <span style="font-size:12px;color:var(--warm-gray);">
@@ -163,24 +166,6 @@
 
 <%@ include file="/WEB-INF/views/common/footer.jsp" %>
 
-<script>
-// Prettify raw slot keys "yyyy-MM-dd|HH:mm" → "Thứ X, dd/MM/yyyy lúc HH:mm – HH:mm"
-const DAYS_VN = ['CN','T2','T3','T4','T5','T6','T7'];
-document.querySelectorAll('[id^="slot-"]').forEach(td => {
-  const raw = td.textContent.trim();
-  if (!raw.includes('|')) return;
-  const [datePart, timePart] = raw.split('|');
-  const d  = new Date(datePart + 'T00:00:00');
-  const dd = d.getDate().toString().padStart(2,'0');
-  const mm = (d.getMonth()+1).toString().padStart(2,'0');
-  const dow = DAYS_VN[d.getDay()];
-  const [hh, min] = timePart.split(':').map(Number);
-  const endMin = (hh * 60 + min + 120);
-  const endH   = Math.floor(endMin / 60).toString().padStart(2,'0');
-  const endM   = (endMin % 60).toString().padStart(2,'0');
-  td.textContent = dow + ' ' + dd + '/' + mm + '/' + d.getFullYear()
-                 + ' lúc ' + timePart + ' – ' + endH + ':' + endM;
-});
-</script>
+<script src="${ctx}/js/confirm.js"></script>
 </body>
 </html>

@@ -121,13 +121,6 @@
 </div>
 
 <%@ include file="/WEB-INF/views/common/footer.jsp" %>
-<script>
-function switchTab(name, btn) {
-  document.querySelectorAll('.appt-tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.appt-tab-panel').forEach(p => p.classList.remove('active'));
-  btn.classList.add('active');
-  document.getElementById('tab-' + name).classList.add('active');
-}
-</script>
+<script src="${ctx}/js/appointment.js"></script>
 </body>
 </html>

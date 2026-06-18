@@ -3,6 +3,7 @@ package com.petclinic.dao;
 import com.petclinic.model.Invoice;
 import com.petclinic.util.DBConnection;
 
+import java.math.BigDecimal;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -32,10 +33,20 @@ public class InvoiceDAO {
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) return null;
                 Invoice inv = mapInvoice(rs);
-                inv.setItems(findItems(inv.getInvoiceID()));
-                inv.setPayments(findPayments(inv.getInvoiceID()));
+                inv.setItems(findItems(invoiceId));
+                inv.setPayments(findPayments(invoiceId));
                 return inv;
             }
+        }
+    }
+
+    public void updateStatus(int invoiceId, String status) throws SQLException {
+        String sql = "UPDATE Invoices SET Status = ? WHERE InvoiceID = ?";
+        try (Connection c = DBConnection.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setString(1, status);
+            ps.setInt(2, invoiceId);
+            ps.executeUpdate();
         }
     }
 
@@ -60,6 +71,19 @@ public class InvoiceDAO {
             }
         }
         return list;
+    }
+
+    public void insertPayment(int invoiceId, BigDecimal amount, String method)
+            throws SQLException {
+        String sql = "INSERT INTO Payments (InvoiceID, Amount, Method, PaidAt, ProcessedByID) "
+                + "VALUES (?, ?, ?, GETDATE(), 1)";
+        try (Connection c = DBConnection.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, invoiceId);
+            ps.setBigDecimal(2, amount);
+            ps.setString(3, method);
+            ps.executeUpdate();
+        }
     }
 
     private List<Invoice.Payment> findPayments(int invoiceId) throws SQLException {

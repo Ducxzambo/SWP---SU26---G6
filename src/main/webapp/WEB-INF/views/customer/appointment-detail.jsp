@@ -65,11 +65,7 @@
   <c:if test="${appt.status eq 'Pending' and not empty invoice and invoice.status eq 'Unpaid'}">
     <div style="margin-bottom:20px;">
       <a href="${ctx}/appointments/pay?id=${appt.appointmentID}"
-         style="display:inline-flex;align-items:center;gap:8px;padding:12px 24px;
-                background:var(--green-700);color:#fff;border-radius:10px;font-size:14px;
-                font-weight:600;text-decoration:none;transition:var(--transition);"
-         onmouseover="this.style.background='var(--green-900)'"
-         onmouseout="this.style.background='var(--green-700)'">
+         class="btn-pay-now">
         Thanh toán ngay để xác nhận lịch hẹn
       </a>
     </div>
@@ -234,7 +230,15 @@
                    <span class="pay-amount"><fmt:formatNumber value="${pay.amount}" type="number" groupingUsed="true"/>₫</span>
                    <span class="pay-by">bởi ${pay.processedByName}</span>
                    <c:if test="${not empty pay.paidAt}">
-                     <span class="pay-date">${pay.paidAt.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy"))}</span>
+                     <%--
+                       Sửa lỗi: bản gốc dùng
+                         ${pay.paidAt.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy"))}
+                       Đây không phải cú pháp EL hợp lệ (EL không gọi static method
+                       như Java thuần) — sẽ gây lỗi runtime. Sửa lại dùng getter
+                       định dạng sẵn, theo đúng pattern formattedXxx mà model đã
+                       cung cấp ở những nơi khác trong cùng trang/dự án.
+                     --%>
+                     <span class="pay-date">${pay.formattedPaidAt}</span>
                    </c:if>
                  </div>
                </c:forEach>
@@ -296,25 +300,6 @@
 
 <%@ include file="/WEB-INF/views/common/footer.jsp" %>
 
-<script>
-function openCancelModal() {
-  document.getElementById('cancelModal').classList.add('open');
-  document.body.style.overflow = 'hidden';
-}
-function closeCancelModal() {
-  document.getElementById('cancelModal').classList.remove('open');
-  document.body.style.overflow = '';
-  // Reset state
-  const cb = document.getElementById('confirmCheck');
-  if (cb) { cb.checked = false; document.getElementById('btnConfirmCancel').disabled = true; }
-  const ta = document.getElementById('cancelReason');
-  if (ta) ta.value = '';
-}
-// Close on overlay click
-const overlay = document.getElementById('cancelModal');
-if (overlay) {
-  overlay.addEventListener('click', e => { if (e.target === overlay) closeCancelModal(); });
-}
-</script>
+<script src="${ctx}/js/appointment.js"></script>
 </body>
 </html>

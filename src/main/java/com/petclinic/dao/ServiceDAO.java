@@ -102,15 +102,56 @@ public class ServiceDAO {
         return s;
     }
 
-    /** Count active staff who can perform a service (matched by category → roleId).
-     *  Uses a heuristic: staff with RoleID = 3 (Vet) handle all clinical services.
-     *  Adjust the JOIN if you have a service-to-role mapping table. */
-    public int countStaffForService(int serviceId) throws SQLException {
-        String sql = "SELECT COUNT(*) FROM Staff WHERE RoleID = 3 AND IsActive = 1";
+    // ── Staff capacity helpers ────────────────────────────────────────────────
+
+    /** RoleID rule: Groomer (4) handles ServiceCategoryID=3; Vet (3) handles everything else. */
+    public static int roleIdForCategory(int categoryId) {
+        return categoryId == 3 ? 4 : 3;
+    }
+
+    /**
+     * Count active staff who can perform services in the given category.
+     * Groomer (roleId=4) → categoryId=1 only.
+     * Vet    (roleId=3) → all other categories.
+     */
+    public int countStaffByCategoryId(int categoryId) throws SQLException {
+        int roleId = roleIdForCategory(categoryId);
+        String sql = "SELECT COUNT(*) FROM Staff WHERE RoleID = ? AND IsActive = 1";
         try (Connection c = DBConnection.getConnection();
-             PreparedStatement ps = c.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
-            return rs.next() ? rs.getInt(1) : 1;
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, roleId);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? Math.max(1, rs.getInt(1)) : 1;
+            }
+        }
+    }
+
+    /**
+     * Count staff for a specific service (looks up the service's categoryId first).
+     * Used by BookingService for capacity calculation.
+     */
+    public int countStaffForService(int serviceId) throws SQLException {
+        String sql = "SELECT CategoryID FROM Services WHERE ServiceID = ?";
+        try (Connection c = DBConnection.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, serviceId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) return 1;
+                return countStaffByCategoryId(rs.getInt("CategoryID"));
+            }
+        }
+    }
+
+
+    /** Retrieve categoryId for a given serviceId. Returns -1 if not found. */
+    public int findCategoryIdByServiceId(int serviceId) throws SQLException {
+        String sql = "SELECT CategoryID FROM Services WHERE ServiceID = ?";
+        try (Connection c = DBConnection.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, serviceId);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getInt("CategoryID") : -1;
+            }
         }
     }
 }

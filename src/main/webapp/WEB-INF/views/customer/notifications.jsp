@@ -64,6 +64,17 @@
             </div>
             <div style="font-size:12px;color:var(--warm-gray);white-space:nowrap;flex-shrink:0;">
               <c:if test="${n.createdAt != null}">
+                <%--
+                  LƯU Ý SỬA LỖI: <fmt:formatDate> chỉ nhận java.util.Date.
+                  Nếu n.createdAt là java.time.LocalDateTime/LocalDate (Java 8 time,
+                  như cách các trang khác trong dự án này dùng appointmentDate/startTime),
+                  thẻ này sẽ ném IllegalArgumentException lúc runtime.
+                  Theo đúng pattern đã dùng ở các JSP khác (a.formattedStartTime,
+                  appt.formattedAppointmentDate...), nên thêm getter
+                  n.getFormattedCreatedAt() trả về String đã format sẵn ở phía Java,
+                  rồi in trực tiếp bằng EL như dòng dưới:
+                --%>
+                <%-- ${n.formattedCreatedAt} --%>
                 <fmt:formatDate value="${n.createdAt}" pattern="HH:mm dd/MM/yyyy" type="both"/>
               </c:if>
             </div>

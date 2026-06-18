@@ -34,6 +34,16 @@ public class AppointmentDAO {
         return -1;
     }
 
+    public void updateStatus(int appointmentId, String status) throws SQLException {
+        String sql = "UPDATE Appointments SET Status = ? WHERE AppointmentID = ?";
+        try (Connection c = DBConnection.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setString(1, status);
+            ps.setInt(2, appointmentId);
+            ps.executeUpdate();
+        }
+    }
+
     // ── Queries ───────────────────────────────────────────────────────────────
 
     public Appointment findById(int appointmentId) throws SQLException {
@@ -106,33 +116,19 @@ public class AppointmentDAO {
         return list;
     }
 
-//    /** Count paid/confirmed appointments in a given 120-min slot window for a service. */
-//    public int countConfirmedInSlot(LocalDate date, LocalTime start, LocalTime end, int serviceId)
-//            throws SQLException {
-//        String sql = "SELECT COUNT(*) FROM Appointments "
-//                + "WHERE AppointmentDate = ? AND ServiceID = ? "
-//                + "AND StartTime >= ? AND StartTime < ? "
-//                + "AND Status IN ('Confirmed','InProgress','Done')";
-//        try (Connection c = DBConnection.getConnection();
-//             PreparedStatement ps = c.prepareStatement(sql)) {
-//            ps.setDate(1, Date.valueOf(date));
-//            ps.setInt(2, serviceId);
-//            ps.setTime(3, Time.valueOf(start));
-//            ps.setTime(4, Time.valueOf(end));
-//            try (ResultSet rs = ps.executeQuery()) {
-//                return rs.next() ? rs.getInt(1) : 0;
-//            }
-//        }
-//    }
-
-    // ── Updates ───────────────────────────────────────────────────────────────
-
-    /** Count Confirmed appointments overlapping a time slot for capacity check. */
-    public int countConfirmedInSlot(LocalDate date, LocalTime start, LocalTime end,
-                                    int serviceId) throws SQLException {
+    /**
+     * Count Confirmed/InProgress/Done appointments overlapping a time window for a service.
+     * Uses CategoryID-based role filtering: only counts appointments whose service
+     * belongs to the same staff-role group (Groomer vs Vet).
+     *
+     * For capacity: counts distinct pets (each pet occupies 1 confirmed slot).
+     */
+    public int countConfirmedInSlot(LocalDate date, LocalTime start, LocalTime end, int serviceId)
+            throws SQLException {
+        // Count confirmed appointments for this service in overlapping time
         String sql = "SELECT COUNT(*) FROM Appointments "
                 + "WHERE AppointmentDate = ? AND ServiceID = ? "
-                + "AND Status = 'Confirmed' "
+                + "AND Status IN ('Confirmed','InProgress','Done') "
                 + "AND StartTime < ? AND EndTime > ?";
         try (Connection c = DBConnection.getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
@@ -145,6 +141,91 @@ public class AppointmentDAO {
             }
         }
     }
+
+    /**
+     * Count confirmed appointments for ALL services in the same role-group
+     * (Groomer or Vet) that overlap the given time window.
+     * This is the correct count for shared-staff capacity.
+     */
+    public int countConfirmedInSlotByRoleGroup(LocalDate date, LocalTime start,
+                                               LocalTime end, int categoryId)
+            throws SQLException {
+        int roleId = com.petclinic.dao.ServiceDAO.roleIdForCategory(categoryId);
+        // Count confirmed appts whose service is handled by the same role group
+        String sql = "SELECT COUNT(*) FROM Appointments a "
+                + "JOIN Services s ON a.ServiceID = s.ServiceID "
+                + "JOIN ServiceCategories sc ON s.CategoryID = sc.CategoryID "
+                + "WHERE a.AppointmentDate = ? "
+                + "AND a.Status IN ('Confirmed','InProgress','Done') "
+                + "AND a.StartTime < ? AND a.EndTime > ? "
+                + "AND (CASE WHEN s.CategoryID = 1 THEN 4 ELSE 3 END) = ?";
+        try (Connection c = DBConnection.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setDate(1, Date.valueOf(date));
+            ps.setTime(2, Time.valueOf(end));
+            ps.setTime(3, Time.valueOf(start));
+            ps.setInt(4, roleId);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getInt(1) : 0;
+            }
+        }
+    }
+
+    /**
+     * Find active appointments (Pending/Confirmed) whose appointment date/time
+     * has already passed — used by the overdue scheduler.
+     */
+    public List<Appointment> findOverdueActive() throws SQLException {
+        String sql = "SELECT a.*, p.Name AS PetName, s.Name AS ServiceName, "
+                + "sc.Name AS CategoryName, st.FullName AS VetName "
+                + "FROM Appointments a "
+                + "JOIN Pets p ON a.PetID = p.PetID "
+                + "JOIN Services s ON a.ServiceID = s.ServiceID "
+                + "JOIN ServiceCategories sc ON s.CategoryID = sc.CategoryID "
+                + "LEFT JOIN Staff st ON a.AssignedVetID = st.StaffID "
+                + "WHERE a.Status IN ('Pending','Confirmed') "
+                + "AND CAST(CAST(a.AppointmentDate AS DATE) AS DATETIME) "
+                + "    + CAST(a.EndTime AS DATETIME) < GETDATE()";
+        List<Appointment> list = new ArrayList<>();
+        try (Connection c = DBConnection.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) list.add(mapRow(rs));
+        }
+        return list;
+    }
+
+    /** Mark appointment as NoShow (Absent). */
+    public void markNoShow(int appointmentId) throws SQLException {
+        String sql = "UPDATE Appointments SET Status = 'NoShow' WHERE AppointmentID = ?";
+        try (Connection c = DBConnection.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, appointmentId);
+            ps.executeUpdate();
+        }
+    }
+
+    /** Find all customers with overdue appointments (for email join). */
+    public List<Appointment> findOverdueOlderThan24h() throws SQLException {
+        String sql = "SELECT a.*, p.Name AS PetName, s.Name AS ServiceName, "
+                + "sc.Name AS CategoryName, st.FullName AS VetName "
+                + "FROM Appointments a "
+                + "JOIN Pets p ON a.PetID = p.PetID "
+                + "JOIN Services s ON a.ServiceID = s.ServiceID "
+                + "JOIN ServiceCategories sc ON s.CategoryID = sc.CategoryID "
+                + "LEFT JOIN Staff st ON a.AssignedVetID = st.StaffID "
+                + "WHERE a.Status IN ('Pending','Confirmed') "
+                + "AND CAST(CAST(a.AppointmentDate AS DATE) AS DATETIME) "
+                + "    + CAST(a.EndTime AS DATETIME) < DATEADD(HOUR, -24, GETDATE())";
+        List<Appointment> list = new ArrayList<>();
+        try (Connection c = DBConnection.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) list.add(mapRow(rs));
+        }
+        return list;
+    }
+
 
     /** Update appointment Notes field (used for cancel reason). */
     public void updateNotes(int appointmentId, String notes) throws SQLException {

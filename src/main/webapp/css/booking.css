@@ -1,5 +1,145 @@
 /* ── booking.css – PetClinic Booking & Payment Pages ────────────────────── */
 
+/* ── Step number badge ───────────────────────────────────────────────────── */
+.bk-step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px; height: 22px;
+  background: var(--green-700);
+  color: #fff;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+  margin-right: 2px;
+}
+
+/* ── Service groups inside per-pet panel ────────────────────────────────── */
+.svc-group       { margin-bottom: 4px; }
+.svc-group-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--warm-gray);
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.svc-group-icon { font-size: 14px; }
+.svc-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 14px 0;
+}
+
+/* ── Capacity bar (per service group) ───────────────────────────────────── */
+.cap-bar-wrap  { margin-top: 10px; }
+.cap-bar-label { font-size: 11.5px; color: var(--warm-gray); margin-bottom: 4px; }
+.cap-bar {
+  height: 5px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.cap-bar-fill  {
+  height: 100%;
+  border-radius: 3px;
+  transition: width .4s ease, background .4s ease;
+}
+
+/* ── Chip enhancements ──────────────────────────────────────────────────── */
+.chip-icon { margin-right: 4px; }
+.chip-sub  {
+  display: block;
+  font-size: 11px;
+  opacity: .65;
+  margin-top: 1px;
+  white-space: nowrap;
+}
+.bk-empty {
+  color: var(--warm-gray);
+  font-size: 13.5px;
+}
+.bk-empty a { color: var(--green-500); font-weight: 500; }
+
+/* ── Slot loading state ─────────────────────────────────────────────────── */
+.slot-loading {
+  grid-column: 1/-1;
+  color: var(--warm-gray);
+  font-size: 13.5px;
+  padding: 12px 0;
+}
+
+/* ── Form fields ────────────────────────────────────────────────────────── */
+.field-label {
+  display: block;
+  font-size: 13px;
+  color: var(--warm-gray);
+  margin-bottom: 7px;
+  font-weight: 500;
+}
+.field-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: var(--transition);
+}
+.field-input:focus { border-color: var(--green-500); }
+.field-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+  outline: none;
+  transition: var(--transition);
+  min-height: 80px;
+}
+.field-textarea:focus { border-color: var(--green-500); }
+
+/* ── Summary sections ───────────────────────────────────────────────────── */
+.sum-section {
+  border-bottom: 1px solid var(--border);
+  padding: 10px 0;
+}
+.sum-section-label {
+  font-size: 11.5px;
+  color: var(--warm-gray);
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+.sum-section-body { font-size: 13px; }
+.sum-chip {
+  display: inline-block;
+  padding: 3px 9px;
+  background: var(--green-50);
+  border: 1px solid var(--green-100);
+  border-radius: 20px;
+  font-size: 12px;
+  color: var(--green-700);
+  margin: 2px 3px 2px 0;
+}
+.sum-pet-row   { font-size: 13px; color: var(--text-mid); margin-bottom: 4px; }
+.sum-total-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 0 0;
+  font-size: 13px;
+  color: var(--warm-gray);
+}
+.sum-price { font-size: 18px; font-weight: 700; color: var(--green-700); }
+
 /* ══════════════════════════════════════════════════════════════════════════
    BOOKING WIZARD  /booking/new
 ══════════════════════════════════════════════════════════════════════════ */
