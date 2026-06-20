@@ -1,5 +1,7 @@
 package com.petclinic.model;
 
+import com.petclinic.dao.AppointmentDAO;
+
 import java.time.LocalDate;
 import java.time.LocalTime;
 
@@ -8,17 +10,20 @@ public class Appointment {
     private int customerID;
     private int petID;
     private int serviceID;
-    private Integer assignedVetID;      // nullable
+    private Integer assignedVetID;
     private LocalDate appointmentDate;
     private LocalTime startTime;
     private LocalTime endTime;
-    private String status;             // Pending|Confirmed|Arrived|InProgress|Done|Cancelled|NoShow
+    private String status;
+    private Integer slotShift; // 1-4
 
-    // ── Transient / join fields (not in DB column) ────────────────────────────
+    // join fields
     private String customerName;
     private String petName;
     private String serviceName;
     private String vetName;
+    private String groomerName;
+    private Integer assignedGroomerID;
 
     public Appointment() {
     }
@@ -95,6 +100,14 @@ public class Appointment {
         status = v;
     }
 
+    public Integer getSlotShift() {
+        return slotShift;
+    }
+
+    public void setSlotShift(Integer v) {
+        slotShift = v;
+    }
+
     // join fields
     public String getCustomerName() {
         return customerName;
@@ -126,5 +139,25 @@ public class Appointment {
 
     public void setVetName(String v) {
         vetName = v;
+    }
+
+    public String getSlotLabel() {
+        return AppointmentDAO.shiftLabel(slotShift != null ? slotShift : -1);
+    }
+
+    public void setGroomerName(String groomerName) {
+        this.groomerName = groomerName;
+    }
+
+    public String getGroomerName() {
+        return groomerName;
+    }
+
+    public Integer getAssignedGroomerID() {
+        return assignedGroomerID;
+    }
+
+    public void setAssignedGroomerID(Integer assignedGroomerID) {
+        this.assignedGroomerID = assignedGroomerID;
     }
 }

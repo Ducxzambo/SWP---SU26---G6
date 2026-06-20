@@ -85,4 +85,21 @@ public class StaffDAO {
         s.setActive(rs.getBoolean("IsActive"));
         return s;
     }
+
+    public List<Staff> findAllGroomers() throws SQLException{
+        String sql = """
+                SELECT s.*, r.RoleName
+                FROM Staff s
+                JOIN Roles r ON r.RoleID = s.RoleID
+                WHERE r.RoleName = 'Groomer' AND s.IsActive = 1
+                ORDER BY s.FullName
+                """;
+        try (Connection c = DBConnection.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            List<Staff> list = new ArrayList<>();
+            while (rs.next()) list.add(mapRow(rs));
+            return list;
+        }
+    }
 }
