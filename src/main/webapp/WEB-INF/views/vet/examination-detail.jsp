@@ -1,6 +1,47 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ taglib prefix="c"   uri="http://java.sun.com/jsp/jstl/core" %>
 <%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
+<%@ page import="com.petclinic.model.Medicine" %>
+<%@ page import="java.util.List" %>
+<%
+    // Build medicine JSON safely server-side (handles quotes, backslashes, etc.)
+    List<Medicine> __meds = (List<Medicine>) request.getAttribute("medicines");
+    StringBuilder __medJson = new StringBuilder("[");
+    if (__meds != null) {
+        for (int __i = 0; __i < __meds.size(); __i++) {
+            Medicine __m = __meds.get(__i);
+            if (__i > 0) __medJson.append(",");
+            __medJson.append("{")
+                    .append("\"id\":").append(__m.getMedicineID()).append(",")
+                    .append("\"name\":\"").append(jsonEscape(__m.getName())).append("\",")
+                    .append("\"unit\":\"").append(jsonEscape(__m.getUnit())).append("\",")
+                    .append("\"price\":").append(__m.getUnitPrice()).append(",")
+                    .append("\"stock\":").append(__m.getStockQty())
+                    .append("}");
+        }
+    }
+    __medJson.append("]");
+%>
+<%!
+    /** Escape a string for safe embedding inside a JSON string literal. */
+    private String jsonEscape(String s) {
+        if (s == null) return "";
+        StringBuilder sb = new StringBuilder();
+        for (char c : s.toCharArray()) {
+            switch (c) {
+                case '"':  sb.append("\\\""); break;
+                case '\\': sb.append("\\\\"); break;
+                case '\n': sb.append("\\n");  break;
+                case '\r': sb.append("\\r");  break;
+                case '\t': sb.append("\\t");  break;
+                default:
+                    if (c < 0x20) sb.append(String.format("\\u%04x", (int) c));
+                    else sb.append(c);
+            }
+        }
+        return sb.toString();
+    }
+%>
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -299,7 +340,7 @@
 
                     <%-- 1. Vitals --%>
                 <div class="card" style="margin-bottom:16px;">
-                    <div class="card-header"><span class="card-title">Thông số </span></div>
+                    <div class="card-header"><span class="card-title">📊 Chỉ số sinh tồn</span></div>
                     <div class="card-body">
                         <div class="form-row col-2">
                             <div class="form-group">
@@ -439,12 +480,8 @@
                         </table>
                         <button type="button" class="add-row-btn" onclick="addRxRow()">+ Thêm thuốc</button>
 
-                            <%-- Medicine data for JS --%>
-                        <script type="application/json" id="medData">
-                            [<c:forEach items="${medicines}" var="m" varStatus="vs">
-                            {"id":${m.medicineID},"name":"<c:out value='${m.name}'/>","unit":"<c:out value='${m.unit}'/>","price":${m.unitPrice},"stock":${m.stockQty}}<c:if test="${!vs.last}">,</c:if>
-                        </c:forEach>]
-                        </script>
+                            <%-- Medicine data for JS (built safely server-side, see scriptlet at top of file) --%>
+                        <script type="application/json" id="medData"><%= __medJson.toString() %></script>
                     </div>
                 </div>
 

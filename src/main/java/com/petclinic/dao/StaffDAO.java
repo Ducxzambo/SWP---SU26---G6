@@ -3,10 +3,7 @@ package com.petclinic.dao;
 import com.petclinic.model.Staff;
 import com.petclinic.util.DBConnection;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -49,23 +46,33 @@ public class StaffDAO {
         }
     }
 
-    /**
-     * All active veterinarians (for receptionist vet assignment drop-down).
-     */
+    /** All active veterinarians. */
     public List<Staff> findAllVets() throws SQLException {
+        return findAllByRole("Veterinarian");
+    }
+
+    /** All active groomers (for receptionist grooming-checkin assignment). */
+    public List<Staff> findAllGroomers() throws SQLException {
+        return findAllByRole("Groomer");
+    }
+
+    /** Generic role lookup. */
+    private List<Staff> findAllByRole(String roleName) throws SQLException {
         String sql = """
                 SELECT s.*, r.RoleName
                 FROM Staff s
                 JOIN Roles r ON r.RoleID = s.RoleID
-                WHERE r.RoleName = 'Veterinarian' AND s.IsActive = 1
+                WHERE r.RoleName = ? AND s.IsActive = 1
                 ORDER BY s.FullName
                 """;
         try (Connection c = DBConnection.getConnection();
-             PreparedStatement ps = c.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
-            List<Staff> list = new ArrayList<>();
-            while (rs.next()) list.add(mapRow(rs));
-            return list;
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setString(1, roleName);
+            try (ResultSet rs = ps.executeQuery()) {
+                List<Staff> list = new ArrayList<>();
+                while (rs.next()) list.add(mapRow(rs));
+                return list;
+            }
         }
     }
 
@@ -84,22 +91,5 @@ public class StaffDAO {
         s.setLicenseNumber(rs.getString("LicenseNumber"));
         s.setActive(rs.getBoolean("IsActive"));
         return s;
-    }
-
-    public List<Staff> findAllGroomers() throws SQLException{
-        String sql = """
-                SELECT s.*, r.RoleName
-                FROM Staff s
-                JOIN Roles r ON r.RoleID = s.RoleID
-                WHERE r.RoleName = 'Groomer' AND s.IsActive = 1
-                ORDER BY s.FullName
-                """;
-        try (Connection c = DBConnection.getConnection();
-             PreparedStatement ps = c.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
-            List<Staff> list = new ArrayList<>();
-            while (rs.next()) list.add(mapRow(rs));
-            return list;
-        }
     }
 }
