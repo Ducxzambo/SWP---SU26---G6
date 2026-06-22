@@ -59,10 +59,10 @@
     <aside class="sidebar">
         <div class="sidebar-logo">🐾 PetClinic</div>
         <nav>
-            <a href="${pageContext.request.contextPath}/vet/examination" class="nav-item active">🩺 Hàng chờ khám</a>
+            <a href="${pageContext.request.contextPath}/vet/examination" class="nav-item active">Hàng chờ khám</a>
         </nav>
         <div class="sidebar-user">
-            👤 ${sessionScope.staff.fullName}
+             ${sessionScope.staff.fullName}
             <a href="${pageContext.request.contextPath}/auth/logout" class="logout-link">Đăng xuất</a>
         </div>
     </aside>

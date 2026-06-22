@@ -194,7 +194,7 @@
              ═══════════════════════════════════════════════════════════════════════════ --%>
         <c:if test="${not empty record}">
             <div class="page-header">
-                <h1>📋 Bệnh Án #${record.recordID}</h1>
+                <h1>Bệnh Án #${record.recordID}</h1>
                 <p class="page-sub">Chỉ xem — không chỉnh sửa</p>
             </div>
             <a href="${pageContext.request.contextPath}/vet/examination" class="btn btn-outline btn-sm" style="margin-bottom:18px;">← Quay lại</a>
@@ -208,7 +208,7 @@
 
             <%-- Vitals --%>
             <div class="card" style="margin-bottom:16px;">
-                <div class="card-header"><span class="card-title">📊 Chỉ số sinh tồn</span></div>
+                <div class="card-header"><span class="card-title">Thông số</span></div>
                 <div class="card-body">
                     <div class="form-row col-2">
                         <div class="record-field"><span class="record-field-label">Cân nặng (kg)</span>
@@ -221,7 +221,7 @@
 
             <%-- Symptoms --%>
             <div class="card" style="margin-bottom:16px;">
-                <div class="card-header"><span class="card-title">📝 Triệu chứng</span></div>
+                <div class="card-header"><span class="card-title">Triệu chứng</span></div>
                 <div class="card-body">
                     <p style="white-space:pre-wrap;font-size:14px;"><c:out value="${record.symptoms}"/></p>
                 </div>
@@ -229,7 +229,7 @@
 
             <%-- Diagnosis (lab tests) --%>
             <div class="card" style="margin-bottom:16px;">
-                <div class="card-header"><span class="card-title">🔬 Chẩn đoán / Xét nghiệm</span></div>
+                <div class="card-header"><span class="card-title">Chẩn đoán / Xét nghiệm</span></div>
                 <div class="card-body">
                     <c:choose>
                         <c:when test="${not empty record.diagnosis}">
@@ -242,7 +242,7 @@
 
             <%-- Treatment plan --%>
             <div class="card" style="margin-bottom:16px;">
-                <div class="card-header"><span class="card-title">💊 Phác đồ điều trị</span></div>
+                <div class="card-header"><span class="card-title">Phác đồ điều trị</span></div>
                 <div class="card-body">
                     <c:choose>
                         <c:when test="${not empty record.treatmentPlan}">
@@ -256,7 +256,7 @@
             <%-- Prescription --%>
             <c:if test="${record.hasPrescription()}">
                 <div class="card">
-                    <div class="card-header"><span class="card-title">💊 Đơn thuốc</span></div>
+                    <div class="card-header"><span class="card-title">Đơn thuốc</span></div>
                     <div class="card-body" style="padding:0;">
                         <table class="data-table">
                             <thead>
@@ -309,7 +309,7 @@
             <c:if test="${not empty history}">
                 <div class="card" style="margin-bottom:16px;">
                     <div class="card-header">
-                        <span class="card-title">📂 Lịch sử khám (${history.size()} lần)</span>
+                        <span class="card-title">Lịch sử khám (${history.size()} lần)</span>
                         <button type="button" class="btn btn-outline btn-sm" onclick="toggleHist()">Hiện / Ẩn</button>
                     </div>
                     <div id="histSection" style="display:none;padding:14px 20px;">
@@ -340,7 +340,7 @@
 
                     <%-- 1. Vitals --%>
                 <div class="card" style="margin-bottom:16px;">
-                    <div class="card-header"><span class="card-title">📊 Chỉ số sinh tồn</span></div>
+                    <div class="card-header"><span class="card-title">Thông số</span></div>
                     <div class="card-body">
                         <div class="form-row col-2">
                             <div class="form-group">
@@ -359,7 +359,7 @@
 
                     <%-- 2. Symptoms --%>
                 <div class="card" style="margin-bottom:16px;">
-                    <div class="card-header"><span class="card-title">📝 Triệu chứng <span style="color:var(--red-400)">*</span></span></div>
+                    <div class="card-header"><span class="card-title">Triệu chứng <span style="color:var(--red-400)">*</span></span></div>
                     <div class="card-body">
         <textarea name="symptoms" id="symptoms" class="form-control" rows="3"
                   placeholder="Mô tả triệu chứng quan sát được..." required><c:out value="${symptoms}"/></textarea>
@@ -413,7 +413,7 @@
                     <%-- 4. Treatment plans (phác đồ) --%>
                 <div class="card" style="margin-bottom:16px;">
                     <div class="card-header">
-                        <span class="card-title">💉 Phác đồ điều trị</span>
+                        <span class="card-title"> Phác đồ điều trị</span>
                         <span style="font-size:12px;color:var(--text-soft);">Tích chọn và ghi chú từng phác đồ</span>
                     </div>
                     <div class="card-body">
@@ -451,7 +451,7 @@
 
                     <%-- 5. Follow-up date --%>
                 <div class="card" style="margin-bottom:16px;">
-                    <div class="card-header"><span class="card-title">📅 Ngày tái khám</span></div>
+                    <div class="card-header"><span class="card-title"> Ngày tái khám</span></div>
                     <div class="card-body">
                         <input type="date" name="followUpDate" class="form-control no-icon" style="max-width:200px;"
                                min="<%= java.time.LocalDate.now().plusDays(1) %>">
@@ -462,7 +462,7 @@
                     <%-- 6. Prescription --%>
                 <div class="card" style="margin-bottom:16px;">
                     <div class="card-header">
-                        <span class="card-title">💊 Kê đơn thuốc</span>
+                        <span class="card-title">Kê đơn thuốc</span>
                         <span style="font-size:12px;color:var(--text-soft);">Để trống nếu không kê đơn</span>
                     </div>
                     <div class="card-body">
@@ -489,7 +489,7 @@
                 <div style="display:flex;gap:12px;justify-content:flex-end;padding-bottom:40px;">
                     <a href="${pageContext.request.contextPath}/vet/examination" class="btn btn-outline btn-lg">Hủy</a>
                     <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
-                        ✅ Lưu bệnh án & Hoàn thành khám
+                        Lưu bệnh án & Hoàn thành khám
                     </button>
                 </div>
             </form>

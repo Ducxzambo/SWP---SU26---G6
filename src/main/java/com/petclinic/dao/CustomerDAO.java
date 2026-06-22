@@ -84,6 +84,33 @@ public class CustomerDAO {
         return -1;
     }
 
+    /**
+     * Quick-create a walk-in customer with ONLY phone + full name (no email/password required).
+     * Email is auto-generated as a placeholder so the UNIQUE/NOT NULL constraints still hold;
+     * the customer can complete registration with a real email later if they choose to.
+     * Returns the generated CustomerID.
+     */
+    public int insertWalkIn(String fullName, String phone) throws SQLException {
+        String placeholderEmail = "walkin_" + phone.trim() + "@petclinic.local";
+        String randomHash = com.petclinic.util.PasswordUtil.hashPassword(
+                java.util.UUID.randomUUID().toString());
+
+        String sql = "INSERT INTO Customers (FullName, Email, Phone, PasswordHash, IsActive) "
+                + "VALUES (?, ?, ?, ?, 1)";
+        try (Connection c = DBConnection.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            ps.setString(1, fullName.trim());
+            ps.setString(2, placeholderEmail);
+            ps.setString(3, phone.trim());
+            ps.setString(4, randomHash);
+            ps.executeUpdate();
+            try (ResultSet keys = ps.getGeneratedKeys()) {
+                if (keys.next()) return keys.getInt(1);
+            }
+        }
+        return -1;
+    }
+
     public void updatePassword(int customerId, String newPasswordHash) throws SQLException {
         String sql = "UPDATE Customers SET PasswordHash = ? WHERE CustomerID = ?";
         try (Connection c = DBConnection.getConnection();

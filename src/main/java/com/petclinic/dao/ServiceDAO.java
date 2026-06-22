@@ -12,9 +12,7 @@ import java.util.List;
  */
 public class ServiceDAO {
 
-    /**
-     * All active services under a given category name.
-     */
+    /** All active services under a given category name. */
     public List<Service> findByCategory(String categoryName) throws SQLException {
         String sql = """
                 SELECT s.ServiceID, s.Name, s.Price, s.DurationMinutes, s.IsActive,
@@ -31,38 +29,32 @@ public class ServiceDAO {
         }
     }
 
-    /**
-     * All active diagnostic (xét nghiệm) services.
-     */
+    /** All active services across all categories (for general dropdowns, e.g. walk-in). */
+    public List<Service> findAllActive() throws SQLException {
+        String sql = """
+                SELECT s.ServiceID, s.Name, s.Price, s.DurationMinutes, s.IsActive,
+                       sc.Name AS CategoryName
+                FROM Services s
+                JOIN ServiceCategories sc ON sc.CategoryID = s.CategoryID
+                WHERE s.IsActive = 1
+                  AND sc.Name NOT IN ('Chẩn đoán', 'Phác đồ điều trị')
+                ORDER BY sc.Name, s.ServiceID
+                """;
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            return mapList(rs);
+        }
+    }
+
+    /** All active diagnostic (xét nghiệm) services. */
     public List<Service> findLabTests() throws SQLException {
         return findByCategory("Chẩn đoán");
     }
 
-    /**
-     * All active treatment plan services.
-     */
+    /** All active treatment plan services. */
     public List<Service> findTreatmentPlans() throws SQLException {
         return findByCategory("Phác đồ điều trị");
-    }
-
-    /**
-     * Count pets booked in a given shift on a given date (for slot limit check).
-     */
-    public int countSlotBookings(LocalDateShift key) throws SQLException {
-        String sql = """
-                SELECT COUNT(*) FROM Appointments
-                WHERE AppointmentDate = ?
-                  AND SlotShift       = ?
-                  AND Status NOT IN ('Cancelled','NoShow')
-                """;
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setDate(1, Date.valueOf(key.date()));
-            ps.setInt(2, key.shift());
-            try (ResultSet rs = ps.executeQuery()) {
-                return rs.next() ? rs.getInt(1) : 0;
-            }
-        }
     }
 
     // ── Mapping ───────────────────────────────────────────────────────────────
@@ -79,14 +71,7 @@ public class ServiceDAO {
         s.setPrice(rs.getBigDecimal("Price"));
         s.setDurationMinutes(rs.getInt("DurationMinutes"));
         s.setActive(rs.getBoolean("IsActive"));
-        try {
-            s.setCategoryName(rs.getString("CategoryName"));
-        } catch (SQLException ignored) {
-        }
+        try { s.setCategoryName(rs.getString("CategoryName")); } catch (SQLException ignored) {}
         return s;
-    }
-
-    // ── tiny record for shift key ─────────────────────────────────────────────
-    public record LocalDateShift(java.time.LocalDate date, int shift) {
     }
 }
