@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 <?xml version="1.0" encoding="UTF-8"?>
 <web-app xmlns="https://jakarta.ee/xml/ns/jakartaee"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -37,3 +38,99 @@
   </welcome-file-list>
 
 </web-app>
+=======
+
+<web-app xmlns="https://jakarta.ee/xml/ns/jakartaee" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="https://jakarta.ee/xml/ns/jakartaee https://jakarta.ee/xml/ns/jakartaee/web-app_5_0.xsd" version="5.0">
+    <display-name>PetClinic</display-name>
+    <!--  ── Encoding ─────────────────────────────────────────────────────────  -->
+    <request-character-encoding>UTF-8</request-character-encoding>
+    <response-character-encoding>UTF-8</response-character-encoding>
+    <!--  ── Session ──────────────────────────────────────────────────────────  -->
+    <session-config>
+        <session-timeout>480</session-timeout>
+        <cookie-config>
+            <http-only>true</http-only>
+        </cookie-config>
+    </session-config>
+    <!--  ── Error pages ──────────────────────────────────────────────────────  -->
+    <error-page>
+        <error-code>404</error-code>
+        <location>/WEB-INF/views/error/404.jsp</location>
+    </error-page>
+    <error-page>
+        <error-code>500</error-code>
+        <location>/WEB-INF/views/error/500.jsp</location>
+    </error-page>
+    <!--  ── Welcome ──────────────────────────────────────────────────────────  -->
+    <welcome-file-list>
+        <welcome-file>index.jsp</welcome-file>
+    </welcome-file-list>
+    <!--  ════════════════════════════════════════════════════════════════════
+           DEV ONLY — comment out before demo / submission
+           ════════════════════════════════════════════════════════════════════  -->
+    <filter>
+        <filter-name>DevBypassFilter</filter-name>
+        <filter-class>com.petclinic.filter.DevBypassFilter</filter-class>
+    </filter>
+    <filter-mapping>
+        <filter-name>DevBypassFilter</filter-name>
+        <url-pattern>/*</url-pattern>
+    </filter-mapping>
+    <!--  ════════════════════════════════════════════════════════════════════  -->
+    <!--  ── Existing Auth Filter ─────────────────────────────────────────────  -->
+    <filter>
+        <filter-name>CustomerAuthFilter</filter-name>
+        <filter-class>com.petclinic.filter.CustomerAuthFilter</filter-class>
+    </filter>
+    <filter-mapping>
+        <filter-name>CustomerAuthFilter</filter-name>
+        <url-pattern>/customer/*</url-pattern>
+    </filter-mapping>
+    <!--  ── BP04 Auth Filter ─────────────────────────────────────────────────  -->
+    <filter>
+        <filter-name>InpatientAuthFilter</filter-name>
+        <filter-class>com.petclinic.filter.InpatientAuthFilter</filter-class>
+    </filter>
+    <filter-mapping>
+        <filter-name>InpatientAuthFilter</filter-name>
+        <url-pattern>/inpatient/*</url-pattern>
+    </filter-mapping>
+    <!--  ── BP04 Servlets ────────────────────────────────────────────────────  -->
+    <servlet>
+        <servlet-name>AdmitPetServlet</servlet-name>
+        <servlet-class>com.petclinic.servlet.inpatient.AdmitPetServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>AdmitPetServlet</servlet-name>
+        <url-pattern>/inpatient/admit</url-pattern>
+    </servlet-mapping>
+    <servlet>
+        <servlet-name>DailyAssessmentServlet</servlet-name>
+        <servlet-class>com.petclinic.servlet.inpatient.DailyAssessmentServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>DailyAssessmentServlet</servlet-name>
+        <url-pattern>/inpatient/assessment</url-pattern>
+    </servlet-mapping>
+    <servlet>
+        <servlet-name>DischargeServlet</servlet-name>
+        <servlet-class>com.petclinic.servlet.inpatient.DischargeServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>DischargeServlet</servlet-name>
+        <url-pattern>/inpatient/discharge</url-pattern>
+    </servlet-mapping>
+    <servlet>
+        <servlet-name>InpatientListServlet</servlet-name>
+        <servlet-class>com.petclinic.servlet.inpatient.InpatientListServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>InpatientListServlet</servlet-name>
+        <url-pattern>/inpatient/list</url-pattern>
+    </servlet-mapping>
+    <servlet-mapping>
+        <servlet-name>InpatientListServlet</servlet-name>
+        <url-pattern>/inpatient/detail</url-pattern>
+    </servlet-mapping>
+</web-app>
+>>>>>>> Stashed changes
