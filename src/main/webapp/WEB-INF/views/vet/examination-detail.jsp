@@ -1,7 +1,47 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
-<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="c"   uri="http://java.sun.com/jsp/jstl/core" %>
 <%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
-<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
+<%@ page import="com.petclinic.model.Medicine" %>
+<%@ page import="java.util.List" %>
+<%
+    // Build medicine JSON safely server-side (handles quotes, backslashes, etc.)
+    List<Medicine> __meds = (List<Medicine>) request.getAttribute("medicines");
+    StringBuilder __medJson = new StringBuilder("[");
+    if (__meds != null) {
+        for (int __i = 0; __i < __meds.size(); __i++) {
+            Medicine __m = __meds.get(__i);
+            if (__i > 0) __medJson.append(",");
+            __medJson.append("{")
+                    .append("\"id\":").append(__m.getMedicineID()).append(",")
+                    .append("\"name\":\"").append(jsonEscape(__m.getName())).append("\",")
+                    .append("\"unit\":\"").append(jsonEscape(__m.getUnit())).append("\",")
+                    .append("\"price\":").append(__m.getUnitPrice()).append(",")
+                    .append("\"stock\":").append(__m.getStockQty())
+                    .append("}");
+        }
+    }
+    __medJson.append("]");
+%>
+<%!
+    /** Escape a string for safe embedding inside a JSON string literal. */
+    private String jsonEscape(String s) {
+        if (s == null) return "";
+        StringBuilder sb = new StringBuilder();
+        for (char c : s.toCharArray()) {
+            switch (c) {
+                case '"':  sb.append("\\\""); break;
+                case '\\': sb.append("\\\\"); break;
+                case '\n': sb.append("\\n");  break;
+                case '\r': sb.append("\\r");  break;
+                case '\t': sb.append("\\t");  break;
+                default:
+                    if (c < 0x20) sb.append(String.format("\\u%04x", (int) c));
+                    else sb.append(c);
+            }
+        }
+        return sb.toString();
+    }
+%>
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -14,154 +54,224 @@
         </c:choose>
     </title>
     <link rel="stylesheet" href="${pageContext.request.contextPath}/css/dashboard.css">
+    <style>
+        /* Checklist card */
+        .checklist-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        @media(max-width:700px){ .checklist-grid { grid-template-columns: 1fr; } }
+
+        .check-item {
+            border: 1.5px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+            transition: border-color .2s;
+        }
+        .check-item.checked {
+            border-color: var(--teal-400);
+            background: var(--teal-50);
+        }
+        .check-item-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .check-item-header input[type=checkbox] {
+            width: 18px; height: 18px;
+            accent-color: var(--teal-500);
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .check-item-header label {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text);
+            cursor: pointer;
+            flex: 1;
+        }
+        .check-item-note {
+            display: none;
+            padding: 0 14px 10px 42px;
+        }
+        .check-item-note textarea {
+            width: 100%;
+            font-size: 13px;
+            padding: 6px 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            resize: vertical;
+            min-height: 56px;
+            font-family: inherit;
+            color: var(--text);
+            background: #fff;
+        }
+        .check-item-note textarea:focus {
+            outline: none;
+            border-color: var(--teal-500);
+            box-shadow: 0 0 0 2px rgba(30,138,120,.1);
+        }
+        .check-item.checked .check-item-note { display: block; }
+
+        /* Read-only checklist */
+        .check-read-item {
+            padding: 10px 14px;
+            border: 1px solid var(--teal-100);
+            border-radius: 8px;
+            background: var(--teal-50);
+            margin-bottom: 8px;
+        }
+        .check-read-item .name { font-weight: 600; color: var(--teal-800); font-size: 14px; }
+        .check-read-item .note { font-size: 13px; color: var(--text-mid); margin-top: 3px; }
+
+        /* Prescription table */
+        .rx-table { width:100%; border-collapse:collapse; font-size:14px; }
+        .rx-table thead th {
+            font-size:12px; font-weight:600; color:var(--text-soft);
+            text-transform:uppercase; letter-spacing:.5px;
+            padding:8px 10px; border-bottom:1px solid var(--border); text-align:left;
+        }
+        .rx-table tbody td { padding:8px 10px; border-bottom:1px solid var(--border); vertical-align:middle; }
+        .rx-table tbody tr:last-child td { border-bottom:none; }
+        .rx-table select.form-control,
+        .rx-table input.form-control  { font-size:13px; padding:6px 10px; }
+        .add-row-btn {
+            background:none; border:1.5px dashed var(--teal-400); color:var(--teal-500);
+            border-radius:8px; padding:8px 16px; font-size:13px; font-family:inherit;
+            cursor:pointer; width:100%; margin-top:10px; transition:var(--transition);
+        }
+        .add-row-btn:hover { background:var(--teal-50); }
+        .rm-btn {
+            background:none; border:none; color:var(--red-400); cursor:pointer;
+            font-size:18px; line-height:1; padding:2px 6px; border-radius:4px;
+        }
+        .rm-btn:hover { background:var(--red-100); }
+
+        /* History accordion */
+        .hist-item { border:1px solid var(--border); border-radius:8px; margin-bottom:8px; overflow:hidden; }
+        .hist-hdr {
+            display:flex; justify-content:space-between; align-items:center;
+            padding:10px 14px; background:var(--bg); cursor:pointer; user-select:none;
+        }
+        .hist-hdr:hover { background:var(--teal-50); }
+        .hist-body { display:none; padding:14px 16px; border-top:1px solid var(--border); font-size:13.5px; line-height:1.7; }
+        .hist-body.open { display:block; }
+        .hist-body dl { display:grid; grid-template-columns:130px 1fr; gap:4px 10px; }
+        .hist-body dt { font-weight:600; color:var(--text-mid); }
+
+        /* Pet strip */
+        .pet-strip {
+            display:flex; gap:12px; flex-wrap:wrap;
+            background:var(--teal-50); border:1px solid var(--teal-100);
+            border-radius:10px; padding:14px 18px; margin-bottom:20px;
+        }
+        .pet-strip-item { display:flex; flex-direction:column; gap:2px; min-width:100px; }
+        .pet-strip-item .lbl { font-size:11px; text-transform:uppercase; letter-spacing:.6px; color:var(--text-soft); font-weight:500; }
+        .pet-strip-item .val { font-size:14px; font-weight:600; color:var(--teal-800); }
+    </style>
 </head>
 <body>
-
 <div class="layout">
-
-    <%-- ── Sidebar ──────────────────────────────────────────────────────────── --%>
     <aside class="sidebar">
         <div class="sidebar-logo">🐾 PetClinic</div>
         <nav>
-            <a href="${pageContext.request.contextPath}/vet/examination" class="nav-item active">
-                 Hàng chờ khám
-            </a>
+            <a href="${pageContext.request.contextPath}/vet/examination" class="nav-item active">🩺 Hàng chờ khám</a>
         </nav>
         <div class="sidebar-user">
-             ${sessionScope.staff.fullName}
+            👤 ${sessionScope.staff.fullName}
             <a href="${pageContext.request.contextPath}/auth/logout" class="logout-link">Đăng xuất</a>
         </div>
     </aside>
 
-    <%-- ── Main content ──────────────────────────────────────────────────────── --%>
     <main class="main-content">
 
-        <%-- ═══════════════════════════════════════════════════════════════════
-             BRANCH A: READ-ONLY VIEW  (recordID present → record loaded)
-             ═══════════════════════════════════════════════════════════════════ --%>
+        <%-- ═══════════════════════════════════════════════════════════════════════════
+             READ-ONLY VIEW
+             ═══════════════════════════════════════════════════════════════════════════ --%>
         <c:if test="${not empty record}">
-
             <div class="page-header">
-                <h1> Bệnh Án #${record.recordID}</h1>
-                <p class="page-sub">Thông tin khám bệnh – chỉ xem</p>
+                <h1>Bệnh Án #${record.recordID}</h1>
+                <p class="page-sub">Chỉ xem — không chỉnh sửa</p>
             </div>
+            <a href="${pageContext.request.contextPath}/vet/examination" class="btn btn-outline btn-sm" style="margin-bottom:18px;">← Quay lại</a>
 
-            <a href="${pageContext.request.contextPath}/vet/examination"
-               class="btn btn-outline btn-sm" style="margin-bottom:20px;">← Quay lại hàng chờ</a>
-
-            <%-- Patient summary strip --%>
-            <div class="pet-info-strip">
-                <div class="pet-info-item">
-                    <span class="label">Thú cưng</span>
-                    <span class="value">🐾 <c:out value="${record.petName}"/></span>
-                </div>
-                <div class="pet-info-item">
-                    <span class="label">Chủ nhân</span>
-                    <span class="value"><c:out value="${record.ownerName}"/></span>
-                </div>
-                <div class="pet-info-item">
-                    <span class="label">Bác sĩ</span>
-                    <span class="value"><c:out value="${record.vetName}"/></span>
-                </div>
-                <div class="pet-info-item">
-                    <span class="label">Ngày khám</span>
-                    <span class="value">
-                        <c:out value="${fn:substring(record.createdAt, 8, 10)}/${fn:substring(record.createdAt, 5, 7)}/${fn:substring(record.createdAt, 0, 4)} ${fn:substring(record.createdAt, 11, 16)}"/>
-                    </span>
-                </div>
+            <div class="pet-strip">
+                <div class="pet-strip-item"><span class="lbl">Thú cưng</span><span class="val">🐾 <c:out value="${record.petName}"/></span></div>
+                <div class="pet-strip-item"><span class="lbl">Chủ nhân</span><span class="val"><c:out value="${record.ownerName}"/></span></div>
+                <div class="pet-strip-item"><span class="lbl">Bác sĩ</span><span class="val"><c:out value="${record.vetName}"/></span></div>
+                <div class="pet-strip-item"><span class="lbl">Ngày khám</span><span class="val">${record.createdAt}</span></div>
             </div>
 
             <%-- Vitals --%>
-            <div class="card">
-                <div class="card-header">
-                    <span class="card-title"> Thông số</span>
-                </div>
+            <div class="card" style="margin-bottom:16px;">
+                <div class="card-header"><span class="card-title">Thông số</span></div>
                 <div class="card-body">
                     <div class="form-row col-2">
-                        <div>
-                            <div class="record-field">
-                                <span class="record-field-label">Cân nặng (kg)</span>
-                                <span class="record-field-value">
-                                    <c:choose>
-                                        <c:when test="${not empty record.weight}">${record.weight}</c:when>
-                                        <c:otherwise>—</c:otherwise>
-                                    </c:choose>
-                                </span>
-                            </div>
-                        </div>
-                        <div>
-                            <div class="record-field">
-                                <span class="record-field-label">Thân nhiệt (°C)</span>
-                                <span class="record-field-value">
-                                    <c:choose>
-                                        <c:when test="${not empty record.temperature}">${record.temperature}</c:when>
-                                        <c:otherwise>—</c:otherwise>
-                                    </c:choose>
-                                </span>
-                            </div>
-                        </div>
+                        <div class="record-field"><span class="record-field-label">Cân nặng (kg)</span>
+                            <span class="record-field-value">${not empty record.weight ? record.weight : '—'}</span></div>
+                        <div class="record-field"><span class="record-field-label">Thân nhiệt (°C)</span>
+                            <span class="record-field-value">${not empty record.temperature ? record.temperature : '—'}</span></div>
                     </div>
                 </div>
             </div>
 
-            <%-- Clinical notes --%>
-            <div class="card">
-                <div class="card-header">
-                    <span class="card-title"> Ghi chú lâm sàng</span>
-                </div>
+            <%-- Symptoms --%>
+            <div class="card" style="margin-bottom:16px;">
+                <div class="card-header"><span class="card-title">Triệu chứng</span></div>
                 <div class="card-body">
-                    <div class="record-field">
-                        <span class="record-field-label">Triệu chứng</span>
-                        <span class="record-field-value"><c:out value="${record.symptoms}"/></span>
-                    </div>
-                    <div class="record-field">
-                        <span class="record-field-label">Chẩn đoán</span>
-                        <span class="record-field-value"><c:out value="${record.diagnosis}"/></span>
-                    </div>
-                    <div class="record-field">
-                        <span class="record-field-label">Phác đồ điều trị</span>
-                        <span class="record-field-value"><c:out value="${record.treatmentPlan}"/></span>
-                    </div>
+                    <p style="white-space:pre-wrap;font-size:14px;"><c:out value="${record.symptoms}"/></p>
+                </div>
+            </div>
+
+            <%-- Diagnosis (lab tests) --%>
+            <div class="card" style="margin-bottom:16px;">
+                <div class="card-header"><span class="card-title">Chẩn đoán / Xét nghiệm</span></div>
+                <div class="card-body">
+                    <c:choose>
+                        <c:when test="${not empty record.diagnosis}">
+                            <p style="white-space:pre-wrap;font-size:14px;"><c:out value="${record.diagnosis}"/></p>
+                        </c:when>
+                        <c:otherwise><p style="color:var(--text-soft)">—</p></c:otherwise>
+                    </c:choose>
+                </div>
+            </div>
+
+            <%-- Treatment plan --%>
+            <div class="card" style="margin-bottom:16px;">
+                <div class="card-header"><span class="card-title">Phác đồ điều trị</span></div>
+                <div class="card-body">
+                    <c:choose>
+                        <c:when test="${not empty record.treatmentPlan}">
+                            <p style="white-space:pre-wrap;font-size:14px;"><c:out value="${record.treatmentPlan}"/></p>
+                        </c:when>
+                        <c:otherwise><p style="color:var(--text-soft)">—</p></c:otherwise>
+                    </c:choose>
                 </div>
             </div>
 
             <%-- Prescription --%>
             <c:if test="${record.hasPrescription()}">
                 <div class="card">
-                    <div class="card-header">
-                        <span class="card-title"> Đơn thuốc</span>
-                    </div>
+                    <div class="card-header"><span class="card-title">Đơn thuốc</span></div>
                     <div class="card-body" style="padding:0;">
                         <table class="data-table">
                             <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Tên thuốc</th>
-                                <th>Liều dùng</th>
-                                <th>Số lượng</th>
-                                <th>Đơn vị</th>
-                                <th>Đơn giá</th>
-                                <th>Thành tiền</th>
-                            </tr>
+                            <tr><th>#</th><th>Tên thuốc</th><th>Liều dùng</th><th>Số lượng</th><th>Đơn vị</th><th>Đơn giá</th><th>Thành tiền</th></tr>
                             </thead>
                             <tbody>
-                            <c:forEach items="${record.prescriptionItems}" var="item" varStatus="vs">
+                            <c:forEach items="${record.prescriptionItems}" var="pi" varStatus="vs">
                                 <tr>
                                     <td>${vs.count}</td>
-                                    <td><strong><c:out value="${item.medicineName}"/></strong></td>
-                                    <td><c:out value="${item.dosage}"/></td>
-                                    <td>${item.quantity}</td>
-                                    <td><c:out value="${item.medicineUnit}"/></td>
-                                    <td>
-                                        <fmt:formatNumber value="${item.unitPrice}" type="currency"
-                                                          currencySymbol="" groupingUsed="true"/>
-                                    </td>
-                                    <td>
-                                        <strong>
-                                            <fmt:formatNumber value="${item.lineTotal}" type="currency"
-                                                              currencySymbol="" groupingUsed="true"/>
-                                        </strong>
-                                    </td>
+                                    <td><strong><c:out value="${pi.medicineName}"/></strong></td>
+                                    <td><c:out value="${pi.dosage}"/></td>
+                                    <td>${pi.quantity}</td>
+                                    <td><c:out value="${pi.medicineUnit}"/></td>
+                                    <td><fmt:formatNumber value="${pi.unitPrice}" type="number" groupingUsed="true"/></td>
+                                    <td><strong><fmt:formatNumber value="${pi.lineTotal}" type="number" groupingUsed="true"/></strong></td>
                                 </tr>
                             </c:forEach>
                             </tbody>
@@ -169,116 +279,54 @@
                     </div>
                 </div>
             </c:if>
+        </c:if>
 
-        </c:if><%-- end read-only view --%>
 
-
-        <%-- ═══════════════════════════════════════════════════════════════════
-             BRANCH B: EXAMINATION FORM  (appointment loaded, no record yet)
-             ═══════════════════════════════════════════════════════════════════ --%>
+        <%-- ═══════════════════════════════════════════════════════════════════════════
+             EXAMINATION FORM
+             ═══════════════════════════════════════════════════════════════════════════ --%>
         <c:if test="${not empty appointment}">
-
             <div class="page-header">
                 <h1>🩺 Khám Bệnh</h1>
-                <p class="page-sub">
-                    <c:out value="${appointment.petName}"/> –
-                    <c:out value="${appointment.customerName}"/> –
-                    <c:out value="${appointment.serviceName}"/>
-                </p>
+                <p class="page-sub"><c:out value="${appointment.petName}"/> — <c:out value="${appointment.customerName}"/> — <c:out value="${appointment.serviceName}"/></p>
             </div>
+            <a href="${pageContext.request.contextPath}/vet/examination" class="btn btn-outline btn-sm" style="margin-bottom:18px;">← Quay lại hàng chờ</a>
 
-            <a href="${pageContext.request.contextPath}/vet/examination"
-               class="btn btn-outline btn-sm" style="margin-bottom:20px;">← Quay lại hàng chờ</a>
-
-            <%-- Error banner --%>
             <c:if test="${not empty error}">
-                <div class="alert alert-error">
-                    <span class="alert-icon">✕</span>
-                    <span>${error}</span>
-                </div>
+                <div class="alert alert-error"><span class="alert-icon">✕</span> ${error}</div>
             </c:if>
 
-            <%-- Patient strip --%>
-            <div class="pet-info-strip">
-                <div class="pet-info-item">
-                    <span class="label">Thú cưng</span>
-                    <span class="value"> <c:out value="${appointment.petName}"/></span>
-                </div>
-                <div class="pet-info-item">
-                    <span class="label">Chủ nhân</span>
-                    <span class="value"><c:out value="${appointment.customerName}"/></span>
-                </div>
-                <div class="pet-info-item">
-                    <span class="label">Bác sĩ</span>
-                    <span class="value"><c:out value="${appointment.vetName != null ? appointment.vetName : sessionScope.staff.fullName}"/></span>
-                </div>
-                <div class="pet-info-item">
-                    <span class="label">Dịch vụ</span>
-                    <span class="value"><c:out value="${appointment.serviceName}"/></span>
-                </div>
-                <div class="pet-info-item">
-                    <span class="label">Trạng thái</span>
-                    <span class="value">
-                        <span class="badge badge-info"> Đang khám</span>
-                    </span>
-                </div>
+            <%-- Pet strip --%>
+            <div class="pet-strip">
+                <div class="pet-strip-item"><span class="lbl">Thú cưng</span><span class="val">🐾 <c:out value="${appointment.petName}"/></span></div>
+                <div class="pet-strip-item"><span class="lbl">Chủ nhân</span><span class="val"><c:out value="${appointment.customerName}"/></span></div>
+                <div class="pet-strip-item"><span class="lbl">Bác sĩ</span><span class="val"><c:out value="${not empty appointment.vetName ? appointment.vetName : sessionScope.staff.fullName}"/></span></div>
+                <div class="pet-strip-item"><span class="lbl">Ca</span><span class="val">Ca ${appointment.slotShift}</span></div>
+                <div class="pet-strip-item"><span class="lbl">Trạng thái</span><span class="val"><span class="badge badge-info">🩺 Đang khám</span></span></div>
             </div>
 
-            <%-- ── Pet Medical History (collapsible) ────────────────────────── --%>
+            <%-- History --%>
             <c:if test="${not empty history}">
-                <div class="card">
+                <div class="card" style="margin-bottom:16px;">
                     <div class="card-header">
-                        <span class="card-title"> Lịch sử khám bệnh (${fn:length(history)} lần)</span>
-                        <button type="button" class="btn btn-outline btn-sm" id="toggleHistoryBtn"
-                                onclick="toggleHistory()">Hiện / Ẩn</button>
+                        <span class="card-title">Lịch sử khám (${history.size()} lần)</span>
+                        <button type="button" class="btn btn-outline btn-sm" onclick="toggleHist()">Hiện / Ẩn</button>
                     </div>
-                    <div id="historySection" style="display:none; padding:16px 24px;">
+                    <div id="histSection" style="display:none;padding:14px 20px;">
                         <c:forEach items="${history}" var="h" varStatus="vs">
-                            <div class="history-item">
-                                <div class="history-item-header" onclick="toggleAccordion(this)">
-                                    <span>
-                                        <strong>#${vs.count}</strong> –
-                                        <c:out value="${fn:substring(h.createdAt, 8, 10)}/${fn:substring(h.createdAt, 5, 7)}/${fn:substring(h.createdAt, 0, 4)}"/>
-                                        &nbsp;|&nbsp; <c:out value="${h.diagnosis != null ? h.diagnosis : 'Chưa có chẩn đoán'}"/>
-                                    </span>
-                                    <span class="toggle-icon">▼</span>
+                            <div class="hist-item">
+                                <div class="hist-hdr" onclick="toggleAcc(this)">
+                                    <span><strong>#${vs.count}</strong> — ${h.createdAt} &nbsp;|&nbsp; <c:out value="${not empty h.diagnosis ? h.diagnosis : 'Chưa có chẩn đoán'}"/></span>
+                                    <span>▼</span>
                                 </div>
-                                <div class="history-item-body">
+                                <div class="hist-body">
                                     <dl>
-                                        <dt>Cân nặng</dt>
-                                        <dd>${not empty h.weight ? h.weight : '—'} kg</dd>
-                                        <dt>Thân nhiệt</dt>
-                                        <dd>${not empty h.temperature ? h.temperature : '—'} °C</dd>
-                                        <dt>Triệu chứng</dt>
-                                        <dd><c:out value="${not empty h.symptoms ? h.symptoms : '—'}"/></dd>
-                                        <dt>Chẩn đoán</dt>
-                                        <dd><c:out value="${not empty h.diagnosis ? h.diagnosis : '—'}"/></dd>
-                                        <dt>Phác đồ</dt>
-                                        <dd><c:out value="${not empty h.treatmentPlan ? h.treatmentPlan : '—'}"/></dd>
+                                        <dt>Cân nặng</dt><dd>${not empty h.weight ? h.weight : '—'} kg</dd>
+                                        <dt>Thân nhiệt</dt><dd>${not empty h.temperature ? h.temperature : '—'} °C</dd>
+                                        <dt>Triệu chứng</dt><dd><c:out value="${not empty h.symptoms ? h.symptoms : '—'}"/></dd>
+                                        <dt>Chẩn đoán</dt><dd><c:out value="${not empty h.diagnosis ? h.diagnosis : '—'}"/></dd>
+                                        <dt>Phác đồ</dt><dd><c:out value="${not empty h.treatmentPlan ? h.treatmentPlan : '—'}"/></dd>
                                     </dl>
-                                    <c:if test="${h.hasPrescription()}">
-                                        <div style="margin-top:12px;">
-                                            <strong style="font-size:13px;"> Đơn thuốc:</strong>
-                                            <table class="prescription-table" style="margin-top:8px;">
-                                                <thead>
-                                                <tr>
-                                                    <th>Thuốc</th><th>Liều dùng</th>
-                                                    <th>SL</th><th>Đơn vị</th>
-                                                </tr>
-                                                </thead>
-                                                <tbody>
-                                                <c:forEach items="${h.prescriptionItems}" var="pi">
-                                                    <tr>
-                                                        <td><c:out value="${pi.medicineName}"/></td>
-                                                        <td><c:out value="${pi.dosage}"/></td>
-                                                        <td>${pi.quantity}</td>
-                                                        <td><c:out value="${pi.medicineUnit}"/></td>
-                                                    </tr>
-                                                </c:forEach>
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </c:if>
                                 </div>
                             </div>
                         </c:forEach>
@@ -286,287 +334,264 @@
                 </div>
             </c:if>
 
-            <%-- ── Examination Form ───────────────────────────────────────────── --%>
-            <form action="${pageContext.request.contextPath}/vet/examination"
-                  method="post" id="examForm" novalidate>
-
+            <%-- ── FORM ────────────────────────────────────────────────────────────── --%>
+            <form action="${pageContext.request.contextPath}/vet/examination" method="post" id="examForm" novalidate>
                 <input type="hidden" name="appointmentID" value="${appointment.appointmentID}">
 
-                    <%-- Vitals --%>
-                <div class="card">
-                    <div class="card-header">
-                        <span class="card-title"> Thông số</span>
-                    </div>
+                    <%-- 1. Vitals --%>
+                <div class="card" style="margin-bottom:16px;">
+                    <div class="card-header"><span class="card-title">Thông số</span></div>
                     <div class="card-body">
                         <div class="form-row col-2">
                             <div class="form-group">
                                 <label class="form-label" for="weight">Cân nặng (kg)</label>
                                 <input type="number" id="weight" name="weight" class="form-control no-icon"
-                                       step="0.01" min="0" max="999"
-                                       placeholder="VD: 4.5"
-                                       value="<c:out value='${param.weight}'/>">
+                                       step="0.01" min="0" max="999" placeholder="VD: 4.5">
                             </div>
                             <div class="form-group">
                                 <label class="form-label" for="temperature">Thân nhiệt (°C)</label>
                                 <input type="number" id="temperature" name="temperature" class="form-control no-icon"
-                                       step="0.1" min="30" max="45"
-                                       placeholder="VD: 38.5"
-                                       value="<c:out value='${param.temperature}'/>">
+                                       step="0.1" min="30" max="45" placeholder="VD: 38.5">
                             </div>
                         </div>
                     </div>
                 </div>
 
-                    <%-- Clinical notes --%>
-                <div class="card">
-                    <div class="card-header">
-                        <span class="card-title"> Ghi chú lâm sàng</span>
-                    </div>
+                    <%-- 2. Symptoms --%>
+                <div class="card" style="margin-bottom:16px;">
+                    <div class="card-header"><span class="card-title">Triệu chứng <span style="color:var(--red-400)">*</span></span></div>
                     <div class="card-body">
-                        <div class="form-group">
-                            <label class="form-label" for="symptoms">
-                                Triệu chứng <span class="required">*</span>
-                            </label>
-                            <textarea id="symptoms" name="symptoms" class="form-control"
-                                      rows="3" placeholder="Mô tả triệu chứng quan sát được..."
-                                      required><c:out value='${not empty symptoms ? symptoms : param.symptoms}'/></textarea>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label" for="diagnosis">
-                                Chẩn đoán <span class="required">*</span>
-                            </label>
-                            <textarea id="diagnosis" name="diagnosis" class="form-control"
-                                      rows="3" placeholder="Kết quả chẩn đoán..."
-                                      required><c:out value='${not empty diagnosis ? diagnosis : param.diagnosis}'/></textarea>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label" for="treatmentPlan">Phác đồ điều trị</label>
-                            <textarea id="treatmentPlan" name="treatmentPlan" class="form-control"
-                                      rows="3" placeholder="Hướng dẫn điều trị, chú ý chăm sóc..."><c:out value='${not empty treatmentPlan ? treatmentPlan : param.treatmentPlan}'/></textarea>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label" for="followUpDate">Ngày tái khám</label>
-                            <input type="date" id="followUpDate" name="followUpDate"
-                                   class="form-control no-icon" style="max-width:220px;"
-                                   min="<%= java.time.LocalDate.now().plusDays(1) %>">
-                            <div class="form-hint">Để trống nếu không cần tái khám.</div>
-                        </div>
+        <textarea name="symptoms" id="symptoms" class="form-control" rows="3"
+                  placeholder="Mô tả triệu chứng quan sát được..." required><c:out value="${symptoms}"/></textarea>
                     </div>
                 </div>
 
-                    <%-- Prescription --%>
-                <div class="card">
+                    <%-- 3. Lab tests (xét nghiệm) --%>
+                <div class="card" style="margin-bottom:16px;">
                     <div class="card-header">
-                        <span class="card-title"> Đơn thuốc</span>
-                        <span style="font-size:13px;color:var(--text-soft);">Để trống nếu không kê đơn</span>
+                        <span class="card-title">🔬 Chẩn đoán — Loại xét nghiệm</span>
+                        <span style="font-size:12px;color:var(--text-soft);">Tích chọn và ghi chú từng loại</span>
                     </div>
                     <div class="card-body">
-                        <table class="prescription-table" id="prescriptionTable">
+                        <c:choose>
+                            <c:when test="${not empty labTests}">
+                                <div class="checklist-grid" id="labGrid">
+                                    <c:forEach items="${labTests}" var="llt">
+                                        <div class="check-item" id="labItem_${llt.serviceID}">
+                                            <div class="check-item-header">
+                                                <input type="checkbox"
+                                                       id="lab_${llt.serviceID}"
+                                                       name="labTestID[]"
+                                                       value="${llt.serviceID}"
+                                                       onchange="toggleCheckItem(this, 'labItem_${llt.serviceID}')">
+                                                <input type="hidden" name="labTestName_${llt.serviceID}" value="<c:out value='${llt.name}'/>">
+                                                <label for="lab_${llt.serviceID}"><c:out value="${llt.name}"/></label>
+                                                <c:if test="${llt.price > 0}">
+                      <span style="font-size:12px;color:var(--text-soft);">
+                        <fmt:formatNumber value="${llt.price}" type="number" groupingUsed="true"/>đ
+                      </span>
+                                                </c:if>
+                                            </div>
+                                            <div class="check-item-note">
+                    <textarea name="labTestNote_${llt.serviceID}"
+                              placeholder="Ghi chú cho ${llt.name}..."></textarea>
+                                            </div>
+                                        </div>
+                                    </c:forEach>
+                                </div>
+                            </c:when>
+                            <c:otherwise>
+                                <div class="alert alert-warning">
+                                    <span class="alert-icon">⚠</span>
+                                    Chưa có danh sách xét nghiệm. Vui lòng chạy script SQL bp02_extend.sql.
+                                </div>
+                            </c:otherwise>
+                        </c:choose>
+                    </div>
+                </div>
+
+                    <%-- 4. Treatment plans (phác đồ) --%>
+                <div class="card" style="margin-bottom:16px;">
+                    <div class="card-header">
+                        <span class="card-title"> Phác đồ điều trị</span>
+                        <span style="font-size:12px;color:var(--text-soft);">Tích chọn và ghi chú từng phác đồ</span>
+                    </div>
+                    <div class="card-body">
+                        <c:choose>
+                            <c:when test="${not empty treatmentPlans}">
+                                <div class="checklist-grid" id="treatGrid">
+                                    <c:forEach items="${treatmentPlans}" var="tp">
+                                        <div class="check-item" id="treatItem_${tp.serviceID}">
+                                            <div class="check-item-header">
+                                                <input type="checkbox"
+                                                       id="treat_${tp.serviceID}"
+                                                       name="treatmentID[]"
+                                                       value="${tp.serviceID}"
+                                                       onchange="toggleCheckItem(this, 'treatItem_${tp.serviceID}')">
+                                                <input type="hidden" name="treatmentName_${tp.serviceID}" value="<c:out value='${tp.name}'/>">
+                                                <label for="treat_${tp.serviceID}"><c:out value="${tp.name}"/></label>
+                                            </div>
+                                            <div class="check-item-note">
+                    <textarea name="treatmentNote_${tp.serviceID}"
+                              placeholder="Ghi chú cho ${tp.name}..."></textarea>
+                                            </div>
+                                        </div>
+                                    </c:forEach>
+                                </div>
+                            </c:when>
+                            <c:otherwise>
+                                <div class="alert alert-warning">
+                                    <span class="alert-icon">⚠</span>
+                                    Chưa có danh sách phác đồ. Vui lòng chạy script SQL bp02_extend.sql.
+                                </div>
+                            </c:otherwise>
+                        </c:choose>
+                    </div>
+                </div>
+
+                    <%-- 5. Follow-up date --%>
+                <div class="card" style="margin-bottom:16px;">
+                    <div class="card-header"><span class="card-title"> Ngày tái khám</span></div>
+                    <div class="card-body">
+                        <input type="date" name="followUpDate" class="form-control no-icon" style="max-width:200px;"
+                               min="<%= java.time.LocalDate.now().plusDays(1) %>">
+                        <div class="form-hint">Để trống nếu không cần tái khám.</div>
+                    </div>
+                </div>
+
+                    <%-- 6. Prescription --%>
+                <div class="card" style="margin-bottom:16px;">
+                    <div class="card-header">
+                        <span class="card-title">Kê đơn thuốc</span>
+                        <span style="font-size:12px;color:var(--text-soft);">Để trống nếu không kê đơn</span>
+                    </div>
+                    <div class="card-body">
+                        <table class="rx-table" id="rxTable">
                             <thead>
                             <tr>
-                                <th style="width:32%">Thuốc</th>
-                                <th style="width:34%">Liều dùng</th>
-                                <th style="width:18%">Số lượng</th>
-                                <th style="width:10%">Tồn kho</th>
+                                <th style="width:35%">Thuốc</th>
+                                <th style="width:33%">Liều dùng</th>
+                                <th style="width:16%">Số lượng</th>
+                                <th style="width:10%">Còn kho</th>
                                 <th style="width:6%"></th>
                             </tr>
                             </thead>
-                            <tbody id="prescriptionBody">
-                                <%-- Rows injected by JS --%>
-                            </tbody>
+                            <tbody id="rxBody"></tbody>
                         </table>
-                        <button type="button" class="add-row-btn" onclick="addPrescriptionRow()">
-                            + Thêm thuốc vào đơn
-                        </button>
+                        <button type="button" class="add-row-btn" onclick="addRxRow()">+ Thêm thuốc</button>
 
-                            <%-- MEDICINES array moved to bottom script block --%>
+                            <%-- Medicine data for JS (built safely server-side, see scriptlet at top of file) --%>
+                        <script type="application/json" id="medData"><%= __medJson.toString() %></script>
                     </div>
                 </div>
 
                     <%-- Submit --%>
-                <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:4px;padding-bottom:40px;">
-                    <a href="${pageContext.request.contextPath}/vet/examination"
-                       class="btn btn-outline btn-lg">Hủy bỏ</a>
+                <div style="display:flex;gap:12px;justify-content:flex-end;padding-bottom:40px;">
+                    <a href="${pageContext.request.contextPath}/vet/examination" class="btn btn-outline btn-lg">Hủy</a>
                     <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
                         Lưu bệnh án & Hoàn thành khám
                     </button>
                 </div>
-
             </form>
+        </c:if>
 
-        </c:if><%-- end examination form --%>
-
-
-        <%-- Fallback if neither record nor appointment loaded --%>
+        <%-- Fallback --%>
         <c:if test="${empty record && empty appointment}">
-            <div class="page-header">
-                <h1>🩺 Khám Bệnh</h1>
-            </div>
-            <div class="card">
-                <div class="empty-state">
-                    <div class="empty-icon">⚠️</div>
-                    <p>Không tìm thấy dữ liệu. <a href="${pageContext.request.contextPath}/vet/examination">Quay lại hàng chờ</a></p>
-                </div>
-            </div>
+            <div class="page-header"><h1>🩺 Khám Bệnh</h1></div>
+            <div class="card"><div class="empty-state"><div class="empty-icon">⚠️</div>
+                <p>Không tìm thấy dữ liệu. <a href="${pageContext.request.contextPath}/vet/examination">Quay lại hàng chờ</a></p>
+            </div></div>
         </c:if>
 
     </main>
 </div>
 
-<%-- ── Scripts ─────────────────────────────────────────────────────────────── --%>
-
-<%--
-    FIX: MEDICINES phải được khai báo TRƯỚC buildMedicineSelect().
-         Dùng JSP scriptlet để xuất JSON an toàn (tránh c:out escape dấu nháy đơn).
-         Đặt ngoài c:if để đảm bảo luôn render dù branch nào được hiển thị.
---%>
+<script src="${pageContext.request.contextPath}/js/dashboard.js"></script>
 <script>
-    <%-- Xuất mảng MEDICINES dưới dạng JSON chuẩn, dùng fn:replace để escape nháy đơn trong tên thuốc --%>
-    const MEDICINES = [
-        <c:forEach items="${medicines}" var="m" varStatus="vs">
-        {
-            "id":    ${m.medicineID},
-            "name":  "<c:out value='${m.name}' escapeXml='false'/>".replace(/"/g,'&quot;'),
-            "unit":  "<c:out value='${m.unit}' escapeXml='false'/>".replace(/"/g,'&quot;'),
-            "price": ${m.unitPrice != null ? m.unitPrice : 0},
-            "stock": ${m.stockQty}
-        }<c:if test="${!vs.last}">,</c:if>
-        </c:forEach>
-    ];
-</script>
+    // ── Medicine data ─────────────────────────────────────────────────────────
+    const MEDS = JSON.parse(document.getElementById('medData')?.textContent || '[]');
 
-<script>
-    /* ── Build select HTML từ MEDICINES array ───────────────────────────────── */
-    function buildMedicineSelect(selectedId) {
-        let html = '<option value="">— Chọn thuốc —</option>';
-        MEDICINES.forEach(function(m) {
-            const sel = (selectedId && m.id == selectedId) ? ' selected' : '';
-            html += '<option value="' + m.id + '"'
-                  + ' data-unit="'  + m.unit  + '"'
-                  + ' data-price="' + m.price + '"'
-                  + ' data-stock="' + m.stock + '"'
-                  + sel + '>'
-                  + m.name + ' (' + m.unit + ') — còn ' + m.stock
-                  + '</option>';
-        });
-        return html;
+    function buildMedOptions() {
+        return '<option value="">— Chọn thuốc —</option>' +
+            MEDS.map(m =>
+                '<option value="'+m.id+'" data-unit="'+m.unit+'" data-stock="'+m.stock+'">'
+                + m.name + ' ('+m.unit+') — còn '+m.stock+'</option>'
+            ).join('');
     }
 
-    /* ── Add prescription row ─────────────────────────────────────────────────── */
-    var rowIndex = 0;
-
-    function addPrescriptionRow() {
-        rowIndex++;
-        var tbody = document.getElementById('prescriptionBody');
-        var tr = document.createElement('tr');
-        tr.dataset.row = rowIndex;
+    let rxIdx = 0;
+    function addRxRow() {
+        rxIdx++;
+        const tr = document.createElement('tr');
         tr.innerHTML =
-            '<td>'
-          +   '<select name="medicineID[]" class="form-control" onchange="onMedicineChange(this)"'
-          +         ' style="padding-left:10px;">'
-          +     buildMedicineSelect()
-          +   '</select>'
-          + '</td>'
-          + '<td>'
-          +   '<input type="text" name="dosage[]" class="form-control"'
-          +         ' placeholder="VD: 2 lần/ngày, 1 viên/lần">'
-          + '</td>'
-          + '<td>'
-          +   '<input type="number" name="quantity[]" class="form-control"'
-          +         ' min="1" step="1" value="1" style="width:80px;">'
-          + '</td>'
-          + '<td class="stock-cell" style="color:var(--text-soft);font-size:13px;">—</td>'
-          + '<td>'
-          +   '<button type="button" class="remove-row-btn" onclick="removeRow(this)" title="Xóa hàng">×</button>'
-          + '</td>';
-        tbody.appendChild(tr);
+            '<td><select name="medicineID[]" class="form-control" onchange="onMedChange(this)" style="padding-left:10px;">'
+            + buildMedOptions() +
+            '</select></td>'
+            + '<td><input type="text" name="dosage[]" class="form-control" placeholder="VD: 2 lần/ngày, 1 viên/lần"></td>'
+            + '<td><input type="number" name="quantity[]" class="form-control" min="1" step="1" value="1" style="width:80px;"></td>'
+            + '<td class="stk" style="color:var(--text-soft);font-size:13px;">—</td>'
+            + '<td><button type="button" class="rm-btn" onclick="this.closest(\'tr\').remove()" title="Xóa">×</button></td>';
+        document.getElementById('rxBody').appendChild(tr);
     }
 
-    function onMedicineChange(sel) {
-        var opt   = sel.options[sel.selectedIndex];
-        var stock = opt.dataset.stock;
-        var stockCell = sel.closest('tr').querySelector('.stock-cell');
-        if (stock !== undefined && opt.value) {
-            stockCell.textContent = stock + ' ' + (opt.dataset.unit || '');
-            stockCell.style.color = parseInt(stock) < 5 ? 'var(--red-400)' : 'var(--text-soft)';
+    function onMedChange(sel) {
+        const opt = sel.options[sel.selectedIndex];
+        const cell = sel.closest('tr').querySelector('.stk');
+        if (opt.value) {
+            const stock = opt.dataset.stock;
+            cell.textContent = stock + ' ' + (opt.dataset.unit || '');
+            cell.style.color = parseInt(stock) < 5 ? 'var(--red-400)' : 'var(--text-soft)';
         } else {
-            stockCell.textContent = '—';
-            stockCell.style.color = 'var(--text-soft)';
+            cell.textContent = '—';
+            cell.style.color = 'var(--text-soft)';
         }
     }
 
-    function removeRow(btn) {
-        btn.closest('tr').remove();
+    // ── Checklist toggle ──────────────────────────────────────────────────────
+    function toggleCheckItem(cb, itemId) {
+        const item = document.getElementById(itemId);
+        if (cb.checked) { item.classList.add('checked'); }
+        else            { item.classList.remove('checked'); }
     }
 
-    /* ── History section toggle ───────────────────────────────────────────────── */
-    function toggleHistory() {
-        var s = document.getElementById('historySection');
+    // ── History accordion ─────────────────────────────────────────────────────
+    function toggleHist() {
+        const s = document.getElementById('histSection');
         if (s) s.style.display = s.style.display === 'none' ? 'block' : 'none';
     }
+    function toggleAcc(hdr) {
+        const body = hdr.nextElementSibling;
+        const icon = hdr.querySelector('span:last-child');
+        body.classList.toggle('open');
+        if (icon) icon.textContent = body.classList.contains('open') ? '▲' : '▼';
+    }
 
-    function toggleAccordion(header) {
-        var body = header.nextElementSibling;
-        var icon = header.querySelector('.toggle-icon');
-        if (body.classList.contains('open')) {
-            body.classList.remove('open');
-            if (icon) icon.textContent = '▼';
-        } else {
-            body.classList.add('open');
-            if (icon) icon.textContent = '▲';
+    // ── Form validation ───────────────────────────────────────────────────────
+    document.getElementById('examForm')?.addEventListener('submit', function(e) {
+        if (!document.getElementById('symptoms').value.trim()) {
+            e.preventDefault();
+            alert('Vui lòng nhập Triệu chứng trước khi lưu.');
+            return;
         }
-    }
 
-    /* ── Form validation ──────────────────────────────────────────────────────── */
-    var examForm = document.getElementById('examForm');
-    if (examForm) {
-        examForm.addEventListener('submit', function (e) {
-            var symptoms  = document.getElementById('symptoms')  ? document.getElementById('symptoms').value.trim()  : '';
-            var diagnosis = document.getElementById('diagnosis') ? document.getElementById('diagnosis').value.trim() : '';
-
-            if (!symptoms || !diagnosis) {
-                e.preventDefault();
-                alert('Vui lòng nhập Triệu chứng và Chẩn đoán trước khi lưu bệnh án.');
-                return;
-            }
-
-            // Validate prescription rows
-            var medSelects = document.querySelectorAll('[name="medicineID[]"]');
-            var qtyInputs  = document.querySelectorAll('[name="quantity[]"]');
-            var valid = true;
-
-            medSelects.forEach(function(sel, i) {
-                if (sel.value === '') return; // skip empty rows
-                var qty = qtyInputs[i] ? qtyInputs[i].value : null;
-                if (!qty || parseInt(qty) < 1) {
-                    alert('Số lượng thuốc phải lớn hơn 0.');
-                    valid = false;
+        const meds = document.querySelectorAll('[name="medicineID[]"]');
+        const qtys = document.querySelectorAll('[name="quantity[]"]');
+        for (let i = 0; i < meds.length; i++) {
+            if (!meds[i].value) continue;
+            const qty = parseInt(qtys[i]?.value || 0);
+            if (qty < 1) { e.preventDefault(); alert('Số lượng thuốc phải lớn hơn 0.'); return; }
+            const opt = meds[i].options[meds[i].selectedIndex];
+            const stock = parseInt(opt.dataset.stock || 0);
+            if (qty > stock) {
+                if (!confirm('Thuốc "' + opt.text.split(' (')[0] + '" chỉ còn ' + stock + ', bạn muốn kê ' + qty + '. Tiếp tục?')) {
+                    e.preventDefault(); return;
                 }
-
-                // warn if exceeds stock
-                var opt   = sel.options[sel.selectedIndex];
-                var stock = parseInt(opt.dataset.stock || 0);
-                var need  = parseInt(qty || 0);
-                if (need > stock) {
-                    var medName = opt.text.split(' (')[0];
-                    if (!confirm('Thuốc "' + medName + '" chỉ còn ' + stock + ' trong kho, bạn muốn kê ' + need + '. Tiếp tục?')) {
-                        valid = false;
-                    }
-                }
-            });
-            if (!valid) {
-                e.preventDefault();
-            } else {
-                document.getElementById('submitBtn').disabled = true;
-                document.getElementById('submitBtn').textContent = 'Đang lưu…';
             }
-        });
-    }
+        }
+
+        document.getElementById('submitBtn').disabled = true;
+        document.getElementById('submitBtn').textContent = '⏳ Đang lưu...';
+    });
 </script>
-
-
-</script>
-
-<script src="${pageContext.request.contextPath}/js/dashboard.js"></script>
 </body>
 </html>

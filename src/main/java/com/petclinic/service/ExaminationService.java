@@ -1,99 +1,154 @@
 package com.petclinic.service;
 
-import com.petclinic.dao.AppointmentDAO;
-import com.petclinic.dao.MedicalRecordDAO;
-import com.petclinic.dao.MedicineDAO;
-import com.petclinic.model.Appointment;
-import com.petclinic.model.MedicalRecord;
-import com.petclinic.model.Medicine;
-import com.petclinic.model.PrescriptionItem;
+import com.petclinic.dao.*;
+import com.petclinic.model.*;
 
 import java.math.BigDecimal;
 import java.sql.SQLException;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 
-/**
- * Service layer for BP-02: Examination & Medical Record.
- * <p>
- * Covers:
- * 1. Receptionist check-in  (Confirmed → Arrived, assign vet)
- * 2. Vet starts examination  (Arrived → InProgress)
- * 3. Vet saves medical record + prescription
- * 4. System auto-deducts stock, checks threshold, triggers invoice (BP-04)
- * 5. Appointment marked Done
- */
 public class ExaminationService {
 
-    private final AppointmentDAO appointmentDAO = new AppointmentDAO();
+    private final AppointmentDAO   appointmentDAO   = new AppointmentDAO();
     private final MedicalRecordDAO medicalRecordDAO = new MedicalRecordDAO();
-    private final MedicineDAO medicineDAO = new MedicineDAO();
+    private final MedicineDAO      medicineDAO      = new MedicineDAO();
+    private final ServiceDAO       serviceDAO       = new ServiceDAO();
+    private final CustomerDAO      customerDAO      = new CustomerDAO();
+    private final PetDAO           petDAO           = new PetDAO();
 
-    // ══════════════════════════════════════════════════════════════════════════
-    //  RECEPTIONIST: CHECK-IN
-    // ══════════════════════════════════════════════════════════════════════════
+    // ══ CHECK-IN ══════════════════════════════════════════════════════════════
+    public enum CheckInResult { SUCCESS, NOT_FOUND, WRONG_STATUS, ALREADY_CHECKED_IN }
 
-    /**
-     * Receptionist confirms pet has arrived.
-     * Transition: Confirmed → Arrived.
-     * Optionally reassigns vet at check-in time.
-     */
     public CheckInResult checkIn(int appointmentID, Integer vetID) throws SQLException {
         Appointment appt = appointmentDAO.findById(appointmentID);
-        if (appt == null) return CheckInResult.NOT_FOUND;
+        if (appt == null)                       return CheckInResult.NOT_FOUND;
         if ("Arrived".equals(appt.getStatus())) return CheckInResult.ALREADY_CHECKED_IN;
         if (!"Confirmed".equals(appt.getStatus())) return CheckInResult.WRONG_STATUS;
-
-        if (vetID != null) {
-            appointmentDAO.assignVet(appointmentID, vetID);
-        }
+        if (vetID != null) appointmentDAO.assignVet(appointmentID, vetID);
         appointmentDAO.updateStatus(appointmentID, "Arrived");
         return CheckInResult.SUCCESS;
     }
 
+    // ══ WALK-IN: LOOKUP CUSTOMER BY PHONE ════════════════════════════════════
+    public enum LookupResult { FOUND, NOT_FOUND }
+
     /**
-     * Vet starts examining a patient.
-     * Transition: Arrived → InProgress.
+     * Step 1 of walk-in flow: look up an existing customer by phone number.
+     * If found, also loads their pets so the receptionist can pick one.
      */
+    public Customer findCustomerByPhone(String phone) throws SQLException {
+        return customerDAO.findByPhone(phone);
+    }
+
+    public List<Pet> getPetsByCustomer(int customerID) throws SQLException {
+        return petDAO.findByCustomerId(customerID);
+    }
+
+    // ══ WALK-IN: CREATE NEW CUSTOMER + PET (if phone not found) ══════════════
+    /**
+     * Step 2a (new customer): create Customer + Pet, then immediately book + check-in.
+     * Returns the created appointmentID, or -1 if the current shift is full.
+     */
+    public int createWalkInWithNewCustomer(String fullName, String phone,
+                                           String petName, String species, String breed,
+                                           int serviceID, int vetID) throws SQLException {
+        LocalDate today = LocalDate.now();
+        int shift = AppointmentDAO.shiftOf(LocalTime.now());
+        if (shift == -1) shift = 1;
+        if (appointmentDAO.isSlotFull(today, shift)) return -1;
+
+        int customerID = customerDAO.insertWalkIn(fullName, phone);
+
+        Pet pet = new Pet();
+        pet.setCustomerID(customerID);
+        pet.setName(petName);
+        pet.setSpeciesName(species);
+        pet.setBreedName(breed);
+        int petID = petDAO.insert(pet);
+
+        return appointmentDAO.createWalkIn(customerID, petID, serviceID, vetID);
+    }
+
+    /**
+     * Step 2b (existing customer, new pet): customer found by phone but wants
+     * to register a NEW pet that isn't in the system yet.
+     */
+    public int createWalkInWithNewPet(int customerID, String petName, String species, String breed,
+                                      int serviceID, int vetID) throws SQLException {
+        LocalDate today = LocalDate.now();
+        int shift = AppointmentDAO.shiftOf(LocalTime.now());
+        if (shift == -1) shift = 1;
+        if (appointmentDAO.isSlotFull(today, shift)) return -1;
+
+        Pet pet = new Pet();
+        pet.setCustomerID(customerID);
+        pet.setName(petName);
+        pet.setSpeciesName(species);
+        pet.setBreedName(breed);
+        int petID = petDAO.insert(pet);
+
+        return appointmentDAO.createWalkIn(customerID, petID, serviceID, vetID);
+    }
+
+    /**
+     * Step 2c (existing customer, existing pet): everything already known,
+     * just book + check-in immediately.
+     */
+    public int createWalkInExisting(int customerID, int petID,
+                                    int serviceID, int vetID) throws SQLException {
+        LocalDate today = LocalDate.now();
+        int shift = AppointmentDAO.shiftOf(LocalTime.now());
+        if (shift == -1) shift = 1;
+        if (appointmentDAO.isSlotFull(today, shift)) return -1;
+        return appointmentDAO.createWalkIn(customerID, petID, serviceID, vetID);
+    }
+
+    // ══ SLOT INFO ══════════════════════════════════════════════════════════════
+    public int getCurrentShiftCount() throws SQLException {
+        int shift = AppointmentDAO.shiftOf(LocalTime.now());
+        if (shift == -1) return 0;
+        return appointmentDAO.countSlotBookings(LocalDate.now(), shift);
+    }
+
+    public boolean isCurrentShiftFull() throws SQLException {
+        int shift = AppointmentDAO.shiftOf(LocalTime.now());
+        if (shift == -1) return false;
+        return appointmentDAO.isSlotFull(LocalDate.now(), shift);
+    }
+
+    // ══ VET QUEUE ══════════════════════════════════════════════════════════════
+    public enum StartExamResult { SUCCESS, NOT_FOUND, WRONG_STATUS }
+
     public StartExamResult startExamination(int appointmentID, int vetID) throws SQLException {
         Appointment appt = appointmentDAO.findById(appointmentID);
-        if (appt == null) return StartExamResult.NOT_FOUND;
+        if (appt == null)                        return StartExamResult.NOT_FOUND;
         if (!"Arrived".equals(appt.getStatus())) return StartExamResult.WRONG_STATUS;
-
         appointmentDAO.updateStatus(appointmentID, "InProgress");
         return StartExamResult.SUCCESS;
     }
 
-    // ══════════════════════════════════════════════════════════════════════════
-    //  VETERINARIAN: START EXAMINATION
-    // ══════════════════════════════════════════════════════════════════════════
+    // ══ SAVE MEDICAL RECORD ═══════════════════════════════════════════════════
+    public enum SaveRecordResult {
+        SUCCESS, APPOINTMENT_NOT_FOUND, WRONG_STATUS,
+        RECORD_ALREADY_EXISTS, INSUFFICIENT_STOCK, DB_ERROR
+    }
 
-    /**
-     * Save the medical record and prescription, deduct stock, mark appointment Done.
-     *
-     * @param record       filled MedicalRecord (appointmentID, petID, vetID, vitals, diagnosis)
-     * @param items        list of PrescriptionItem (may be empty if no prescription)
-     * @param followUpDate optional follow-up date stored in TreatmentPlan note
-     * @return SaveRecordResult
-     */
     public SaveRecordResult saveMedicalRecord(MedicalRecord record,
                                               List<PrescriptionItem> items,
                                               String followUpDate) throws SQLException {
-        // Guard: appointment must exist and be InProgress
         Appointment appt = appointmentDAO.findById(record.getAppointmentID());
-        if (appt == null) return SaveRecordResult.APPOINTMENT_NOT_FOUND;
+        if (appt == null)                           return SaveRecordResult.APPOINTMENT_NOT_FOUND;
         if (!"InProgress".equals(appt.getStatus())) return SaveRecordResult.WRONG_STATUS;
-
-        // Guard: no duplicate medical record for this appointment
         if (medicalRecordDAO.findByAppointmentId(record.getAppointmentID()) != null)
             return SaveRecordResult.RECORD_ALREADY_EXISTS;
 
-        // Append follow-up note to treatment plan
         if (followUpDate != null && !followUpDate.isBlank()) {
             String plan = record.getTreatmentPlan() == null ? "" : record.getTreatmentPlan();
-            record.setTreatmentPlan(plan + "\nTái khám: " + followUpDate);
+            record.setTreatmentPlan(plan + "\nTai kham: " + followUpDate);
         }
 
-        // Snapshot unit prices from current Medicine table
         if (items != null) {
             for (PrescriptionItem item : items) {
                 if (item.getUnitPrice() == null || item.getUnitPrice().compareTo(BigDecimal.ZERO) == 0) {
@@ -104,87 +159,55 @@ public class ExaminationService {
         }
 
         try {
-            // Save record + items + deduct stock (all in one DB transaction)
             medicalRecordDAO.save(record, items);
         } catch (SQLException e) {
             if (e.getMessage() != null && e.getMessage().contains("Insufficient stock"))
                 return SaveRecordResult.INSUFFICIENT_STOCK;
             throw e;
         }
-
-        // Mark appointment Done
         appointmentDAO.updateStatus(record.getAppointmentID(), "Done");
-
         return SaveRecordResult.SUCCESS;
     }
 
-    /**
-     * Today's Arrived/InProgress appointments for a vet.
-     */
-    public List<Appointment> getVetQueueToday(int vetID) throws SQLException {
-        return appointmentDAO.findVetQueueToday(vetID);
+    // ══ QUERY HELPERS ═════════════════════════════════════════════════════════
+    public List<Appointment> getConfirmedByDate(LocalDate date, Integer shift) throws SQLException {
+        return appointmentDAO.findConfirmedByDate(date == null ? LocalDate.now() : date, shift);
     }
 
-    // ══════════════════════════════════════════════════════════════════════════
-    //  VETERINARIAN: SAVE MEDICAL RECORD
-    // ══════════════════════════════════════════════════════════════════════════
-
-    /**
-     * Today's Confirmed appointments for check-in screen.
-     */
-    public List<Appointment> getTodayConfirmedAppointments() throws SQLException {
-        return appointmentDAO.findTodayConfirmed();
+    public List<Appointment> searchForCheckIn(String keyword, LocalDate date) throws SQLException {
+        return appointmentDAO.searchForCheckIn(keyword, date == null ? LocalDate.now() : date);
     }
 
-    /**
-     * Search confirmed appointments by keyword (owner or pet name).
-     */
-    public List<Appointment> searchForCheckIn(String keyword) throws SQLException {
-        return appointmentDAO.searchForCheckIn(keyword);
+    public List<Appointment> getVetQueue(int vetID, LocalDate date) throws SQLException {
+        return appointmentDAO.findVetQueue(vetID, date == null ? LocalDate.now() : date);
     }
 
-    // ══════════════════════════════════════════════════════════════════════════
-    //  QUERY HELPERS (used by servlets)
-    // ══════════════════════════════════════════════════════════════════════════
-
-    /**
-     * Full medical history for a pet (vet review before exam).
-     */
     public List<MedicalRecord> getPetMedicalHistory(int petID) throws SQLException {
         return medicalRecordDAO.findHistoryByPetId(petID);
     }
 
-    /**
-     * Fetch a single medical record by ID.
-     */
     public MedicalRecord getMedicalRecord(int recordID) throws SQLException {
         return medicalRecordDAO.findById(recordID);
     }
 
-    /**
-     * All medicines in stock (for prescription form drop-down).
-     */
     public List<Medicine> getMedicinesInStock() throws SQLException {
         return medicineDAO.findAllInStock();
     }
 
-    /**
-     * Load appointment by ID.
-     */
     public Appointment getAppointment(int appointmentID) throws SQLException {
         return appointmentDAO.findById(appointmentID);
     }
 
-    public enum CheckInResult {SUCCESS, NOT_FOUND, WRONG_STATUS, ALREADY_CHECKED_IN}
+    public List<Service> getLabTests() throws SQLException {
+        return serviceDAO.findLabTests();
+    }
 
-    public enum StartExamResult {SUCCESS, NOT_FOUND, WRONG_STATUS}
+    public List<Service> getTreatmentPlans() throws SQLException {
+        return serviceDAO.findTreatmentPlans();
+    }
 
-    public enum SaveRecordResult {
-        SUCCESS,
-        APPOINTMENT_NOT_FOUND,
-        WRONG_STATUS,
-        RECORD_ALREADY_EXISTS,
-        INSUFFICIENT_STOCK,
-        DB_ERROR
+    /** All active services (for walk-in service dropdown). */
+    public List<Service> getAllActiveServices() throws SQLException {
+        return serviceDAO.findAllActive();
     }
 }
