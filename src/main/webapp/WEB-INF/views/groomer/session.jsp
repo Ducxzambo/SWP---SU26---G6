@@ -23,17 +23,17 @@
   <aside class="sidebar">
     <div class="sidebar-logo">🐾 PetClinic</div>
     <nav>
-      <a href="${pageContext.request.contextPath}/groomer/session" class="nav-item active">✂️ Hàng chờ</a>
+      <a href="${pageContext.request.contextPath}/groomer/session" class="nav-item active">Hàng chờ</a>
     </nav>
     <div class="sidebar-user">
-      👤 ${sessionScope.staff.fullName}
+      ${sessionScope.staff.fullName}
       <a href="${pageContext.request.contextPath}/auth/logout" class="logout-link">Đăng xuất</a>
     </div>
   </aside>
   <main class="main-content">
 
     <div class="page-header">
-      <h1>✂️ Hàng Chờ Grooming</h1>
+      <h1>Hàng Chờ Grooming</h1>
       <p class="page-sub">Phiên chờ grooming và đang thực hiện</p>
     </div>
 
@@ -72,14 +72,6 @@
     <div class="shift-tabs">
       <a href="${pageContext.request.contextPath}/groomer/session?date=${filterDate}"
          class="shift-tab ${empty shiftFilter ? 'active' : ''}">Tất cả</a>
-      <a href="${pageContext.request.contextPath}/groomer/session?date=${filterDate}&shift=1"
-         class="shift-tab ${shiftFilter == '1' ? 'active' : ''}">Ca 1</a>
-      <a href="${pageContext.request.contextPath}/groomer/session?date=${filterDate}&shift=2"
-         class="shift-tab ${shiftFilter == '2' ? 'active' : ''}">Ca 2</a>
-      <a href="${pageContext.request.contextPath}/groomer/session?date=${filterDate}&shift=3"
-         class="shift-tab ${shiftFilter == '3' ? 'active' : ''}">Ca 3</a>
-      <a href="${pageContext.request.contextPath}/groomer/session?date=${filterDate}&shift=4"
-         class="shift-tab ${shiftFilter == '4' ? 'active' : ''}">Ca 4</a>
     </div>
 
     <div class="card">
@@ -106,13 +98,13 @@
                 <td>
                   <c:choose>
                     <c:when test="${appt.status == 'InProgress'}">
-                      <span class="badge badge-info">✂️ Đang grooming</span>
+                      <span class="badge badge-info"> Đang grooming</span>
                     </c:when>
                     <c:when test="${empty appt.assignedGroomerID}">
-                      <span class="unassigned-badge">⏳ Chưa có groomer</span>
+                      <span class="unassigned-badge"> Chưa có groomer</span>
                     </c:when>
                     <c:otherwise>
-                      <span class="badge badge-warning">⏳ Chờ bắt đầu</span>
+                      <span class="badge badge-warning"> Chờ bắt đầu</span>
                     </c:otherwise>
                   </c:choose>
                 </td>
@@ -123,7 +115,7 @@
                       <a href="${pageContext.request.contextPath}/groomer/session?action=accept&appointmentID=${appt.appointmentID}"
                          class="btn btn-secondary btn-sm"
                          onclick="return confirm('Nhận ca grooming cho ${appt.petName}?')">
-                        👋 Nhận ca
+                         Nhận ca
                       </a>
                     </c:when>
                     <%-- Assigned to me, not started --%>
@@ -131,13 +123,13 @@
                       <a href="${pageContext.request.contextPath}/groomer/session?action=start&appointmentID=${appt.appointmentID}"
                          class="btn btn-primary btn-sm"
                          onclick="return confirm('Bắt đầu grooming cho ${appt.petName}?')">
-                        ✂️ Bắt đầu
+                         Bắt đầu
                       </a>
                     </c:when>
                     <%-- InProgress --%>
                     <c:when test="${appt.status == 'InProgress'}">
                       <a href="${pageContext.request.contextPath}/groomer/session?action=form&appointmentID=${appt.appointmentID}"
-                         class="btn btn-secondary btn-sm">📋 Tiếp tục</a>
+                         class="btn btn-secondary btn-sm"> Tiếp tục</a>
                     </c:when>
                   </c:choose>
                 </td>

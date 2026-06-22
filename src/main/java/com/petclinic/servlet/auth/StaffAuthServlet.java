@@ -94,6 +94,9 @@ public class StaffAuthServlet extends HttpServlet {
             case "Veterinarian":
                 resp.sendRedirect(ctx + "/vet/examination");
                 break;
+            case "Groomer":
+                resp.sendRedirect(ctx + "/groomer/session");
+                break;
             default:
                 resp.sendRedirect(ctx + "/");
         }
