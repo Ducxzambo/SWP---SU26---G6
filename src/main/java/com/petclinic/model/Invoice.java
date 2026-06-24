@@ -9,6 +9,8 @@ public class Invoice {
     private int           appointmentID;
     private int           customerID;
     private BigDecimal    totalAmount;
+    private String         otherFees; // nvarchar(200) — nhãn mô tả phụ thu (ví dụ "OT Fee"),
+    // KHÔNG phải số tiền. Số tiền đã được cộng thẳng vào TotalAmount.
     private String        status; // Unpaid | Paid | Refunded | PartiallyRefunded
     private List<InvoiceItem> items;
     private List<Payment>     payments;
@@ -23,6 +25,8 @@ public class Invoice {
     public void          setCustomerID(int v) { customerID = v; }
     public BigDecimal    getTotalAmount()     { return totalAmount; }
     public void          setTotalAmount(BigDecimal v){ totalAmount = v; }
+    public String         getOtherFees()       { return otherFees; }
+    public void           setOtherFees(String v){ otherFees = v; }
     public String        getStatus()          { return status; }
     public void          setStatus(String v)  { status = v; }
     public List<InvoiceItem> getItems()       { return items; }
@@ -79,6 +83,12 @@ public class Invoice {
         public void          setMethod(String v)     { method = v; }
         public LocalDateTime getPaidAt()             { return paidAt; }
         public void          setPaidAt(LocalDateTime v){ paidAt = v; }
+
+        public String getFormattedPaidAt() {
+            if (paidAt == null) return "";
+            return paidAt.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy"));
+        }
+
         public String        getProcessedByName()    { return processedByName; }
         public void          setProcessedByName(String v){ processedByName = v; }
     }

@@ -17,7 +17,7 @@
 <div class="confirm-card">
 
   <div style="text-align:center;margin-bottom:28px;">
-    <div style="font-size:48px;margin-bottom:12px;">📋</div>
+    <div style="font-size:48px;margin-bottom:12px;"></div>
     <h1 style="font-family:'Playfair Display',serif;font-size:26px;
                color:var(--green-900);margin-bottom:6px;">Xác nhận đặt lịch</h1>
     <p style="color:var(--warm-gray);font-size:14px;">
@@ -32,10 +32,19 @@
         <td>Dịch vụ</td>
         <td>
           <c:forEach var="svc" items="${selectedServices}" varStatus="vs">
+            <c:if test="${svc.price > 0}">
+              <span style="display:inline-block;padding:3px 10px;background:var(--green-50);
+                           border:1px solid var(--green-100);border-radius:20px;
+                           font-size:13px;color:var(--green-700);margin:2px;">
+                ${svc.name}
+              </span>
+            </c:if>
+          </c:forEach>
+          <c:forEach var="vac" items="${selectedVaccines}" varStatus="vs">
             <span style="display:inline-block;padding:3px 10px;background:var(--green-50);
                          border:1px solid var(--green-100);border-radius:20px;
                          font-size:13px;color:var(--green-700);margin:2px;">
-              ${svc.name}
+              ${vac.name}
             </span>
           </c:forEach>
         </td>
@@ -117,14 +126,28 @@
         nghiệm còn sót lại. Giữ lại đúng phần đang thực sự render ra UI.
       --%>
       <c:forEach var="svc" items="${selectedServices}">
+        <c:if test="${svc.price > 0}">
+          <tr>
+            <td>${svc.name}
+              <span style="font-size:12px;color:var(--warm-gray);">
+                ${selectedPets.size()} thú cưng
+              </span>
+            </td>
+            <td>
+              <fmt:formatNumber value="${svc.price}" type="number" groupingUsed="true"/>₫
+            </td>
+          </tr>
+        </c:if>
+      </c:forEach>
+      <c:forEach var="vac" items="${selectedVaccines}">
         <tr>
-          <td>${svc.name}
+          <td>${vac.name}
             <span style="font-size:12px;color:var(--warm-gray);">
               ${selectedPets.size()} thú cưng
             </span>
           </td>
           <td>
-            <fmt:formatNumber value="${svc.price}" type="number" groupingUsed="true"/>₫
+            <fmt:formatNumber value="${vac.unitPrice}" type="number" groupingUsed="true"/>₫
           </td>
         </tr>
       </c:forEach>

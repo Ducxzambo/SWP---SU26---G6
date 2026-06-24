@@ -1,39 +1,143 @@
 /**
- * appointment.js
- * Gộp toàn bộ logic JS cho cụm trang "Lịch khám":
- *   1) appointments.jsp         — chuyển tab Sắp tới / Lịch sử
- *   2) appointment-detail.jsp   — modal xác nhận huỷ lịch hẹn
- *   3) appointment-reschedule.jsp — chọn khung giờ / ngày-buổi nội trú mới
+ * appointment.js  — PetClinic Appointment Pages
  *
- * Mỗi phần được bọc trong IIFE riêng để không xung đột biến/scope với nhau,
- * vì các trang trên không cùng lúc render chung (chỉ 1 trang được mở tại 1 thời
- * điểm), nhưng vẫn an toàn nếu sau này được gộp chung hoặc load nhiều lần.
- *
- * Phần (3) chỉ chạy nếu các biến toàn cục sau được JSP khai báo trước khi load
- * file này (xem appointment-reschedule.jsp):
- *   window.RESCHEDULE_SLOTS_DATA   (object: "yyyy-MM-dd" -> [slot,...])
- *   window.RESCHEDULE_IS_INPATIENT (boolean)
+ * Sections:
+ *   1. Tab switching         — appointment.jsp
+ *   2. Filter & Search       — appointment.jsp (Sắp tới + Lịch sử)
+ *   3. Cancel modal          — appointment-detail.jsp
+ *   4. Reschedule slot picker — appointment-reschedule.jsp
  */
 
 /* ============================================================
- * 1) APPOINTMENTS LIST — chuyển tab Sắp tới / Lịch sử
+ * 1) TAB SWITCHING
  * ============================================================ */
 (function () {
   function switchTab(name, btn) {
     document.querySelectorAll('.appt-tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.appt-tab-panel').forEach(p => p.classList.remove('active'));
     btn.classList.add('active');
-
     const panel = document.getElementById('tab-' + name);
     if (panel) panel.classList.add('active');
   }
-
-  // Expose for inline onclick in appointments.jsp
   window.switchTab = switchTab;
 })();
 
+
 /* ============================================================
- * 2) APPOINTMENT DETAIL — modal xác nhận huỷ lịch hẹn
+ * 2) FILTER & SEARCH
+ * ============================================================ */
+(function () {
+  /**
+   * Bootstrap a full filter/search system for one appointment list.
+   *
+   * @param {string} prefix  'upcoming' | 'history'
+   */
+  function initFilterBar(prefix) {
+    const listEl    = document.getElementById('list-' + prefix);
+    const searchEl  = document.getElementById(prefix + '-search');
+    const fieldEl   = document.getElementById(prefix + '-search-field');
+    const statusEl  = document.getElementById(prefix + '-status');
+    const sortEl    = document.getElementById(prefix + '-sort');
+    const countEl   = document.getElementById(prefix + '-count');
+    const noResEl   = document.getElementById(prefix + '-noresult');
+    const resetBtn  = document.getElementById(prefix + '-reset');
+
+    if (!listEl) return; // tab is empty, skip
+
+    // All cards (frozen snapshot)
+    const allCards = Array.from(listEl.querySelectorAll('.appt-card'));
+
+    function applyFilters() {
+      const q      = (searchEl?.value || '').trim().toLowerCase();
+      const field  = fieldEl?.value  || 'all';
+      const status = statusEl?.value || '';
+      const sort   = sortEl?.value   || 'date-asc';
+
+      let visible = allCards.filter(card => {
+        // ── text search ──────────────────────────────────────────
+        if (q) {
+          let haystack = '';
+          if (field === 'all') {
+            haystack = [card.dataset.pet, card.dataset.service,
+                        card.dataset.category, card.dataset.staff].join(' ');
+          } else {
+            haystack = card.dataset[field] || '';
+          }
+          if (!haystack.toLowerCase().includes(q)) return false;
+        }
+        // ── status filter ────────────────────────────────────────
+        if (status && card.dataset.status !== status) return false;
+        return true;
+      });
+
+      // ── sort ─────────────────────────────────────────────────────
+      visible.sort((a, b) => {
+        switch (sort) {
+          case 'date-asc':
+            return (a.dataset.date || '') < (b.dataset.date || '') ? -1 : 1;
+          case 'date-desc':
+            return (a.dataset.date || '') > (b.dataset.date || '') ? -1 : 1;
+          case 'service-az':
+            return (a.dataset.service || '').localeCompare(b.dataset.service || '', 'vi');
+          case 'service-za':
+            return (b.dataset.service || '').localeCompare(a.dataset.service || '', 'vi');
+          default: return 0;
+        }
+      });
+
+      // ── apply visibility + DOM order ──────────────────────────────
+      allCards.forEach(c => c.classList.add('hidden'));
+      visible.forEach(c => {
+        c.classList.remove('hidden');
+        listEl.appendChild(c); // re-order in DOM
+      });
+
+      // ── counters & empty state ────────────────────────────────────
+      if (countEl) {
+        countEl.textContent = visible.length + ' / ' + allCards.length + ' lịch hẹn';
+      }
+      if (noResEl) noResEl.style.display = visible.length === 0 ? 'block' : 'none';
+
+      // ── show/hide reset button ────────────────────────────────────
+      const isFiltered = q || status || (sort !== sortEl?.options[0]?.value);
+      if (resetBtn) resetBtn.classList.toggle('visible', !!isFiltered);
+    }
+
+    // Wire events
+    searchEl?.addEventListener('input',  applyFilters);
+    fieldEl?.addEventListener('change',  applyFilters);
+    statusEl?.addEventListener('change', applyFilters);
+    sortEl?.addEventListener('change',   applyFilters);
+
+    // Initial render (shows count without filtering)
+    applyFilters();
+  }
+
+  function resetFilters(prefix) {
+    const searchEl = document.getElementById(prefix + '-search');
+    const fieldEl  = document.getElementById(prefix + '-search-field');
+    const statusEl = document.getElementById(prefix + '-status');
+    const sortEl   = document.getElementById(prefix + '-sort');
+    if (searchEl) searchEl.value = '';
+    if (fieldEl)  fieldEl.value  = 'all';
+    if (statusEl) statusEl.value = '';
+    if (sortEl)   sortEl.value   = sortEl.options[0]?.value || '';
+    // Trigger re-filter by dispatching change on sortEl
+    sortEl?.dispatchEvent(new Event('change'));
+  }
+
+  window.resetFilters = resetFilters;
+
+  // Init both tabs on DOM ready
+  document.addEventListener('DOMContentLoaded', function () {
+    initFilterBar('upcoming');
+    initFilterBar('history');
+  });
+})();
+
+
+/* ============================================================
+ * 3) CANCEL MODAL  — appointment-detail.jsp
  * ============================================================ */
 (function () {
   function openCancelModal() {
@@ -48,23 +152,19 @@
     if (!modal) return;
     modal.classList.remove('open');
     document.body.style.overflow = '';
-
-    // Reset state
     const cb = document.getElementById('confirmCheck');
     if (cb) {
       cb.checked = false;
-      const btnConfirm = document.getElementById('btnConfirmCancel');
-      if (btnConfirm) btnConfirm.disabled = true;
+      const btn = document.getElementById('btnConfirmCancel');
+      if (btn) btn.disabled = true;
     }
     const ta = document.getElementById('cancelReason');
     if (ta) ta.value = '';
   }
 
-  // Expose for inline onclick in appointment-detail.jsp
-  window.openCancelModal = openCancelModal;
+  window.openCancelModal  = openCancelModal;
   window.closeCancelModal = closeCancelModal;
 
-  // Close on overlay click
   document.addEventListener('DOMContentLoaded', function () {
     const overlay = document.getElementById('cancelModal');
     if (overlay) {
@@ -75,53 +175,56 @@
   });
 })();
 
+
 /* ============================================================
- * 3) APPOINTMENT RESCHEDULE — chọn khung giờ / ngày-buổi mới
+ * 4) RESCHEDULE  — appointment-reschedule.jsp
+ *
+ * Requires these globals set by the JSP before this file loads:
+ *   window.RESCHEDULE_SLOTS_DATA   = { "yyyy-MM-dd": [slot,...] }
+ *   window.RESCHEDULE_IS_INPATIENT = true | false
  * ============================================================ */
 (function () {
-  // Chỉ chạy phần này nếu trang hiện tại có form đổi lịch (#rescheduleForm),
-  // để tránh log lỗi không cần thiết trên các trang khác cùng load file gộp này.
   if (!document.getElementById('rescheduleForm')) return;
 
-  const SLOTS_DATA   = window.RESCHEDULE_SLOTS_DATA || {};
+  const SLOTS_DATA   = window.RESCHEDULE_SLOTS_DATA   || {};
   const IS_INPATIENT = !!window.RESCHEDULE_IS_INPATIENT;
-  const DAYS_VN       = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+  const DAYS_VN      = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 
-  let selectedKey = '', selectedDisplay = '';
+  let selectedKey = '';
 
-  // ══════ OUTPATIENT: slot grid ══════
+  /* ── Outpatient: date tabs + slot grid ─────────────────────── */
   function renderDateTabs() {
-    const el = document.getElementById('dateTabs');
-    if (!el) return;
+    const tabsEl = document.getElementById('dateTabs');
+    if (!tabsEl) return;
     const dates = Object.keys(SLOTS_DATA).sort();
-    el.innerHTML = '';
+    tabsEl.innerHTML = '';
 
     if (!dates.length) {
-      el.innerHTML = '<span class="slot-loading">Không có lịch trống phù hợp trong 30 ngày tới.</span>';
+      tabsEl.innerHTML = '<span class="slot-loading">Không có lịch trống phù hợp trong 30 ngày tới.</span>';
       const grid = document.getElementById('slotGrid');
       if (grid) grid.innerHTML = '';
       return;
     }
 
     dates.forEach((ds, i) => {
-      const d = new Date(ds + 'T00:00:00');
+      const d   = new Date(ds + 'T00:00:00');
       const tab = document.createElement('div');
-      tab.className = 'date-tab' + (i === 0 ? ' active' : '');
+      tab.className    = 'date-tab' + (i === 0 ? ' active' : '');
       tab.dataset.date = ds;
-      tab.innerHTML = `<div class="dt-day">${DAYS_VN[d.getDay()]}</div>
-                        <div class="dt-date">${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}</div>`;
+      tab.innerHTML    = `<div class="dt-day">${DAYS_VN[d.getDay()]}</div>
+                          <div class="dt-date">${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}</div>`;
       tab.onclick = () => {
         document.querySelectorAll('.date-tab').forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
         renderSlots(ds);
       };
-      el.appendChild(tab);
+      tabsEl.appendChild(tab);
     });
     renderSlots(dates[0]);
   }
 
   function renderSlots(ds) {
-    const grid = document.getElementById('slotGrid');
+    const grid  = document.getElementById('slotGrid');
     if (!grid) return;
     const slots = SLOTS_DATA[ds] || [];
     grid.innerHTML = '';
@@ -132,11 +235,12 @@
     }
 
     slots.forEach(slot => {
+      const fill      = Math.min(100, slot.fill || 0);
+      const fillColor = fill >= 100 ? 'var(--red-err)'
+                      : fill >= 70  ? 'var(--amber)' : 'var(--green-400)';
       const wrap = document.createElement('div');
-      const fill = Math.min(100, slot.fill || 0);
-      const fillColor = fill >= 100 ? 'var(--red-err)' : fill >= 70 ? 'var(--amber)' : 'var(--green-400)';
       wrap.className = 'slot-card'
-        + (!slot.available ? ' booked' : '')
+        + (!slot.available    ? ' booked'   : '')
         + (slot.key === selectedKey ? ' selected' : '');
       wrap.innerHTML = `
         <div class="slot-time">${slot.display}</div>
@@ -146,7 +250,7 @@
         <div class="slot-load">${slot.load}/${slot.cap} chỗ</div>`;
 
       if (slot.available) {
-        wrap.onclick = () => selectSlot(slot, wrap);
+        wrap.onclick = () => selectSlot(slot, wrap, ds);
       } else {
         wrap.title = 'Ca này đã đầy';
       }
@@ -154,30 +258,24 @@
     });
   }
 
-  function selectSlot(slot, btn) {
+  function selectSlot(slot, btn, ds) {
     document.querySelectorAll('.slot-card.selected').forEach(b => b.classList.remove('selected'));
     selectedKey = slot.key;
-    selectedDisplay = slot.display;
-
-    const slotKeyInput = document.getElementById('slotKeyInput');
-    if (slotKeyInput) slotKeyInput.value = slot.key;
     btn.classList.add('selected');
 
-    const activeTab = document.querySelector('.date-tab.active');
-    if (!activeTab) return;
-    const [yy, mm, dd] = activeTab.dataset.date.split('-');
-    const dayLabel = activeTab.querySelector('.dt-day').textContent;
+    const slotInput = document.getElementById('slotKeyInput');
+    if (slotInput) slotInput.value = slot.key;
 
-    const selectionText = document.getElementById('selectionText');
-    if (selectionText) {
-      selectionText.innerHTML = `✓ Đã chọn: <strong>${dayLabel} ${dd}/${mm}/${yy} – ${slot.display}</strong>`;
-      selectionText.style.color = 'var(--green-700)';
-    }
-    const btnReschedule = document.getElementById('btnReschedule');
-    if (btnReschedule) btnReschedule.disabled = false;
+    // Build display label
+    const d = new Date(ds + 'T00:00:00');
+    const dd = String(d.getDate()).padStart(2,'0');
+    const mm = String(d.getMonth()+1).padStart(2,'0');
+    const dayLabel = DAYS_VN[d.getDay()];
+    setSelectionText(`✓ Đã chọn: <strong>${dayLabel} ${dd}/${mm}/${d.getFullYear()} – ${slot.display}</strong>`);
+    enableReschedule(true);
   }
 
-  // ══════ INPATIENT: date + period ══════
+  /* ── Inpatient: date + period ───────────────────────────────── */
   let inpPeriod = '';
 
   function onInpDateChange(val) {
@@ -185,7 +283,8 @@
     if (wrap) wrap.style.display = val ? '' : 'none';
     inpPeriod = '';
     document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
-    checkInpatientReady(val, inpPeriod);
+    clearSlotKey();
+    enableReschedule(false);
   }
 
   function selectPeriod(p) {
@@ -194,52 +293,52 @@
     const btn = document.getElementById(p === 'morning' ? 'btnMorning' : 'btnAfternoon');
     if (btn) btn.classList.add('active');
 
-    // Build a fake slotKey for inpatient: "date|period"
-    const dateInput = document.getElementById('inpDate');
-    const date = dateInput ? dateInput.value : '';
-    const slotKeyInput = document.getElementById('slotKeyInput');
-    if (slotKeyInput) slotKeyInput.value = date + '|' + p;
-    checkInpatientReady(date, p);
+    const dateEl = document.getElementById('inpDate');
+    const date   = dateEl ? dateEl.value : '';
+    if (!date) return;
+
+    const slotKey = date + '|' + p;
+    const slotInput = document.getElementById('slotKeyInput');
+    if (slotInput) slotInput.value = slotKey;
+
+    const label = p === 'morning' ? 'Sáng 08:00–12:00' : 'Chiều 13:30–17:30';
+    const [y, m, d] = date.split('-');
+    setSelectionText(`✓ Đã chọn: <strong>${d}/${m}/${y} – ${label}</strong>`);
+    enableReschedule(true);
   }
 
-  function checkInpatientReady(date, period) {
-    const ok = !!date && !!period;
-    const selectionText = document.getElementById('selectionText');
-    if (ok && selectionText) {
-      const label = period === 'morning' ? 'Sáng 08:00–12:00' : 'Chiều 13:30–17:30';
-      const [y, m, d] = date.split('-');
-      selectionText.innerHTML = `Đã chọn: <strong>${d}/${m}/${y} · ${label}</strong>`;
-      selectionText.style.color = 'var(--green-700)';
-    }
-    const btnReschedule = document.getElementById('btnReschedule');
-    if (btnReschedule) btnReschedule.disabled = !ok;
-  }
-
-  // Expose to inline onclick/onchange handlers in the JSP markup
   window.onInpDateChange = onInpDateChange;
-  window.selectPeriod = selectPeriod;
+  window.selectPeriod    = selectPeriod;
 
-  // ══════ Confirm dialog before submit ══════
+  /* ── Shared helpers ─────────────────────────────────────────── */
+  function setSelectionText(html) {
+    const el = document.getElementById('selectionText');
+    if (el) { el.innerHTML = html; el.style.color = 'var(--green-700)'; }
+  }
+  function enableReschedule(ok) {
+    const btn = document.getElementById('btnReschedule');
+    if (btn) btn.disabled = !ok;
+  }
+  function clearSlotKey() {
+    const el = document.getElementById('slotKeyInput');
+    if (el) el.value = '';
+  }
+
+  /* ── Confirm dialog before submit ───────────────────────────── */
   document.addEventListener('DOMContentLoaded', function () {
     const form = document.getElementById('rescheduleForm');
     if (!form) return;
     form.addEventListener('submit', function (e) {
-      const slotKeyInput = document.getElementById('slotKeyInput');
-      if (!slotKeyInput || !slotKeyInput.value) {
-        e.preventDefault();
-        return;
-      }
-      const selectionText = document.getElementById('selectionText');
-      const selText = selectionText
-        ? selectionText.textContent.replace('✓ Đã chọn: ', '')
-        : '';
-      if (!confirm('Xác nhận đổi sang:\n' + selText + '\n\nTrạng thái sẽ về "Pending". Tiếp tục?')) {
+      const slotInput = document.getElementById('slotKeyInput');
+      if (!slotInput || !slotInput.value) { e.preventDefault(); return; }
+      const selEl  = document.getElementById('selectionText');
+      const selTxt = selEl ? selEl.textContent.replace('✓ Đã chọn: ','') : '';
+      if (!confirm('Xác nhận đổi sang:\n' + selTxt + '\n\nTrạng thái sẽ về "Pending". Tiếp tục?')) {
         e.preventDefault();
       }
     });
   });
 
-  if (!IS_INPATIENT) {
-    renderDateTabs();
-  }
+  // Init
+  if (!IS_INPATIENT) renderDateTabs();
 })();

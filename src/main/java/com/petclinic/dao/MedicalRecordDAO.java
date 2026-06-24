@@ -12,9 +12,9 @@ public class MedicalRecordDAO {
 
     /** Load medical record for an appointment (null if not yet created). */
     public MedicalRecord findByAppointment(int appointmentId) throws SQLException {
-        String sql = "SELECT mr.*, s.FullName AS VetName "
+        String sql = "SELECT mr.*, s.FullName AS StaffName "
                 + "FROM MedicalRecords mr "
-                + "JOIN Staff s ON mr.VetID = s.StaffID "
+                + "JOIN Staff s ON mr.StaffID = s.StaffID "
                 + "WHERE mr.AppointmentID = ?";
         try (Connection c = DBConnection.getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
@@ -60,7 +60,7 @@ public class MedicalRecordDAO {
         mr.setRecordID(rs.getInt("RecordID"));
         mr.setAppointmentID(rs.getInt("AppointmentID"));
         mr.setPetID(rs.getInt("PetID"));
-        mr.setVetID(rs.getInt("VetID"));
+        mr.setStaffID(rs.getInt("StaffID"));
         mr.setWeight(rs.getBigDecimal("Weight"));
         mr.setTemperature(rs.getBigDecimal("Temperature"));
         mr.setSymptoms(rs.getString("Symptoms"));
@@ -68,7 +68,7 @@ public class MedicalRecordDAO {
         mr.setTreatmentPlan(rs.getString("TreatmentPlan"));
         Timestamp ts = rs.getTimestamp("CreatedAt");
         if (ts != null) mr.setCreatedAt(ts.toLocalDateTime());
-        mr.setVetName(rs.getString("VetName"));
+        mr.setStaffName(rs.getString("StaffName"));
         return mr;
     }
 }

@@ -58,7 +58,7 @@
     <form action="${pageContext.request.contextPath}/auth/login" method="post" id="loginForm" novalidate>
 
       <div class="form-group">
-        <label for="identifier">Email hoặc Tên đăng nhập</label>
+        <label for="identifier">Email hoặc SĐT</label>
         <div class="input-wrap">
           <span class="input-icon"></span>
           <input type="text" id="identifier" name="identifier" class="form-control"

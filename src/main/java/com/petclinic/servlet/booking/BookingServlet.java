@@ -29,6 +29,7 @@ public class BookingServlet extends HttpServlet {
 
     private final ServiceDAO     serviceDAO     = new ServiceDAO();
     private final PetDAO         petDAO         = new PetDAO();
+    private final VaccineDAO     vaccineDAO     = new VaccineDAO();
     private final BookingService bookingSvc     = new BookingService();
     private final PaymentService paymentSvc     = new PaymentService();
 
@@ -74,36 +75,56 @@ public class BookingServlet extends HttpServlet {
             throws Exception {
 
         List<ServiceCategory> cats = serviceDAO.findAllCategoriesWithServices();
-        List<Pet>             pets = petDAO.findByCustomer(customer.getCustomerID());
+        // Inpatient có UI/luồng đặt riêng (giữ logic cũ) — không hiện trong
+        // danh sách category chọn dịch vụ thông thường.
+        cats.removeIf(c -> c.getCategoryID() == BookingService.INPATIENT_CATEGORY_ID);
+
+        List<Pet> pets = petDAO.findByCustomer(customer.getCustomerID());
+        List<Vaccine> vaccines = vaccineDAO.findAvailable();
+
+        // Service "placeholder" dùng làm ServiceID (FK) cho Vaccine / Inpatient —
+        // xem MIGRATION.sql. Lấy service đầu tiên (IsActive) của mỗi category.
+        int vaccineServiceId   = firstServiceIdOfCategory(BookingService.VACCINE_CATEGORY_ID);
+        int inpatientServiceId = firstServiceIdOfCategory(BookingService.INPATIENT_CATEGORY_ID);
 
         // Prefill from URL params (from quick-access links)
         String prefillCat = req.getParameter("prefillCategory");
         String prefillSvc = req.getParameter("prefillService");
 
-        // Default slot generation with no services selected yet
         Map<LocalDate, List<TimeSlot>> slots = bookingSvc.generateSlots(Collections.emptyList());
 
-        req.setAttribute("categories",     cats);
-        req.setAttribute("navCategories",  cats);
-        req.setAttribute("pets",           pets);
-        req.setAttribute("today",          LocalDate.now().toString());
-        req.setAttribute("slotsJson",      slotsToJson(slots));
-        req.setAttribute("categoriesJson", categoriesToJson(cats));
+        req.setAttribute("categories",         cats);
+        req.setAttribute("navCategories",      cats);
+        req.setAttribute("pets",               pets);
+        req.setAttribute("today",              LocalDate.now().toString());
+        req.setAttribute("slotsJson",          slotsToJson(slots));
+        req.setAttribute("categoriesJson",     categoriesToJson(cats));
+        req.setAttribute("vaccinesJson",       vaccinesToJson(vaccines));
+        req.setAttribute("vaccineCategoryId",  BookingService.VACCINE_CATEGORY_ID);
+        req.setAttribute("vaccineServiceId",   vaccineServiceId);
+        req.setAttribute("inpatientServiceId", inpatientServiceId);
         req.setAttribute("prefillCat",     prefillCat != null ? prefillCat : "");
         req.setAttribute("prefillSvc",     prefillSvc != null ? prefillSvc : "");
         req.getRequestDispatcher("/WEB-INF/views/booking/new.jsp").forward(req, resp);
     }
 
+    /** Service "placeholder" đầu tiên (IsActive) của 1 category — dùng cho Vaccine/Inpatient. */
+    private int firstServiceIdOfCategory(int categoryId) throws Exception {
+        List<Service> svcs = serviceDAO.findByCategory(categoryId);
+        return svcs.isEmpty() ? -1 : svcs.get(0).getServiceID();
+    }
+
     private void handleStep1Post(HttpServletRequest req, HttpServletResponse resp, Customer customer)
             throws Exception {
 
-        String[] svcIds    = req.getParameterValues("serviceIds");
-        String[] petIds    = req.getParameterValues("petIds");
-        String   slotKey   = req.getParameter("slotKey");     // single slot
-        String   inpatient = req.getParameter("isInpatient");
-        String   iDate     = req.getParameter("inpatientDate");
-        String   iPeriod   = req.getParameter("inpatientPeriod"); // "morning"/"afternoon"
-        String   notes     = req.getParameter("notes");
+        String[] svcIds      = req.getParameterValues("serviceIds");
+        String[] petIds      = req.getParameterValues("petIds");
+        String[] vaccineIds  = req.getParameterValues("vaccineIds"); // chỉ dùng khi category = Vaccine
+        String   slotKey     = req.getParameter("slotKey");     // single slot
+        String   inpatient   = req.getParameter("isInpatient");
+        String   iDate       = req.getParameter("inpatientDate");
+        String   iPeriod     = req.getParameter("inpatientPeriod"); // "morning"/"afternoon"
+        String   notes       = req.getParameter("notes");
 
         boolean isInpatient = "true".equals(inpatient);
 
@@ -131,11 +152,33 @@ public class BookingServlet extends HttpServlet {
         List<Pet>     selectedPets     = petDAO.findByCustomer(customer.getCustomerID()).stream()
                 .filter(p -> petIdList.contains(p.getPetID())).collect(Collectors.toList());
 
-        // Compute total price: sum(service.price) × pets
-        BigDecimal total = selectedServices.stream()
+        boolean isVaccineBooking = selectedServices.stream()
+                .anyMatch(s -> s.getCategoryID() == BookingService.VACCINE_CATEGORY_ID);
+
+        List<Vaccine> selectedVaccines = Collections.emptyList();
+        if (isVaccineBooking) {
+            if (vaccineIds == null || vaccineIds.length == 0) {
+                forwardStep1Error(req, resp, customer, "Vui lòng chọn ít nhất một loại vaccine."); return;
+            }
+            List<Integer> vaccineIdList = Arrays.stream(vaccineIds).map(Integer::parseInt).collect(Collectors.toList());
+            selectedVaccines = vaccineDAO.findAvailable().stream()
+                    .filter(v -> vaccineIdList.contains(v.getVaccineID())).collect(Collectors.toList());
+        }
+
+        // Compute total price:
+        //  - Service thường: sum(service.price) × số pet
+        //  - Vaccine: KHÔNG dùng Service.Price (placeholder = 0) mà dùng
+        //    sum(vaccine.unitPrice) × số pet (theo Vaccines.UnitPrice thật)
+        BigDecimal svcTotal = selectedServices.stream()
+                .filter(s -> s.getCategoryID() != BookingService.VACCINE_CATEGORY_ID)
                 .map(s -> s.getPrice() != null ? s.getPrice() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add)
                 .multiply(BigDecimal.valueOf(selectedPets.size()));
+        BigDecimal vaccineTotal = selectedVaccines.stream()
+                .map(Vaccine::getUnitPrice)
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .multiply(BigDecimal.valueOf(selectedPets.size()));
+        BigDecimal total = svcTotal.add(vaccineTotal);
 
         long depositAmount = bookingSvc.computeDeposit(total, isInpatient);
 
@@ -143,6 +186,7 @@ public class BookingServlet extends HttpServlet {
         HttpSession sess = req.getSession(true);
         sess.setAttribute("bk_svcIds",     svcIds);
         sess.setAttribute("bk_petIds",     petIds);
+        sess.setAttribute("bk_vaccineIds", vaccineIds != null ? vaccineIds : new String[0]);
         sess.setAttribute("bk_slotKey",    slotKey);
         sess.setAttribute("bk_isInpatient",isInpatient);
         sess.setAttribute("bk_iDate",      iDate);
@@ -153,6 +197,7 @@ public class BookingServlet extends HttpServlet {
 
         // Forward to confirm
         req.setAttribute("selectedServices", selectedServices);
+        req.setAttribute("selectedVaccines", selectedVaccines);
         req.setAttribute("selectedPets",     selectedPets);
         req.setAttribute("slotKey",          slotKey);
         req.setAttribute("isInpatient",      isInpatient);
@@ -177,12 +222,20 @@ public class BookingServlet extends HttpServlet {
         // Re-build display attrs from session
         String[]  svcIds = (String[]) sess.getAttribute("bk_svcIds");
         String[]  petIds = (String[]) sess.getAttribute("bk_petIds");
+        String[]  vaccineIds = (String[]) sess.getAttribute("bk_vaccineIds");
         List<Integer> svcIdList = Arrays.stream(svcIds).map(Integer::parseInt).collect(Collectors.toList());
         List<Integer> petIdList = Arrays.stream(petIds).map(Integer::parseInt).collect(Collectors.toList());
         List<Service> svcs = serviceDAO.findByIds(svcIdList);
         List<Pet> petsSelected = petDAO.findByCustomer(customer.getCustomerID()).stream()
                 .filter(p -> petIdList.contains(p.getPetID())).collect(Collectors.toList());
+        List<Vaccine> vaccinesSelected = Collections.emptyList();
+        if (vaccineIds != null && vaccineIds.length > 0) {
+            List<Integer> vaccineIdList = Arrays.stream(vaccineIds).map(Integer::parseInt).collect(Collectors.toList());
+            vaccinesSelected = vaccineDAO.findAvailable().stream()
+                    .filter(v -> vaccineIdList.contains(v.getVaccineID())).collect(Collectors.toList());
+        }
         req.setAttribute("selectedServices", svcs);
+        req.setAttribute("selectedVaccines", vaccinesSelected);
         req.setAttribute("selectedPets",     petsSelected);
         req.setAttribute("slotKey",          sess.getAttribute("bk_slotKey"));
         req.setAttribute("isInpatient",      sess.getAttribute("bk_isInpatient"));
@@ -206,6 +259,7 @@ public class BookingServlet extends HttpServlet {
 
         String[]  svcIds      = (String[]) sess.getAttribute("bk_svcIds");
         String[]  petIds      = (String[]) sess.getAttribute("bk_petIds");
+        String[]  vaccineIds  = (String[]) sess.getAttribute("bk_vaccineIds");
         String    slotKey     = (String)   sess.getAttribute("bk_slotKey");
         boolean   isInpatient = (Boolean)  sess.getAttribute("bk_isInpatient");
         String    iDate       = (String)   sess.getAttribute("bk_iDate");
@@ -231,11 +285,25 @@ public class BookingServlet extends HttpServlet {
 
         // Create Unpaid invoice for the primary appointment
         int invoiceId = paymentSvc.createInvoice(customer.getCustomerID(), primaryApptId, total);
-        // Add service line items
+
+        // Service line items — bỏ qua placeholder "Tiêm Vaccine" (Price=0, vô nghĩa
+        // khi hiển thị) vì giá thật của vaccine được thêm riêng ở dưới theo UnitPrice.
         List<Service> svcs = serviceDAO.findByIds(svcIdList);
         for (Service s : svcs) {
+            if (s.getCategoryID() == BookingService.VACCINE_CATEGORY_ID) continue;
             paymentSvc.addInvoiceItem(invoiceId, "Service", s.getName(),
                     BigDecimal.valueOf(petIdList.size()), s.getPrice());
+        }
+
+        // Vaccine line items — tính theo Vaccines.UnitPrice thật, không dùng Service.Price.
+        if (vaccineIds != null && vaccineIds.length > 0) {
+            List<Integer> vaccineIdList = Arrays.stream(vaccineIds).map(Integer::parseInt).collect(Collectors.toList());
+            List<Vaccine> vaccines = vaccineDAO.findAvailable().stream()
+                    .filter(v -> vaccineIdList.contains(v.getVaccineID())).collect(Collectors.toList());
+            for (Vaccine v : vaccines) {
+                paymentSvc.addInvoiceItem(invoiceId, "Vaccine", v.getName(),
+                        BigDecimal.valueOf(petIdList.size()), v.getUnitPrice());
+            }
         }
 
         // Store in session for payment step
@@ -377,6 +445,20 @@ public class BookingServlet extends HttpServlet {
                 }
             }
             sb.append("]}");
+        }
+        return sb.append("]").toString();
+    }
+
+    private String vaccinesToJson(List<Vaccine> vaccines) {
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < vaccines.size(); i++) {
+            Vaccine v = vaccines.get(i);
+            if (i > 0) sb.append(",");
+            sb.append("{\"id\":").append(v.getVaccineID())
+                    .append(",\"name\":\"").append(esc(v.getName())).append("\"")
+                    .append(",\"price\":").append(v.getUnitPrice())
+                    .append(",\"stock\":").append(v.getStockQty())
+                    .append("}");
         }
         return sb.append("]").toString();
     }

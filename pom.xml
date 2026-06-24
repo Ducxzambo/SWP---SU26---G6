@@ -51,14 +51,7 @@
             <artifactId>json</artifactId>
             <version>20240303</version>
         </dependency>
-        <!--  Twilio SDK – uncomment to enable SMS OTP  -->
-        <!--
-            <dependency>
-              <groupId>com.twilio.sdk</groupId>
-              <artifactId>twilio</artifactId>
-              <version>9.14.0</version>
-            </dependency>
-             -->
+
         <!--  Gson – JSON serialization in BookingServlet  -->
         <dependency>
             <groupId>com.google.code.gson</groupId>

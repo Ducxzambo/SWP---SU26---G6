@@ -73,7 +73,7 @@ public class ReminderSchedulerListener implements ServletContextListener {
                    + "JOIN Pets p ON a.PetID = p.PetID "
                    + "JOIN Services s ON a.ServiceID = s.ServiceID "
                    + "JOIN ServiceCategories sc ON s.CategoryID = sc.CategoryID "
-                   + "LEFT JOIN Staff st ON a.AssignedVetID = st.StaffID "
+                   + "LEFT JOIN Staff st ON a.AssignedStaffID = st.StaffID "
                    + "WHERE a.Status = 'Confirmed' AND a.AppointmentDate >= ?";
 
         List<Appointment> list = new ArrayList<>();
@@ -109,7 +109,7 @@ public class ReminderSchedulerListener implements ServletContextListener {
         a.setStatus(rs.getString("Status"));
         try { a.setPetName(rs.getString("PetName")); }     catch (Exception ignored) {}
         try { a.setServiceName(rs.getString("ServiceName")); } catch (Exception ignored) {}
-        try { a.setVetName(rs.getString("VetName")); }     catch (Exception ignored) {}
+        try { a.setStaffName(rs.getString("StaffName")); }     catch (Exception ignored) {}
         return a;
     }
 }

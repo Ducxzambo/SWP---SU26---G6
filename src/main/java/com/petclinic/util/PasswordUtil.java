@@ -4,15 +4,7 @@ import java.security.SecureRandom;
 import java.security.MessageDigest;
 import java.util.Base64;
 
-/**
- * Simple BCrypt-style password utility.
- * In production, replace with org.mindrot:jbcrypt library for true BCrypt.
- * Add dependency: <dependency>
- *   <groupId>org.mindrot</groupId>
- *   <artifactId>jbcrypt</artifactId>
- *   <version>0.4</version>
- * </dependency>
- */
+
 public class PasswordUtil {
 
     private static final SecureRandom RANDOM = new SecureRandom();

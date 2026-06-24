@@ -7,37 +7,16 @@ import java.io.UnsupportedEncodingException;
 import java.security.SecureRandom;
 import java.util.Properties;
 
-/**
- * OTP Generator + Email sender (JavaMail) + SMS stub (Twilio).
- *
- * Maven dependencies required:
- *   <dependency>
- *     <groupId>com.sun.mail</groupId>
- *     <artifactId>jakarta.mail</artifactId>
- *     <version>2.0.1</version>
- *   </dependency>
- *
- * For Twilio SMS:
- *   <dependency>
- *     <groupId>com.twilio.sdk</groupId>
- *     <artifactId>twilio</artifactId>
- *     <version>9.14.0</version>
- *   </dependency>
- */
 public class OtpUtil {
 
     // ── Email config (replace with real SMTP credentials) ──────────────────
     private static final String SMTP_HOST = "smtp.gmail.com";
     private static final int SMTP_PORT = 587;
 
-    private static final String EMAIL_FROM = "haminhtx@gmail.com";
-    private static final String EMAIL_USER = "haminhtx@gmail.com";
-    private static final String EMAIL_PASS = "bfrm wcwz pnve ludp";
+    private static final String EMAIL_FROM = System.getenv("EMAIL_FROM");
+    private static final String EMAIL_USER = System.getenv("SMTP_USER");
+    private static final String EMAIL_PASS = System.getenv("SMTP_PASS");
 
-    // ── Twilio config ───────────────────────────────────────────────────────
-    private static final String TWILIO_ACCOUNT_SID = System.getenv("TWILIO_SID");
-    private static final String TWILIO_AUTH_TOKEN = System.getenv("TWILIO_TOKEN");
-    private static final String TWILIO_FROM_PHONE = System.getenv("TWILIO_PHONE");// e.g. +1234567890
 
     private static final SecureRandom RANDOM = new SecureRandom();
     public  static final int OTP_EXPIRE_MINUTES = 10;

@@ -34,8 +34,8 @@
           <c:if test="${not empty appt.startTime and not empty appt.endTime}">
             <span><strong>${appt.formattedStartTime} – ${appt.formattedEndTime}</strong></span>
           </c:if>
-          <c:if test="${not empty appt.vetName}">
-            <span><strong>${appt.vetName}</strong></span>
+          <c:if test="${not empty appt.staffName}">
+            <span><strong>${appt.staffName}</strong></span>
           </c:if>
         </div>
       </div>
@@ -102,10 +102,10 @@
                   <span class="field-value">${medicalRecord.temperature} °C</span>
                 </div>
               </c:if>
-              <c:if test="${not empty medicalRecord.vetName}">
+              <c:if test="${not empty medicalRecord.staffName}">
                 <div class="detail-field">
                   <span class="field-label">Bác sĩ phụ trách</span>
-                  <span class="field-value">${medicalRecord.vetName}</span>
+                  <span class="field-value">${medicalRecord.staffName}</span>
                 </div>
               </c:if>
             </div>

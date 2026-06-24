@@ -59,28 +59,28 @@ public class PaymentService {
         if (description.length() > 25) description = description.substring(0, 25);
 
         String returnUrl = APP_BASE_URL + "/payment/result?invoiceId=" + invoiceId
-                         + "&apptId=" + appointmentId + "&full=" + isFullPayment;
+                + "&apptId=" + appointmentId + "&full=" + isFullPayment;
         String cancelUrl = APP_BASE_URL + "/appointments/detail?id=" + appointmentId;
 
         // Build signature string: amount|cancelUrl|description|orderCode|returnUrl
         String sigData = "amount=" + amountVnd
-                       + "&cancelUrl=" + cancelUrl
-                       + "&description=" + description
-                       + "&orderCode=" + orderCode
-                       + "&returnUrl=" + returnUrl;
+                + "&cancelUrl=" + cancelUrl
+                + "&description=" + description
+                + "&orderCode=" + orderCode
+                + "&returnUrl=" + returnUrl;
         String signature = hmacSha256(sigData, CHECKSUM_KEY);
 
         // Build JSON body manually (no Gson dependency required)
         String body = "{"
-            + "\"orderCode\":" + orderCode + ","
-            + "\"amount\":" + amountVnd + ","
-            + "\"description\":\"" + escJson(description) + "\","
-            + "\"returnUrl\":\"" + escJson(returnUrl) + "\","
-            + "\"cancelUrl\":\"" + escJson(cancelUrl) + "\","
-            + "\"signature\":\"" + signature + "\","
-            + "\"expiredAt\":" + (System.currentTimeMillis() / 1000 + 900) + ","  // 15 min
-            + "\"items\":[{\"name\":\"PetClinic\",\"quantity\":1,\"price\":" + amountVnd + "}]"
-            + "}";
+                + "\"orderCode\":" + orderCode + ","
+                + "\"amount\":" + amountVnd + ","
+                + "\"description\":\"" + escJson(description) + "\","
+                + "\"returnUrl\":\"" + escJson(returnUrl) + "\","
+                + "\"cancelUrl\":\"" + escJson(cancelUrl) + "\","
+                + "\"signature\":\"" + signature + "\","
+                + "\"expiredAt\":" + (System.currentTimeMillis() / 1000 + 900) + ","  // 15 min
+                + "\"items\":[{\"name\":\"PetClinic\",\"quantity\":1,\"price\":" + amountVnd + "}]"
+                + "}";
 
         String response = post(PAYOS_BASE + "/v2/payment-requests", body);
         return extractJsonField(response, "checkoutUrl");
@@ -122,7 +122,7 @@ public class PaymentService {
             throws Exception {
 
         String invoiceStatus = isFullPayment ? "Paid" : "PartiallyPaid";
-        String apptStatus    = "Confirmed";
+        int apptId = -1;
 
         try (Connection c = DBConnection.getConnection()) {
             c.setAutoCommit(false);
@@ -136,7 +136,6 @@ public class PaymentService {
                 }
 
                 // Get appointmentId from invoice
-                int apptId = -1;
                 try (PreparedStatement ps = c.prepareStatement(
                         "SELECT AppointmentID FROM Invoices WHERE InvoiceID=?")) {
                     ps.setInt(1, invoiceId);
@@ -157,7 +156,7 @@ public class PaymentService {
                 // Insert Payment record (ProcessedByID = 1 = system user; adjust as needed)
                 try (PreparedStatement ps = c.prepareStatement(
                         "INSERT INTO Payments (InvoiceID, Amount, Method, PaidAt, ProcessedByID) "
-                       + "VALUES (?, ?, 'BankTransfer', GETDATE(), 1)")) {
+                                + "VALUES (?, ?, 'BankTransfer', GETDATE(), 1)")) {
                     ps.setInt(1, invoiceId);
                     ps.setLong(2, amountVnd);
                     ps.executeUpdate();
@@ -168,6 +167,12 @@ public class PaymentService {
                 c.rollback();
                 throw e;
             }
+        }
+
+        // Auto-assign Vet/Groomer NGOÀI transaction trên (cần connection riêng,
+        // và không nên rollback việc thanh toán chỉ vì auto-assign lỗi).
+        if (apptId > 0) {
+            new AssignmentService().autoAssign(apptId);
         }
     }
 
@@ -180,7 +185,7 @@ public class PaymentService {
     public int createInvoice(int customerId, int appointmentId,
                              BigDecimal totalAmount) throws Exception {
         String sql = "INSERT INTO Invoices (AppointmentID, CustomerID, TotalAmount, Status) "
-                   + "VALUES (?, ?, ?, 'Unpaid')";
+                + "VALUES (?, ?, ?, 'Unpaid')";
         try (Connection c = DBConnection.getConnection();
              PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setInt(1, appointmentId);
@@ -198,7 +203,7 @@ public class PaymentService {
     public void addInvoiceItem(int invoiceId, String itemType, String description,
                                BigDecimal quantity, BigDecimal unitPrice) throws Exception {
         String sql = "INSERT INTO InvoiceItems (InvoiceID, ItemType, Description, Quantity, UnitPrice) "
-                   + "VALUES (?, ?, ?, ?, ?)";
+                + "VALUES (?, ?, ?, ?, ?)";
         try (Connection c = DBConnection.getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, invoiceId);
@@ -228,10 +233,10 @@ public class PaymentService {
         String reference   = extractJsonField(json, "reference");
         String transDateTime = extractJsonField(json, "transactionDateTime");
         return "amount=" + amount
-             + "&description=" + desc
-             + "&orderCode=" + orderCode
-             + "&reference=" + reference
-             + "&transactionDateTime=" + transDateTime;
+                + "&description=" + desc
+                + "&orderCode=" + orderCode
+                + "&reference=" + reference
+                + "&transactionDateTime=" + transDateTime;
     }
 
     private String hmacSha256(String data, String key) throws Exception {

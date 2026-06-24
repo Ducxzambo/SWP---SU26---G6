@@ -62,6 +62,10 @@ public class SlotsApiServlet extends HttpServlet {
                   .append("\"load\":").append(ts.getCurrentLoad()).append(",")
                   .append("\"cap\":").append(ts.getMaxCapacity()).append(",")
                   .append("\"fill\":").append(ts.getFillPercent())
+                  .append("\"groomLoad\":").append(ts.getGroomLoad()).append(",")
+                  .append("\"groomCap\":").append(ts.getGroomCap()).append(",")
+                  .append("\"vetLoad\":").append(ts.getVetLoad()).append(",")
+                  .append("\"vetCap\":").append(ts.getVetCap())
                   .append("}");
             }
             sb.append("]");

@@ -45,8 +45,8 @@ public class AppointmentStatusJob implements ServletContextListener {
             return t;
         });
 
-        // Run once 1 minute after startup, then every 15 minutes
-        scheduler.scheduleAtFixedRate(this::runCheck, 1, 15, TimeUnit.MINUTES);
+        // Run once 1 minute after startup, then every 12 hours
+        scheduler.scheduleAtFixedRate(this::runCheck, 1, 12*60, TimeUnit.MINUTES);
         LOG.info("[AppointmentStatusJob] Scheduler started.");
     }
 

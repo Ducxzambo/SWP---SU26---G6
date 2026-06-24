@@ -56,7 +56,7 @@ public class EmailService {
                     + " đã qua thời gian hẹn";
             String body = "<!DOCTYPE html><html><head><meta charset='UTF-8'></head><body>"
                     + "<div style='font-family:sans-serif;max-width:560px;margin:auto;padding:24px;'>"
-                    + "<h2 style='color:#856404;'>⚠️ PetClinic – Lịch hẹn đã qua giờ</h2>"
+                    + "<h2 style='color:#856404;'>PetClinic – Lịch hẹn đã qua giờ</h2>"
                     + "<p>Xin chào <strong>" + esc(customer.getFullName()) + "</strong>,</p>"
                     + "<p>Chúng tôi nhận thấy lịch hẹn sau <strong>đã qua thời gian hẹn</strong> "
                     + "mà không có thông tin hoàn thành:</p>"
@@ -136,7 +136,7 @@ public class EmailService {
                 + row("Dịch vụ",    esc(appt.getServiceName()))
                 + row("Thú cưng",   esc(appt.getPetName()))
                 + row("Thời gian",  fmtAppt(appt))
-                + row("Bác sĩ",     appt.getVetName() != null ? esc(appt.getVetName()) : "Sẽ được phân công")
+                + row("Bác sĩ",     appt.getStaffName() != null ? esc(appt.getStaffName()) : "Sẽ được phân công")
                 + row("Thanh toán", paymentNote)
                 + "</table></div>"
                 + "<p style='font-size:13px;color:#8c8680;'>Nếu cần thay đổi lịch, vui lòng liên hệ trước ít nhất 12 giờ.</p>"
@@ -176,6 +176,7 @@ public class EmailService {
             props.put("mail.smtp.host",            "smtp.gmail.com");
             props.put("mail.smtp.port",            "587");
 
+            final String EMAIL_FROM = System.getenv("EMAIL_FROM");
             final String user = System.getenv("SMTP_USER");
             final String pass = System.getenv("SMTP_PASS");
 
@@ -186,7 +187,7 @@ public class EmailService {
             });
 
             Message msg = new MimeMessage(session);
-            msg.setFrom(new InternetAddress(user, "PetClinic"));
+            msg.setFrom(new InternetAddress(EMAIL_FROM, "PetClinic"));
             msg.setRecipients(Message.RecipientType.TO, InternetAddress.parse(to));
             msg.setSubject(subject);
             msg.setContent(htmlBody, "text/html; charset=UTF-8");

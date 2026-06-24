@@ -10,31 +10,49 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 /**
- * Slot-based Allocation rules:
+ * FIXED-SLOT model (không còn dùng bảng StaffAvailability):
  *
- *  Sub-slot unit = 30 minutes.
- *  One appointment slot = 120 minutes = 4 sub-slots.
- *  For each service:
- *      subSlots(service) = ceil(service.durationMinutes / 30)
- *  maxCapacity(slot, services) = Σ subSlots / staffCount(roleGroup)
+ *  4 slot chính, cố định mỗi ngày, có thể đặt qua booking thường:
+ *      Slot 1: 08:00–10:00
+ *      Slot 2: 10:00–12:00
+ *      (nghỉ trưa 12:00–13:30)
+ *      Slot 3: 13:30–15:30
+ *      Slot 4: 15:30–17:30
+ *  1 slot phụ (OT/qua đêm), KHÔNG cho khách tự đặt qua booking thường —
+ *  chỉ staff tạo trực tiếp (ngoài phạm vi codebase này):
+ *      Slot 5: 18:30 → 07:00 sáng hôm sau
  *
- *  Role mapping (categoryId → roleId):
- *      categoryId = 3  → Groomer (roleId 4))
- *      everything else → Vet     (roleId 3)
+ *  Capacity: KHÔNG còn tính theo sub-slot/duration. Fix cứng:
+ *      maxCapacity(slot, roleGroup) = (số nhân viên active của role đó) × 5
  *
- *  If customer selects services from BOTH groups, capacity is computed
- *  separately per group; the slot is unavailable if EITHER group is full.
+ *  Role mapping (categoryId → roleId), giữ như cũ:
+ *      categoryId = 3 (Spa/Grooming) → Groomer (roleId 4)
+ *      mọi categoryId khác (Khám, Phẫu thuật, Vaccine) → Vet (roleId 3)
  *
- *  Only Confirmed/InProgress/Done appointments count toward load.
- *  Pending appointments do NOT consume capacity.
+ *  Nếu khách chọn dịch vụ từ CẢ 2 nhóm, capacity tính riêng từng nhóm;
+ *  slot hết chỗ nếu MỘT trong 2 nhóm đầy.
+ *
+ *  Chỉ Confirmed/InProgress/Done mới tính vào load. Pending không tính.
  */
 public class BookingService {
 
-    public  static final int    SLOT_MINUTES    = 120;
-    public  static final int    SUB_SLOT_MINUTES= 30;
-    private static final LocalTime LUNCH_START  = LocalTime.of(12, 0);
-    private static final LocalTime LUNCH_END    = LocalTime.of(13, 30);
-    private static final int    DAYS_AHEAD      = 30;
+    public  static final int    SLOT_MINUTES        = 120;
+    private static final LocalTime LUNCH_START      = LocalTime.of(12, 0);
+    private static final LocalTime LUNCH_END        = LocalTime.of(13, 30);
+    private static final int    DAYS_AHEAD          = 30;
+
+    /** 4 slot chính, cố định — KHÔNG còn phụ thuộc StaffAvailability/DayOfWeek. */
+    public static final LocalTime[][] FIXED_SLOTS = {
+            { LocalTime.of(8, 0),  LocalTime.of(10, 0) },
+            { LocalTime.of(10, 0), LocalTime.of(12, 0) },
+            { LocalTime.of(13, 30),LocalTime.of(15, 30) },
+            { LocalTime.of(15, 30),LocalTime.of(17, 30) },
+    };
+
+    /** Slot phụ (OT/qua đêm) — không cho đặt qua booking thường, chỉ dùng để
+     *  nhận diện appointment Done thuộc slot này nhằm tính phụ thu 5%. */
+    public static final LocalTime OVERTIME_SLOT_START = LocalTime.of(18, 30);
+    public static final LocalTime OVERTIME_SLOT_END   = LocalTime.of(7, 0); // sáng hôm sau
 
     public static final LocalTime INPATIENT_MORNING_START   = LocalTime.of(8,  0);
     public static final LocalTime INPATIENT_MORNING_END     = LocalTime.of(12, 0);
@@ -44,8 +62,29 @@ public class BookingService {
     public static final double DEPOSIT_RATIO_NORMAL  = 0.20;
     public static final long   DEPOSIT_INPATIENT_VND = 200_000L;
 
-    // Grooming category ID constant
-    public static final int GROOMING_CATEGORY_ID = 3;
+
+    public static final int GROOMING_CATEGORY_ID  = 3;
+    public static final int VACCINE_CATEGORY_ID   = 4;
+    public static final int INPATIENT_CATEGORY_ID = 7; // "Dịch vụ nội trú"
+
+    /** True nếu thời điểm bắt đầu trùng đúng slot phụ (18:30) — dùng để tính phụ thu OT. */
+    public static boolean isOvertimeSlotStart(LocalTime start) {
+        return start != null && start.equals(OVERTIME_SLOT_START);
+    }
+
+    /**
+     * Suy ra SlotShift (cột mới trong DB) từ giờ bắt đầu — 1-4 khớp index
+     * FIXED_SLOTS+1, 5 = slot phụ OT. Trả về null nếu không khớp slot nào
+     * (ví dụ: Inpatient — không gán SlotShift vì không tương ứng 1 ca cố định).
+     */
+    public static Integer slotShiftOf(LocalTime start) {
+        if (start == null) return null;
+        if (start.equals(OVERTIME_SLOT_START)) return 5;
+        for (int i = 0; i < FIXED_SLOTS.length; i++) {
+            if (start.equals(FIXED_SLOTS[i][0])) return i + 1;
+        }
+        return null;
+    }
 
     private final AppointmentDAO appointmentDAO = new AppointmentDAO();
     private final ServiceDAO     serviceDAO     = new ServiceDAO();
@@ -55,24 +94,18 @@ public class BookingService {
     // ─────────────────────────────────────────────────────────────────────────
 
     /**
-     * Sub-slot capacity for a list of services belonging to the SAME role group.
-     *
-     * maxCapacity = Σ ceil(svc.duration / SUB_SLOT_MINUTES)  ×  staffCount
-     *
-     * Rationale: each staff member can handle as many sub-slots as the
-     * slot contains.  Total capacity = how many customers fit across all staff.
+     * Fix cứng: 1 nhân viên (vet/groomer) được nhận tối đa 5 pets / slot.
+     * maxCapacity = (số nhân viên active của role tương ứng) × 5.
+     * KHÔNG còn tính theo duration dịch vụ.
      */
     public int computeMaxCapacity(List<Service> services, int categoryId) {
-        if (services == null || services.isEmpty()) return 1;
-        int totalSubSlots = services.stream()
-                .mapToInt(s -> (int) Math.ceil((double) s.getDurationMinutes() / SUB_SLOT_MINUTES))
-                .sum();
-        if (totalSubSlots <= 0) totalSubSlots = SLOT_MINUTES / SUB_SLOT_MINUTES; // default 4
+        if (services == null || services.isEmpty()) return 5;
         int staff = 1;
         try { staff = Math.max(1, serviceDAO.countStaffByCategoryId(categoryId)); }
         catch (Exception ignored) {}
-        return totalSubSlots * staff;
+        return staff * 5;
     }
+
 
     /**
      * Capacity info for a slot, split by role group.
@@ -105,7 +138,7 @@ public class BookingService {
     // ─────────────────────────────────────────────────────────────────────────
 
     public Map<LocalDate, List<TimeSlot>> generateSlots(List<Integer> serviceIds) throws Exception {
-        return generateSlotsInternal(serviceIds, -1, false);
+        return generateSlotsInternal(serviceIds, -1, true);
     }
 
     public Map<LocalDate, List<TimeSlot>> generateSlotsForReschedule(
@@ -115,13 +148,6 @@ public class BookingService {
 
     private Map<LocalDate, List<TimeSlot>> generateSlotsInternal(
             List<Integer> serviceIds, int excludeId, boolean apply12hCutoff) throws Exception {
-
-        List<StaffAvailability> vetAvail = appointmentDAO.findVetAvailability();
-        Map<Integer, List<LocalTime[]>> windowsByDay = new TreeMap<>();
-        for (StaffAvailability sa : vetAvail) {
-            windowsByDay.computeIfAbsent(sa.getDayOfWeek(), k -> new ArrayList<>())
-                        .add(new LocalTime[]{sa.getStartTime(), sa.getEndTime()});
-        }
 
         // Split selected services into Grooming vs Vet groups
         List<Service> allServices = (serviceIds != null && !serviceIds.isEmpty())
@@ -144,60 +170,42 @@ public class BookingService {
         LocalDate today       = LocalDate.now();
         Map<LocalDate, List<TimeSlot>> result = new LinkedHashMap<>();
 
+        // Lịch CỐ ĐỊNH, giống nhau mọi ngày (không còn phân biệt DayOfWeek /
+        // StaffAvailability) — chỉ 4 slot chính, KHÔNG bao gồm slot phụ OT.
         for (int d = 0; d < DAYS_AHEAD; d++) {
             LocalDate date  = today.plusDays(d);
-            int dbDow = date.getDayOfWeek() == DayOfWeek.SUNDAY ? 0 : date.getDayOfWeek().getValue();
-            List<LocalTime[]> windows = windowsByDay.get(dbDow);
-            if (windows == null || windows.isEmpty()) continue;
-
             List<TimeSlot> slots = new ArrayList<>();
-            for (LocalTime[] win : windows) {
-                LocalTime cursor = win[0];
-                while (true) {
-                    LocalTime slotEnd = cursor.plusMinutes(SLOT_MINUTES);
-                    if (slotEnd.isAfter(win[1])) break;
 
-                    // Skip lunch
-                    if (!cursor.isBefore(LUNCH_START) && cursor.isBefore(LUNCH_END)) {
-                        cursor = LUNCH_END; continue;
-                    }
-                    if (cursor.isBefore(LUNCH_START) && slotEnd.isAfter(LUNCH_START)) {
-                        cursor = LUNCH_END; continue;
-                    }
+            for (LocalTime[] win : FIXED_SLOTS) {
+                LocalTime cursor  = win[0];
+                LocalTime slotEnd = win[1];
 
-                    // 12h cutoff
-                    if (apply12hCutoff && !cutoff.isBefore(LocalDateTime.of(date, cursor))) {
-                        cursor = cursor.plusMinutes(SLOT_MINUTES); continue;
-                    }
-
-                    // Load per group
-                    int groomLoad = groomSvcs.isEmpty() ? 0
-                            : appointmentDAO.countConfirmedInSlotByRoleGroup(
-                                    date, cursor, slotEnd, GROOMING_CATEGORY_ID);
-                    int vetLoad   = vetSvcs.isEmpty()   ? 0
-                            : appointmentDAO.countConfirmedInSlotByRoleGroup(
-                                    date, cursor, slotEnd, 2);
-
-                    // Slot is available if BOTH groups still have capacity
-                    // (or if that group is not requested)
-                    boolean groomOk = groomSvcs.isEmpty() || groomLoad < groomCap;
-                    boolean vetOk   = vetSvcs.isEmpty()   || vetLoad   < vetCap;
-                    boolean available = noSvcSelected || (groomOk && vetOk);
-
-                    // Represent fill as combined load / combined capacity
-                    int totalLoad  = groomLoad + vetLoad;
-                    int totalCap   = Math.max(1, groomCap + vetCap);
-
-                    TimeSlot ts = new TimeSlot(date, cursor, slotEnd, available);
-                    ts.setCurrentLoad(totalLoad);
-                    ts.setMaxCapacity(noSvcSelected ? 999 : totalCap);
-                    // Store per-group info in extended fields
-                    ts.setGroomLoad(groomLoad);  ts.setGroomCap(groomCap);
-                    ts.setVetLoad(vetLoad);       ts.setVetCap(vetCap);
-                    slots.add(ts);
-
-                    cursor = cursor.plusMinutes(SLOT_MINUTES);
+                // 12h cutoff (dùng cho reschedule — không cho chọn slot quá gần)
+                if (apply12hCutoff && !cutoff.isBefore(LocalDateTime.of(date, cursor))) {
+                    continue;
                 }
+
+                int slotShift = slotShiftOf(cursor); // luôn khớp 1 trong FIXED_SLOTS ở đây
+                int groomLoad = groomSvcs.isEmpty() ? 0
+                        : appointmentDAO.countConfirmedInSlotByRoleGroup(
+                        date, slotShift, GROOMING_CATEGORY_ID);
+                int vetLoad   = vetSvcs.isEmpty()   ? 0
+                        : appointmentDAO.countConfirmedInSlotByRoleGroup(
+                        date, slotShift, 2);
+
+                boolean groomOk = groomSvcs.isEmpty() || groomLoad < groomCap;
+                boolean vetOk   = vetSvcs.isEmpty()   || vetLoad   < vetCap;
+                boolean available = noSvcSelected || (groomOk && vetOk);
+
+                int totalLoad  = groomLoad + vetLoad;
+                int totalCap   = Math.max(1, groomCap + vetCap);
+
+                TimeSlot ts = new TimeSlot(date, cursor, slotEnd, available);
+                ts.setCurrentLoad(totalLoad);
+                ts.setMaxCapacity(noSvcSelected ? 900 : totalCap);
+                ts.setGroomLoad(groomLoad);  ts.setGroomCap(groomCap);
+                ts.setVetLoad(vetLoad);       ts.setVetCap(vetCap);
+                slots.add(ts);
             }
             if (!slots.isEmpty()) result.put(date, slots);
         }
@@ -208,28 +216,9 @@ public class BookingService {
     //  INPATIENT SLOTS
     // ─────────────────────────────────────────────────────────────────────────
 
-    public List<TimeSlot> generateInpatientSlots(LocalDate date, int serviceId) throws Exception {
-        List<TimeSlot> slots = new ArrayList<>();
-        Service svc = serviceDAO.findById(serviceId);
-        List<Service> svcList = svc != null ? Collections.singletonList(svc) : Collections.emptyList();
-        int catId = svc != null ? svc.getCategoryID() : 2;
-        int cap   = svcList.isEmpty() ? 1 : computeMaxCapacity(svcList, catId);
-
-        LocalTime mStart = INPATIENT_MORNING_START,   mEnd = INPATIENT_MORNING_END;
-        LocalTime aStart = INPATIENT_AFTERNOON_START, aEnd = INPATIENT_AFTERNOON_END;
-
-        int mLoad = appointmentDAO.countConfirmedInSlotByRoleGroup(date, mStart, mEnd, catId);
-        TimeSlot morning = new TimeSlot(date, mStart, mEnd, mLoad < cap);
-        morning.setMaxCapacity(cap); morning.setCurrentLoad(mLoad); morning.setInpatient(true);
-        slots.add(morning);
-
-        int aLoad = appointmentDAO.countConfirmedInSlotByRoleGroup(date, aStart, aEnd, catId);
-        TimeSlot afternoon = new TimeSlot(date, aStart, aEnd, aLoad < cap);
-        afternoon.setMaxCapacity(cap); afternoon.setCurrentLoad(aLoad); afternoon.setInpatient(true);
-        slots.add(afternoon);
-
-        return slots;
-    }
+    // (Đã xoá generateInpatientSlots() — không được gọi ở đâu trong codebase
+    // này; Inpatient dùng date+period (sáng/chiều) trực tiếp qua form, không
+    // qua slot-grid UI, và không khớp 1 SlotShift cố định nào để tính load.)
 
     // ─────────────────────────────────────────────────────────────────────────
     //  APPOINTMENT CREATION
@@ -266,6 +255,9 @@ public class BookingService {
                 a.setStartTime(start);
                 a.setEndTime(end);
                 a.setStatus("Pending");
+                // Inpatient không khớp 1 ca cố định nào (gộp 2 ca buổi sáng/chiều)
+                // nên để SlotShift = null, chỉ set cho booking thường.
+                if (!isInpatient) a.setSlotShift(slotShiftOf(start));
                 created.add(appointmentDAO.insert(a));
             }
         }

@@ -57,7 +57,7 @@
       <c:when test="${isInpatient}">
         <%-- ── Inpatient: date + period picker ──────────────────────────── --%>
         <div class="bk-panel">
-          <div class="bk-panel-head">🏨 Chọn ngày và buổi nội trú mới</div>
+          <div class="bk-panel-head">Chọn ngày và buổi nội trú mới</div>
           <div class="bk-panel-body">
             <input type="hidden" name="isInpatient" value="true">
             <div class="inpatient-row">
@@ -72,11 +72,11 @@
                 <div class="period-btns">
                   <button type="button" class="period-btn" id="btnMorning"
                           onclick="selectPeriod('morning')">
-                    🌅 Sáng<br><small>08:00 – 12:00</small>
+                    Sáng<br><small>08:00 – 12:00</small>
                   </button>
                   <button type="button" class="period-btn" id="btnAfternoon"
                           onclick="selectPeriod('afternoon')">
-                    🌆 Chiều<br><small>13:30 – 17:30</small>
+                    Chiều<br><small>13:30 – 17:30</small>
                   </button>
                 </div>
               </div>
@@ -104,7 +104,7 @@
         <span id="selectionText" style="color:var(--warm-gray);">Chưa chọn khung giờ nào</span>
       </div>
       <button type="submit" class="btn-confirm-reschedule" id="btnReschedule" disabled>
-        ✓ Xác nhận đổi lịch
+        Xác nhận đổi lịch
       </button>
     </div>
   </form>

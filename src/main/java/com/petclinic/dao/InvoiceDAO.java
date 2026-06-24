@@ -1,14 +1,19 @@
 package com.petclinic.dao;
 
+import com.petclinic.model.Appointment;
 import com.petclinic.model.Invoice;
+import com.petclinic.service.BookingService;
 import com.petclinic.util.DBConnection;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
 public class InvoiceDAO {
+
+    private static final BigDecimal OT_FEE_RATE = new BigDecimal("0.05"); // 5%
 
     public Invoice findByAppointment(int appointmentId) throws SQLException {
         String sql = "SELECT * FROM Invoices WHERE AppointmentID = ?";
@@ -20,6 +25,7 @@ public class InvoiceDAO {
                 Invoice inv = mapInvoice(rs);
                 inv.setItems(findItems(inv.getInvoiceID()));
                 inv.setPayments(findPayments(inv.getInvoiceID()));
+                applyOvertimeFeeIfApplicable(inv, appointmentId);
                 return inv;
             }
         }
@@ -35,8 +41,53 @@ public class InvoiceDAO {
                 Invoice inv = mapInvoice(rs);
                 inv.setItems(findItems(invoiceId));
                 inv.setPayments(findPayments(invoiceId));
+                applyOvertimeFeeIfApplicable(inv, inv.getAppointmentID());
                 return inv;
             }
+        }
+    }
+
+    /**
+     * Nếu appointment của invoice này đã Done VÀ thuộc slot phụ (OT, bắt đầu
+     * 18:30) và chưa từng tính phụ thu, cộng thêm 5% TotalAmount vào
+     * TotalAmount và đánh dấu OtherFees='OT Fee' (idempotent — chỉ áp 1 lần
+     * nhờ check OtherFees rỗng).
+     *
+     * LƯU Ý quan trọng: DB mới định nghĩa Invoices.OtherFees là
+     * nvarchar(200) — đây là NHÃN mô tả ('OT Fee'), KHÔNG phải số tiền.
+     * Số tiền phụ thu thực tế được cộng thẳng vào TotalAmount, không lưu
+     * riêng ở cột nào khác.
+     *
+     * Codebase này không có nơi nào set Status='Done' (việc đó do phía
+     * staff/admin thực hiện, ngoài phạm vi source này) — nên áp dụng
+     * "lười" (lazy) ngay tại thời điểm invoice được load là cách an toàn để
+     * đảm bảo phụ thu luôn được cộng đúng trước khi hiển thị cho khách.
+     */
+    private void applyOvertimeFeeIfApplicable(Invoice inv, int appointmentId) {
+        try {
+            if (inv == null) return;
+            if (inv.getOtherFees() != null && !inv.getOtherFees().isBlank()) return;
+
+            Appointment appt = new AppointmentDAO().findById(appointmentId);
+            if (appt == null) return;
+            if (!"Done".equals(appt.getStatus())) return;
+            if (!BookingService.isOvertimeSlotStart(appt.getStartTime())) return;
+
+            BigDecimal fee = inv.getTotalAmount().multiply(OT_FEE_RATE).setScale(2, RoundingMode.HALF_UP);
+
+            try (Connection c = DBConnection.getConnection();
+                 PreparedStatement ps = c.prepareStatement(
+                         "UPDATE Invoices SET OtherFees = ?, TotalAmount = TotalAmount + ? WHERE InvoiceID = ?")) {
+                ps.setString(1, "OT Fee");
+                ps.setBigDecimal(2, fee);
+                ps.setInt(3, inv.getInvoiceID());
+                ps.executeUpdate();
+            }
+
+            inv.setOtherFees("OT Fee");
+            inv.setTotalAmount(inv.getTotalAmount().add(fee));
+        } catch (Exception ignored) {
+            // Không để lỗi tính phụ thu làm hỏng việc hiển thị invoice.
         }
     }
 
@@ -118,6 +169,7 @@ public class InvoiceDAO {
         inv.setAppointmentID(rs.getInt("AppointmentID"));
         inv.setCustomerID(rs.getInt("CustomerID"));
         inv.setTotalAmount(rs.getBigDecimal("TotalAmount"));
+        inv.setOtherFees(rs.getString("OtherFees"));
         inv.setStatus(rs.getString("Status"));
         return inv;
     }
