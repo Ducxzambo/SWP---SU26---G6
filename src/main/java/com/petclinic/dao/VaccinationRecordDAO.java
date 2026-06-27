@@ -27,12 +27,10 @@ public class VaccinationRecordDAO {
         return list;
     }
 
-    /** Toàn bộ lịch sử tiêm của 1 pet (dùng cho trang chi tiết pet nếu cần). */
     public List<VaccinationRecord> findByPet(int petId) throws SQLException {
         String sql = "SELECT vr.*, v.Name AS VaccineName, s.FullName AS StaffName "
-                + "FROM VaccinationRecords vr "
-                + "JOIN Vaccines v ON vr.VaccineID = v.VaccineID "
-                + "JOIN Staff s ON vr.StaffID = s.StaffID "
+                + "FROM VaccinationRecords vr JOIN Vaccines v  ON vr.VaccineID = v.VaccineID "
+                + "JOIN Staff s ON  vr.StaffID = s.StaffID "
                 + "WHERE vr.PetID = ? ORDER BY vr.AdministeredDate DESC";
         List<VaccinationRecord> list = new ArrayList<>();
         try (Connection c = DBConnection.getConnection();
@@ -58,7 +56,7 @@ public class VaccinationRecordDAO {
         Date nd = rs.getDate("NextDueDate");
         if (nd != null) vr.setNextDueDate(nd.toLocalDate());
         vr.setVaccineName(rs.getString("VaccineName"));
-        vr.setStaffName(rs.getString("StaffName"));
+//        vr.setStaffName(rs.getString("StaffName"));
         return vr;
     }
 }

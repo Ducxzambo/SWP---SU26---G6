@@ -11,6 +11,7 @@
   <title>Chi tiết lịch khám – PetClinic</title>
   <link rel="stylesheet" href="${ctx}/css/main.css">
   <link rel="stylesheet" href="${ctx}/css/appointments.css">
+  <link rel="stylesheet" href="${ctx}/css/reviews.css">
 </head>
 <body>
 
@@ -104,7 +105,7 @@
               </c:if>
               <c:if test="${not empty medicalRecord.staffName}">
                 <div class="detail-field">
-                  <span class="field-label">Bác sĩ phụ trách</span>
+                  <span class="field-label">Nhân viên phụ trách</span>
                   <span class="field-value">${medicalRecord.staffName}</span>
                 </div>
               </c:if>
@@ -230,14 +231,6 @@
                    <span class="pay-amount"><fmt:formatNumber value="${pay.amount}" type="number" groupingUsed="true"/>₫</span>
                    <span class="pay-by">bởi ${pay.processedByName}</span>
                    <c:if test="${not empty pay.paidAt}">
-                     <%--
-                       Sửa lỗi: bản gốc dùng
-                         ${pay.paidAt.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy"))}
-                       Đây không phải cú pháp EL hợp lệ (EL không gọi static method
-                       như Java thuần) — sẽ gây lỗi runtime. Sửa lại dùng getter
-                       định dạng sẵn, theo đúng pattern formattedXxx mà model đã
-                       cung cấp ở những nơi khác trong cùng trang/dự án.
-                     --%>
                      <span class="pay-date">${pay.formattedPaidAt}</span>
                    </c:if>
                  </div>
@@ -250,6 +243,8 @@
     </c:if>
 
   </div><%-- /detail-grid --%>
+  <%-- ── Review section (chỉ hiện khi status = Done) ─── --%>
+    <%@ include file="/WEB-INF/views/customer/appointments/review-form-fragment.jsp" %>
 </div><%-- /detail-wrap --%>
 
 <!-- Cancel modal -->

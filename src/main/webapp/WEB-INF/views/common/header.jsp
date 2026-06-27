@@ -75,6 +75,11 @@
         <a href="${ctx}/news" class="nav-link">Tin tức</a>
       </li>
 
+      <!-- Cộng đồng -->
+      <li class="nav-item">
+        <a href="${ctx}/community" class="nav-link">Cộng đồng</a>
+      </li>
+
       <!-- Liên hệ -->
       <li class="nav-item">
         <a href="${ctx}/contact" class="nav-link">Liên hệ</a>

@@ -85,7 +85,7 @@
   <form action="${ctx}/booking/payment" method="post" id="payForm">
     <input type="hidden" name="payType" id="payTypeInput" value="">
     <button type="submit" class="btn-pay" id="btnPay" disabled>
-      Tiến hành thanh toán →
+      Tiến hành thanh toán
     </button>
   </form>
 

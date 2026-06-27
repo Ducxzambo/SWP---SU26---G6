@@ -4,6 +4,8 @@ import com.petclinic.model.GroomingRecord;
 import com.petclinic.util.DBConnection;
 
 import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
 
 public class GroomingRecordDAO {
 
@@ -20,6 +22,21 @@ public class GroomingRecordDAO {
                 return rs.next() ? mapRow(rs) : null;
             }
         }
+    }
+
+    public List<GroomingRecord> findByPet(int petId) throws SQLException {
+        String sql = "SELECT * "
+                + "FROM GroomingRecords "
+                + "WHERE PetID = ? order by AppointmentID desc";
+        List<GroomingRecord> list = new ArrayList<>();
+        try (Connection c = DBConnection.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, petId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) list.add(mapRow(rs));
+            }
+        }
+        return list;
     }
 
     private GroomingRecord mapRow(ResultSet rs) throws SQLException {

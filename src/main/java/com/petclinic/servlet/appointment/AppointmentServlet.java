@@ -4,6 +4,7 @@ import com.petclinic.dao.*;
 import com.petclinic.model.*;
 import com.petclinic.service.BookingService;
 
+import com.petclinic.servlet.home.NotificationServlet;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
@@ -34,6 +35,8 @@ public class AppointmentServlet extends HttpServlet {
     private final MedicalRecordDAO mrDAO      = new MedicalRecordDAO();
     private final InvoiceDAO       invoiceDAO = new InvoiceDAO();
     private final ServiceDAO       serviceDAO = new ServiceDAO();
+    private final ReviewDAO        reviewDAO  = new ReviewDAO();
+    private final NotificationDAO  notiDAO    = new  NotificationDAO();
     private final BookingService   bookingSvc = new BookingService();
 
     // ── GET ───────────────────────────────────────────────────────────────────
@@ -116,13 +119,16 @@ public class AppointmentServlet extends HttpServlet {
 
         MedicalRecord mr      = mrDAO.findByAppointment(id);
         Invoice       invoice = invoiceDAO.findByAppointment(id);
+        Review review = reviewDAO.findByAppointment(id);
+        int noti = notiDAO.countUnread( customer.getCustomerID());
+
 
         req.setAttribute("appt",          appt);
         req.setAttribute("medicalRecord", mr);
         req.setAttribute("invoice",       invoice);
         req.setAttribute("navCategories", serviceDAO.findAllCategoriesWithServices());
-        req.setAttribute("unreadCount",
-                new NotificationDAO().countUnread(customer.getCustomerID()));
+        req.setAttribute("review", review);
+        req.setAttribute("unreadCount", noti);
         req.getRequestDispatcher("/WEB-INF/views/customer/appointments/appointment-detail.jsp")
                 .forward(req, resp);
     }

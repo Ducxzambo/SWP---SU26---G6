@@ -49,7 +49,7 @@ public class AppointmentDAO {
 
     public Appointment findById(int appointmentId) throws SQLException {
         String sql = "SELECT a.*, p.Name AS PetName, s.Name AS ServiceName, "
-                + "sc.Name AS CategoryName, st.FullName AS VetName "
+                + "sc.Name AS CategoryName, st.FullName AS staffName "
                 + "FROM Appointments a "
                 + "JOIN Pets p  ON a.PetID     = p.PetID "
                 + "JOIN Services s ON a.ServiceID = s.ServiceID "
@@ -67,7 +67,7 @@ public class AppointmentDAO {
 
     public List<Appointment> findByCustomer(int customerId) throws SQLException {
         String sql = "SELECT a.*, p.Name AS PetName, s.Name AS ServiceName, "
-                + "sc.Name AS CategoryName, st.FullName AS VetName "
+                + "sc.Name AS CategoryName, st.FullName AS staffName "
                 + "FROM Appointments a "
                 + "JOIN Pets p ON a.PetID = p.PetID "
                 + "JOIN Services s ON a.ServiceID = s.ServiceID "
@@ -87,7 +87,7 @@ public class AppointmentDAO {
 
     public List<Appointment> findByPet(int petId) throws SQLException {
         String sql = "SELECT a.*, p.Name AS PetName, s.Name AS ServiceName, "
-                + "sc.Name AS CategoryName, st.FullName AS VetName "
+                + "sc.Name AS CategoryName, st.FullName AS staffName "
                 + "FROM Appointments a "
                 + "JOIN Pets p ON a.PetID = p.PetID "
                 + "JOIN Services s ON a.ServiceID = s.ServiceID "
@@ -137,31 +137,6 @@ public class AppointmentDAO {
         return list;
     }
 
-    /**
-     * Count Confirmed/InProgress/Done appointments overlapping a time window for a service.
-     * Uses CategoryID-based role filtering: only counts appointments whose service
-     * belongs to the same staff-role group (Groomer vs Vet).
-     *
-     * For capacity: counts distinct pets (each pet occupies 1 confirmed slot).
-     */
-    public int countConfirmedInSlot(LocalDate date, LocalTime start, LocalTime end, int serviceId)
-            throws SQLException {
-        // Count confirmed appointments for this service in overlapping time
-        String sql = "SELECT COUNT(*) FROM Appointments "
-                + "WHERE AppointmentDate = ? AND ServiceID = ? "
-                + "AND Status IN ('Confirmed','InProgress','Done') "
-                + "AND StartTime < ? AND EndTime > ?";
-        try (Connection c = DBConnection.getConnection();
-             PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setDate(1, Date.valueOf(date));
-            ps.setInt(2, serviceId);
-            ps.setTime(3, Time.valueOf(end));
-            ps.setTime(4, Time.valueOf(start));
-            try (ResultSet rs = ps.executeQuery()) {
-                return rs.next() ? rs.getInt(1) : 0;
-            }
-        }
-    }
 
     /**
      * Count confirmed appointments for ALL services in the same role-group
@@ -178,7 +153,7 @@ public class AppointmentDAO {
                 + "JOIN Services s ON a.ServiceID = s.ServiceID "
                 + "WHERE a.AppointmentDate = ? "
                 + "AND a.SlotShift = ? "
-                + "AND a.Status IN ('Confirmed','InProgress','Done') "
+                + "AND a.Status IN ('Confirmed') "
                 // Grooming = CategoryID 3 (phải khớp BookingService.GROOMING_CATEGORY_ID).
                 + "AND (CASE WHEN s.CategoryID = 3 THEN 4 ELSE 3 END) = ?";
         try (Connection c = DBConnection.getConnection();
@@ -198,7 +173,7 @@ public class AppointmentDAO {
      */
     public List<Appointment> findOverdueActive() throws SQLException {
         String sql = "SELECT a.*, p.Name AS PetName, s.Name AS ServiceName, "
-                + "sc.Name AS CategoryName, st.FullName AS VetName "
+                + "sc.Name AS CategoryName, st.FullName AS staffName "
                 + "FROM Appointments a "
                 + "JOIN Pets p ON a.PetID = p.PetID "
                 + "JOIN Services s ON a.ServiceID = s.ServiceID "
@@ -227,7 +202,7 @@ public class AppointmentDAO {
     }
 
     /** Gán Vet/Groomer cho appointment (dùng cho auto-assign khi chuyển Confirmed). */
-    public void assignVet(int appointmentId, int staffId) throws SQLException {
+    public void assignStaff(int appointmentId, int staffId) throws SQLException {
         String sql = "UPDATE Appointments SET AssignedStaffID = ? WHERE AppointmentID = ?";
         try (Connection c = DBConnection.getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
@@ -240,7 +215,7 @@ public class AppointmentDAO {
     /** Find all customers with overdue appointments (for email join). */
     public List<Appointment> findOverdueOlderThan24h() throws SQLException {
         String sql = "SELECT a.*, p.Name AS PetName, s.Name AS ServiceName, "
-                + "sc.Name AS CategoryName, st.FullName AS VetName "
+                + "sc.Name AS CategoryName, st.FullName AS staffName "
                 + "FROM Appointments a "
                 + "JOIN Pets p ON a.PetID = p.PetID "
                 + "JOIN Services s ON a.ServiceID = s.ServiceID "
@@ -298,9 +273,6 @@ public class AppointmentDAO {
         }
     }
 
-    // (Đã xoá findVetAvailability() — bảng StaffAvailability không còn tồn tại
-    // trong DB mới; slot giờ là FIXED-SLOT, không phụ thuộc lịch rảnh từng staff.)
-
     // ── Mapping ───────────────────────────────────────────────────────────────
 
     private Appointment mapRow(ResultSet rs) throws SQLException {
@@ -308,7 +280,7 @@ public class AppointmentDAO {
         a.setPetName(rs.getString("PetName"));
         a.setServiceName(rs.getString("ServiceName"));
         a.setCategoryName(rs.getString("CategoryName"));
-        a.setStaffName(rs.getString("VetName"));
+        a.setStaffName(rs.getString("staffName"));
         return a;
     }
 

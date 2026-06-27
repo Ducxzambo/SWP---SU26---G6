@@ -10,7 +10,6 @@ public class Invoice {
     private int           customerID;
     private BigDecimal    totalAmount;
     private String         otherFees; // nvarchar(200) — nhãn mô tả phụ thu (ví dụ "OT Fee"),
-    // KHÔNG phải số tiền. Số tiền đã được cộng thẳng vào TotalAmount.
     private String        status; // Unpaid | Paid | Refunded | PartiallyRefunded
     private List<InvoiceItem> items;
     private List<Payment>     payments;

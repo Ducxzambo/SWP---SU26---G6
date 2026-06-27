@@ -73,76 +73,6 @@
     </div>
   </div>
 
-  <%-- ── Vaccine passport ────────────────────────────────────── --%>
-  <div class="profile-section">
-    <div class="profile-section-head">
-      Vaccine passport
-      <c:set var="overdueCount"  value="0"/>
-      <c:set var="dueSoonCount"  value="0"/>
-      <c:forEach var="v" items="${vaccines}">
-        <c:if test="${v.overdue}">  <c:set var="overdueCount"  value="${overdueCount  + 1}"/></c:if>
-        <c:if test="${v.dueSoon}">  <c:set var="dueSoonCount"  value="${dueSoonCount  + 1}"/></c:if>
-      </c:forEach>
-      <c:if test="${overdueCount > 0}">
-        <span style="margin-left:auto;background:#f8d7da;color:#721c24;
-              border-radius:20px;padding:3px 10px;font-size:12px;font-weight:600;">
-          ${overdueCount} quá hạn
-        </span>
-      </c:if>
-      <c:if test="${overdueCount == 0 and dueSoonCount > 0}">
-        <span style="margin-left:auto;background:#fff3cd;color:#856404;
-              border-radius:20px;padding:3px 10px;font-size:12px;font-weight:600;">
-          ${dueSoonCount} sắp đến hạn
-        </span>
-      </c:if>
-    </div>
-    <div class="profile-section-body">
-      <c:choose>
-        <c:when test="${empty vaccines}">
-          <div style="padding:28px;text-align:center;color:var(--warm-gray);font-size:14px;">
-            Chưa có thông tin vaccine.
-          </div>
-        </c:when>
-        <c:otherwise>
-          <table class="vaccine-table">
-            <thead>
-              <tr>
-                <th>Vaccine</th>
-                <th>Ngày tiêm</th>
-                <th>Bác sĩ</th>
-                <th>Ngày nhắc tiếp</th>
-                <th>Trạng thái</th>
-              </tr>
-            </thead>
-            <tbody>
-              <c:forEach var="v" items="${vaccines}">
-                <tr>
-                  <td style="font-weight:600;color:var(--text-dark);">${v.vaccineName}</td>
-                  <td>${v.formattedAdministeredDate}</td>
-                  <td>${not empty v.staffName ? v.staffName : '—'}</td>
-                  <td>${v.formattedNextDueDate}</td>
-                  <td>
-                    <c:choose>
-                      <c:when test="${v.overdue}">
-                        <span class="vaccine-overdue">Quá hạn</span>
-                      </c:when>
-                      <c:when test="${v.dueSoon}">
-                        <span class="vaccine-due-soon">Sắp đến hạn</span>
-                      </c:when>
-                      <c:otherwise>
-                        <span class="vaccine-ok">✓ Đúng hạn</span>
-                      </c:otherwise>
-                    </c:choose>
-                  </td>
-                </tr>
-              </c:forEach>
-            </tbody>
-          </table>
-        </c:otherwise>
-      </c:choose>
-    </div>
-  </div>
-
   <%-- ── Medical history timeline ────────────────────────────── --%>
   <div class="profile-section">
     <div class="profile-section-head">
@@ -157,7 +87,7 @@
           <div style="padding:28px;text-align:center;color:var(--warm-gray);font-size:14px;">
             Chưa có lịch sử khám bệnh.
             <a href="${ctx}/booking/new?prefillPet=${pet.petID}"
-               style="color:var(--green-500);font-weight:500;margin-left:4px;">Đặt lịch ngay →</a>
+               style="color:var(--green-500);font-weight:500;margin-left:4px;">Đặt lịch ngay</a>
           </div>
         </c:when>
         <c:otherwise>
@@ -182,17 +112,25 @@
                           style="padding:2px 8px;font-size:11px;">${a.status}</span>
                   </div>
                   <%-- Medical summary if exists --%>
-                  <c:if test="${not empty a.diagnosis}">
-                    <div class="timeline-summary">
-                      <strong>Chẩn đoán:</strong> ${a.diagnosis}
-                    </div>
+                  <c:if test="${not empty medicalMap[a.appointmentID]}">
+                    <c:set var="me" value="${medicalMap[a.appointmentID]}"/>
+                    <div class="timeline-summary"><strong>Chẩn đoán:</strong> ${me.diagnosis}</div>
                   </c:if>
-                  <c:if test="${not empty a.notes and empty a.diagnosis}">
-                    <div class="timeline-summary">${a.notes}</div>
+
+                  <%-- Grooming summary if exists --%>
+                  <c:if test="${not empty groomingMap[a.appointmentID]}">
+                    <c:set var="gr" value="${groomingMap[a.appointmentID]}"/>
+                    <div class="timeline-summary"><strong>Tình trạng:</strong> ${gr.coatCondition}</div>
+                  </c:if>
+
+                  <%-- Vaccine summary if exists --%>
+                  <c:if test="${not empty vaccineMap[a.appointmentID]}">
+                    <c:set var="vc" value="${vaccineMap[a.appointmentID]}"/>
+                    <div class="timeline-summary"><strong>Ngày tiêm:</strong> ${vc.formattedAdministeredDate}</div>
                   </c:if>
                   <a href="${ctx}/appointments/detail?id=${a.appointmentID}"
                      class="timeline-link" style="margin-top:6px;display:inline-block;">
-                    Xem chi tiết →
+                    Xem chi tiết
                   </a>
                 </div>
               </div>

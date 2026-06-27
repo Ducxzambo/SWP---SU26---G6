@@ -1,5 +1,6 @@
 package com.petclinic.dao;
 
+import com.petclinic.model.Appointment;
 import com.petclinic.model.MedicalRecord;
 import com.petclinic.model.PrescriptionItem;
 import com.petclinic.util.DBConnection;
@@ -26,6 +27,21 @@ public class MedicalRecordDAO {
                 return mr;
             }
         }
+    }
+
+    public List<MedicalRecord> findByPet(int petId) throws SQLException {
+        String sql = "SELECT mr.* "
+                + "FROM MedicalRecords mr "
+                + "WHERE mr.PetID = ? Order by mr.AppointmentID desc";
+        List<MedicalRecord> list = new ArrayList<>();
+        try (Connection c = DBConnection.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, petId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) list.add(mapRecord(rs));
+            }
+        }
+        return list;
     }
 
     public List<PrescriptionItem> findPrescriptions(int recordId) throws SQLException {
@@ -68,7 +84,7 @@ public class MedicalRecordDAO {
         mr.setTreatmentPlan(rs.getString("TreatmentPlan"));
         Timestamp ts = rs.getTimestamp("CreatedAt");
         if (ts != null) mr.setCreatedAt(ts.toLocalDateTime());
-        mr.setStaffName(rs.getString("StaffName"));
+//        mr.setStaffName(rs.getString("StaffName"));
         return mr;
     }
 }

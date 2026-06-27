@@ -78,7 +78,7 @@ public class AssignmentService {
             }
 
             if (best != null) {
-                appointmentDAO.assignVet(appointmentId, best.getStaffID());
+                appointmentDAO.assignStaff(appointmentId, best.getStaffID());
                 LOG.info("[AssignmentService] Assigned staff #" + best.getStaffID()
                         + " (" + best.getFullName() + ") to appt #" + appointmentId);
             }

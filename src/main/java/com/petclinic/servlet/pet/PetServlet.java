@@ -3,6 +3,7 @@ package com.petclinic.servlet.pet;
 import com.petclinic.dao.*;
 import com.petclinic.model.*;
 
+import com.petclinic.service.PetService;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
@@ -11,6 +12,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
 
 /**
  * URL map:
@@ -32,6 +34,8 @@ public class PetServlet extends HttpServlet {
     private final MedicalRecordDAO mrDAO        = new MedicalRecordDAO();
     private final ServiceDAO     serviceDAO     = new ServiceDAO();
     private final NotificationDAO notifDAO      = new NotificationDAO();
+
+    private final PetService petSvc = new  PetService();
 
     private static final DateTimeFormatter ISO = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
@@ -90,15 +94,18 @@ public class PetServlet extends HttpServlet {
         if (pet == null || pet.getCustomerID() != customer.getCustomerID()) {
             resp.sendError(404, "Không tìm thấy thú cưng."); return;
         }
-
-        // Medical history: all appointments with medical records for this pet
         List<Appointment> appointments = appointmentDAO.findByPet(id);
-        List<VaccinationRecord> vaccines = petDAO.findVaccinationsByPet(id);
+
+        Map<Integer, MedicalRecord> medicalMap = petSvc.getMedicalRecordsByPet(id);
+        Map<Integer, VaccinationRecord> vaccineMap = petSvc.getVaccinationRecordsByPet(id);
+        Map<Integer, GroomingRecord> groomingMap = petSvc.getGroomingRecordsByPet(id);
 
         setCommonAttrs(req, customer);
         req.setAttribute("pet",          pet);
         req.setAttribute("appointments", appointments);
-        req.setAttribute("vaccines",     vaccines);
+        req.setAttribute("medicalMap",   medicalMap);
+        req.setAttribute("vaccineMap",   vaccineMap);
+        req.setAttribute("groomingMap",  groomingMap);
         req.getRequestDispatcher("/WEB-INF/views/customer/pets/profile.jsp").forward(req, resp);
     }
 

@@ -333,7 +333,7 @@
       if (!slotInput || !slotInput.value) { e.preventDefault(); return; }
       const selEl  = document.getElementById('selectionText');
       const selTxt = selEl ? selEl.textContent.replace('✓ Đã chọn: ','') : '';
-      if (!confirm('Xác nhận đổi sang:\n' + selTxt + '\n\nTrạng thái sẽ về "Pending". Tiếp tục?')) {
+      if (!confirm('Xác nhận đổi sang:\n' + selTxt + '\n. Tiếp tục?')) {
         e.preventDefault();
       }
     });

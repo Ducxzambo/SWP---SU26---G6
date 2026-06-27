@@ -48,6 +48,7 @@ public class BookingServlet extends HttpServlet {
                 default:                handleStep1Get(req, resp, customer);    break;
             }
         } catch (Exception e) { e.printStackTrace(); throw new ServletException(e); }
+
     }
 
     // ── POST ──────────────────────────────────────────────────────────────────
@@ -91,7 +92,12 @@ public class BookingServlet extends HttpServlet {
         String prefillCat = req.getParameter("prefillCategory");
         String prefillSvc = req.getParameter("prefillService");
 
-        Map<LocalDate, List<TimeSlot>> slots = bookingSvc.generateSlots(Collections.emptyList());
+        // If has prefilled services --> initServiceIds
+        List<Integer> initServiceIds = new ArrayList<>();
+        if (prefillSvc != null && !prefillSvc.isBlank()) {
+            initServiceIds.add(Integer.parseInt(prefillSvc));
+        }
+        Map<LocalDate, List<TimeSlot>> slots = bookingSvc.generateSlots(initServiceIds);
 
         req.setAttribute("categories",         cats);
         req.setAttribute("navCategories",      cats);

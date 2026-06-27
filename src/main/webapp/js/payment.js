@@ -1,17 +1,3 @@
-/**
- * payment.js
- * Gộp toàn bộ logic JS cho cụm trang "Thanh toán":
- *   1) payment.jsp        — chọn hình thức thanh toán (toàn bộ / đặt cọc)
- *   2) payment-result.jsp — poll trạng thái lịch hẹn khi đang chờ xác nhận
- *
- * Mỗi phần được bọc trong IIFE riêng và tự kiểm tra phần tử DOM đặc trưng của
- * trang mình trước khi chạy, nên có thể an toàn dùng chung 1 file cho cả 2 trang.
- *
- * Phần (2) yêu cầu JSP khai báo trước khi load file này (xem payment-result.jsp):
- *   window.APP_CTX                  (context path)
- *   window.PAYMENT_RESULT_APPT_ID   (string, có thể rỗng)
- */
-
 /* ============================================================
  * 1) PAYMENT — chọn hình thức thanh toán (toàn bộ / đặt cọc)
  * ============================================================ */
@@ -42,7 +28,7 @@
 
     const btnPay = document.getElementById('btnPay');
     if (btnPay) {
-      btnPay.textContent = 'Thanh toán ' + amount + ' →';
+      btnPay.textContent = 'Thanh toán ' + amount;
       btnPay.disabled = false;
     }
   }

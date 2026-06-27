@@ -202,23 +202,24 @@ public class BookingService {
 
                 TimeSlot ts = new TimeSlot(date, cursor, slotEnd, available);
                 ts.setCurrentLoad(totalLoad);
-                ts.setMaxCapacity(noSvcSelected ? 900 : totalCap);
+                ts.setMaxCapacity(noSvcSelected ? 100 : totalCap);
                 ts.setGroomLoad(groomLoad);  ts.setGroomCap(groomCap);
                 ts.setVetLoad(vetLoad);       ts.setVetCap(vetCap);
                 slots.add(ts);
+
+                System.out.print("Cap: ");
+                System.out.println(groomCap + "   " + vetCap + "    " + totalCap);
+                System.out.print("Load: ");
+                System.out.println(groomLoad + "   " + vetLoad + "   " + totalLoad);
+                System.out.println(groomSvcs.size() + "   " + vetSvcs.size());
+                System.out.println(allServices.size() + "   " + slots.size());
             }
             if (!slots.isEmpty()) result.put(date, slots);
+
+
         }
         return result;
     }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    //  INPATIENT SLOTS
-    // ─────────────────────────────────────────────────────────────────────────
-
-    // (Đã xoá generateInpatientSlots() — không được gọi ở đâu trong codebase
-    // này; Inpatient dùng date+period (sáng/chiều) trực tiếp qua form, không
-    // qua slot-grid UI, và không khớp 1 SlotShift cố định nào để tính load.)
 
     // ─────────────────────────────────────────────────────────────────────────
     //  APPOINTMENT CREATION
