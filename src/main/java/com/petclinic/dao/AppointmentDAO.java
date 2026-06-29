@@ -70,16 +70,15 @@ public class AppointmentDAO {
     // ── Check-in queries (Examination / BP-02) ────────────────────────────────
     public List<Appointment> findConfirmedByDate(LocalDate date, Integer shift) throws SQLException {
         String extra = (shift != null) ? "AND a.SlotShift = ? " : "";
-        String sql = "SELECT a.AppointmentID,a.CustomerID,a.PetID,a.ServiceID,a.AssignedVetID,a.AssignedGroomerID," +
+        String sql = "SELECT a.AppointmentID,a.CustomerID,a.PetID,a.ServiceID,a.AssignedStaffID," +
                 "a.AppointmentDate,a.StartTime,a.EndTime,a.Status,a.SlotShift," +
                 "c.FullName AS CustomerName,p.Name AS PetName,s.Name AS ServiceName," +
-                "st.FullName AS VetName, gst.FullName AS GroomerName " +
+                "st.FullName AS StaffName " +
                 "FROM Appointments a " +
                 "JOIN Customers c ON c.CustomerID=a.CustomerID " +
                 "JOIN Pets p ON p.PetID=a.PetID " +
                 "JOIN Services s ON s.ServiceID=a.ServiceID " +
-                "LEFT JOIN Staff st  ON st.StaffID=a.AssignedVetID " +
-                "LEFT JOIN Staff gst ON gst.StaffID=a.AssignedGroomerID " +
+                "LEFT JOIN Staff st  ON st.StaffID=a.AssignedStaffID " +
                 "WHERE a.AppointmentDate=? AND a.Status='Confirmed' " + extra +
                 "ORDER BY a.SlotShift,a.StartTime";
         try (Connection conn = DBConnection.getConnection();
@@ -91,16 +90,15 @@ public class AppointmentDAO {
     }
 
     public List<Appointment> searchForCheckIn(String keyword, LocalDate date) throws SQLException {
-        String sql = "SELECT a.AppointmentID,a.CustomerID,a.PetID,a.ServiceID,a.AssignedVetID,a.AssignedGroomerID," +
+        String sql = "SELECT a.AppointmentID,a.CustomerID,a.PetID,a.ServiceID,a.AssignedStaffID," +
                 "a.AppointmentDate,a.StartTime,a.EndTime,a.Status,a.SlotShift," +
                 "c.FullName AS CustomerName,p.Name AS PetName,s.Name AS ServiceName," +
-                "st.FullName AS VetName, gst.FullName AS GroomerName " +
+                "st.FullName AS StaffName " +
                 "FROM Appointments a " +
                 "JOIN Customers c ON c.CustomerID=a.CustomerID " +
                 "JOIN Pets p ON p.PetID=a.PetID " +
                 "JOIN Services s ON s.ServiceID=a.ServiceID " +
-                "LEFT JOIN Staff st  ON st.StaffID=a.AssignedVetID " +
-                "LEFT JOIN Staff gst ON gst.StaffID=a.AssignedGroomerID " +
+                "LEFT JOIN Staff st  ON st.StaffID=a.AssignedStaffID " +
                 "WHERE a.AppointmentDate=? AND a.Status='Confirmed' AND (c.FullName LIKE ? OR p.Name LIKE ?) " +
                 "ORDER BY a.SlotShift,a.StartTime";
         try (Connection conn = DBConnection.getConnection();
@@ -120,17 +118,16 @@ public class AppointmentDAO {
      */
     public List<Appointment> findGroomingConfirmedByDate(LocalDate date, Integer shift) throws SQLException {
         String extra = (shift != null) ? "AND a.SlotShift = ? " : "";
-        String sql = "SELECT a.AppointmentID,a.CustomerID,a.PetID,a.ServiceID,a.AssignedVetID,a.AssignedGroomerID," +
+        String sql = "SELECT a.AppointmentID,a.CustomerID,a.PetID,a.ServiceID,a.AssignedStaffID," +
                 "a.AppointmentDate,a.StartTime,a.EndTime,a.Status,a.SlotShift," +
                 "c.FullName AS CustomerName,p.Name AS PetName,s.Name AS ServiceName," +
-                "st.FullName AS VetName, gst.FullName AS GroomerName " +
+                "st.FullName AS StaffName " +
                 "FROM Appointments a " +
                 "JOIN Customers c ON c.CustomerID=a.CustomerID " +
                 "JOIN Pets p ON p.PetID=a.PetID " +
                 "JOIN Services s ON s.ServiceID=a.ServiceID " +
                 "JOIN ServiceCategories sc ON sc.CategoryID=s.CategoryID " +
-                "LEFT JOIN Staff st  ON st.StaffID=a.AssignedVetID " +
-                "LEFT JOIN Staff gst ON gst.StaffID=a.AssignedGroomerID " +
+                "LEFT JOIN Staff st  ON st.StaffID=a.AssignedStaffID " +
                 "WHERE a.AppointmentDate=? AND a.Status='Confirmed' AND sc.Name='Grooming' " + extra +
                 "ORDER BY a.SlotShift,a.StartTime";
         try (Connection conn = DBConnection.getConnection();
@@ -147,7 +144,7 @@ public class AppointmentDAO {
         LocalTime now   = LocalTime.now();
         int shift = shiftOf(now); if (shift == -1) shift = 1;
         LocalTime end = now.plusMinutes(30);
-        String sql = "INSERT INTO Appointments(CustomerID,PetID,ServiceID,AssignedVetID,AppointmentDate,StartTime,EndTime,SlotShift,Status) VALUES(?,?,?,?,?,?,?,?,'Arrived')";
+        String sql = "INSERT INTO Appointments(CustomerID,PetID,ServiceID,AssignedStaffID,AppointmentDate,StartTime,EndTime,SlotShift,Status) VALUES(?,?,?,?,?,?,?,?,'Arrived')";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setInt(1,customerID); ps.setInt(2,petID); ps.setInt(3,serviceID); ps.setInt(4,vetID);
@@ -161,17 +158,16 @@ public class AppointmentDAO {
 
     // ── Vet queue (BP-02) ───────────────────────────────────────────────────────
     public List<Appointment> findVetQueue(int vetID, LocalDate date) throws SQLException {
-        String sql = "SELECT a.AppointmentID,a.CustomerID,a.PetID,a.ServiceID,a.AssignedVetID,a.AssignedGroomerID," +
+        String sql = "SELECT a.AppointmentID,a.CustomerID,a.PetID,a.ServiceID,a.AssignedStaffID," +
                 "a.AppointmentDate,a.StartTime,a.EndTime,a.Status,a.SlotShift," +
                 "c.FullName AS CustomerName,p.Name AS PetName,s.Name AS ServiceName," +
-                "st.FullName AS VetName, gst.FullName AS GroomerName " +
+                "st.FullName AS StaffName " +
                 "FROM Appointments a " +
                 "JOIN Customers c ON c.CustomerID=a.CustomerID " +
                 "JOIN Pets p ON p.PetID=a.PetID " +
                 "JOIN Services s ON s.ServiceID=a.ServiceID " +
-                "LEFT JOIN Staff st  ON st.StaffID=a.AssignedVetID " +
-                "LEFT JOIN Staff gst ON gst.StaffID=a.AssignedGroomerID " +
-                "WHERE a.AppointmentDate=? AND a.AssignedVetID=? AND a.Status IN('Arrived','InProgress') " +
+                "LEFT JOIN Staff st  ON st.StaffID=a.AssignedStaffID " +
+                "WHERE a.AppointmentDate=? AND a.AssignedStaffID=? AND a.Status IN('Arrived','InProgress') " +
                 "ORDER BY CASE a.Status WHEN 'InProgress' THEN 0 ELSE 1 END,a.SlotShift,a.StartTime";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -180,18 +176,47 @@ public class AppointmentDAO {
         }
     }
 
-    // ── Lookup ────────────────────────────────────────────────────────────────
-    public Appointment findById(int appointmentID) throws SQLException {
-        String sql = "SELECT a.AppointmentID,a.CustomerID,a.PetID,a.ServiceID,a.AssignedVetID,a.AssignedGroomerID," +
+    public List<Appointment> findVetCompletedToday(int vetID, LocalDate date) throws SQLException {
+        String sql = "SELECT a.AppointmentID,a.CustomerID,a.PetID,a.ServiceID,a.AssignedStaffID," +
                 "a.AppointmentDate,a.StartTime,a.EndTime,a.Status,a.SlotShift," +
                 "c.FullName AS CustomerName,p.Name AS PetName,s.Name AS ServiceName," +
-                "st.FullName AS VetName, gst.FullName AS GroomerName " +
+                "st.FullName AS StaffName, mr.RecordID AS RecordID " +
                 "FROM Appointments a " +
                 "JOIN Customers c ON c.CustomerID=a.CustomerID " +
                 "JOIN Pets p ON p.PetID=a.PetID " +
                 "JOIN Services s ON s.ServiceID=a.ServiceID " +
-                "LEFT JOIN Staff st  ON st.StaffID=a.AssignedVetID " +
-                "LEFT JOIN Staff gst ON gst.StaffID=a.AssignedGroomerID " +
+                "LEFT JOIN Staff st  ON st.StaffID=a.AssignedStaffID " +
+                "LEFT JOIN MedicalRecords mr ON mr.AppointmentID = a.AppointmentID " +
+                "WHERE a.AppointmentDate=? AND a.AssignedStaffID=? AND a.Status='Done' " +
+                "ORDER BY a.SlotShift, a.StartTime";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setDate(1, Date.valueOf(date)); ps.setInt(2, vetID);
+            List<Appointment> list = new ArrayList<>();
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Appointment a = mapRow(rs);
+                    int recId = rs.getInt("RecordID");
+                    a.setRecordID(rs.wasNull() ? null : recId);
+                    list.add(a);
+                }
+            }
+            return list;
+        }
+    }
+
+
+    // ── Lookup ────────────────────────────────────────────────────────────────
+    public Appointment findById(int appointmentID) throws SQLException {
+        String sql = "SELECT a.AppointmentID,a.CustomerID,a.PetID,a.ServiceID,a.AssignedStaffID," +
+                "a.AppointmentDate,a.StartTime,a.EndTime,a.Status,a.SlotShift," +
+                "c.FullName AS CustomerName,p.Name AS PetName,s.Name AS ServiceName," +
+                "st.FullName AS StaffName " +
+                "FROM Appointments a " +
+                "JOIN Customers c ON c.CustomerID=a.CustomerID " +
+                "JOIN Pets p ON p.PetID=a.PetID " +
+                "JOIN Services s ON s.ServiceID=a.ServiceID " +
+                "LEFT JOIN Staff st  ON st.StaffID=a.AssignedStaffID " +
                 "WHERE a.AppointmentID=?";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -209,14 +234,14 @@ public class AppointmentDAO {
 
     public void assignVet(int appointmentID, int vetID) throws SQLException {
         try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement("UPDATE Appointments SET AssignedVetID=? WHERE AppointmentID=?")) {
+             PreparedStatement ps = conn.prepareStatement("UPDATE Appointments SET AssignedStaffID=? WHERE AppointmentID=?")) {
             ps.setInt(1, vetID); ps.setInt(2, appointmentID); ps.executeUpdate();
         }
     }
 
     public void assignGroomer(int appointmentID, int groomerID) throws SQLException {
         try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement("UPDATE Appointments SET AssignedGroomerID=? WHERE AppointmentID=?")) {
+             PreparedStatement ps = conn.prepareStatement("UPDATE Appointments SET AssignedStaffID=? WHERE AppointmentID=?")) {
             ps.setInt(1, groomerID); ps.setInt(2, appointmentID); ps.executeUpdate();
         }
     }
@@ -234,10 +259,8 @@ public class AppointmentDAO {
         a.setCustomerID(rs.getInt("CustomerID"));
         a.setPetID(rs.getInt("PetID"));
         a.setServiceID(rs.getInt("ServiceID"));
-        int vetID = rs.getInt("AssignedVetID");
+        int vetID = rs.getInt("AssignedStaffID");
         a.setAssignedVetID(rs.wasNull() ? null : vetID);
-        int groomerID = rs.getInt("AssignedGroomerID");
-        a.setAssignedGroomerID(rs.wasNull() ? null : groomerID);
         Date d = rs.getDate("AppointmentDate"); if (d != null) a.setAppointmentDate(d.toLocalDate());
         Time st = rs.getTime("StartTime");       if (st != null) a.setStartTime(st.toLocalTime());
         Time et = rs.getTime("EndTime");         if (et != null) a.setEndTime(et.toLocalTime());
@@ -246,7 +269,7 @@ public class AppointmentDAO {
         try { a.setCustomerName(rs.getString("CustomerName")); } catch (SQLException ignored) {}
         try { a.setPetName(rs.getString("PetName"));           } catch (SQLException ignored) {}
         try { a.setServiceName(rs.getString("ServiceName"));   } catch (SQLException ignored) {}
-        try { a.setVetName(rs.getString("VetName"));           } catch (SQLException ignored) {}
+        try { a.setVetName(rs.getString("StaffName"));           } catch (SQLException ignored) {}
         try { a.setGroomerName(rs.getString("GroomerName"));   } catch (SQLException ignored) {}
         return a;
     }

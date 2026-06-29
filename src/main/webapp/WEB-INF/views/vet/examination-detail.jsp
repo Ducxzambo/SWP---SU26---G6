@@ -179,10 +179,10 @@
     <aside class="sidebar">
         <div class="sidebar-logo">🐾 PetClinic</div>
         <nav>
-            <a href="${pageContext.request.contextPath}/vet/examination" class="nav-item active">🩺 Hàng chờ khám</a>
+            <a href="${pageContext.request.contextPath}/vet/examination" class="nav-item active"> Hàng chờ khám</a>
         </nav>
         <div class="sidebar-user">
-            👤 ${sessionScope.staff.fullName}
+             ${sessionScope.staff.fullName}
             <a href="${pageContext.request.contextPath}/auth/logout" class="logout-link">Đăng xuất</a>
         </div>
     </aside>
@@ -302,7 +302,7 @@
                 <div class="pet-strip-item"><span class="lbl">Chủ nhân</span><span class="val"><c:out value="${appointment.customerName}"/></span></div>
                 <div class="pet-strip-item"><span class="lbl">Bác sĩ</span><span class="val"><c:out value="${not empty appointment.vetName ? appointment.vetName : sessionScope.staff.fullName}"/></span></div>
                 <div class="pet-strip-item"><span class="lbl">Ca</span><span class="val">Ca ${appointment.slotShift}</span></div>
-                <div class="pet-strip-item"><span class="lbl">Trạng thái</span><span class="val"><span class="badge badge-info">🩺 Đang khám</span></span></div>
+                <div class="pet-strip-item"><span class="lbl">Trạng thái</span><span class="val"><span class="badge badge-info">Đang khám</span></span></div>
             </div>
 
             <%-- History --%>
@@ -497,7 +497,7 @@
 
         <%-- Fallback --%>
         <c:if test="${empty record && empty appointment}">
-            <div class="page-header"><h1>🩺 Khám Bệnh</h1></div>
+            <div class="page-header"><h1> Khám Bệnh</h1></div>
             <div class="card"><div class="empty-state"><div class="empty-icon">⚠️</div>
                 <p>Không tìm thấy dữ liệu. <a href="${pageContext.request.contextPath}/vet/examination">Quay lại hàng chờ</a></p>
             </div></div>

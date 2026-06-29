@@ -182,6 +182,10 @@ public class ExaminationService {
         return appointmentDAO.findVetQueue(vetID, date == null ? LocalDate.now() : date);
     }
 
+    public List<Appointment> getVetCompletedToday(int vetID, LocalDate date) throws SQLException {
+        return appointmentDAO.findVetCompletedToday(vetID, date == null ? LocalDate.now() : date);
+    }
+
     public List<MedicalRecord> getPetMedicalHistory(int petID) throws SQLException {
         return medicalRecordDAO.findHistoryByPetId(petID);
     }

@@ -53,7 +53,7 @@ public class CheckInServlet extends HttpServlet {
                     ? examinationService.searchForCheckIn(keyword, filterDate)
                     : examinationService.getConfirmedByDate(filterDate, shiftFilter);
 
-            List<Staff> vets = staffDAO.findAllVets();
+            List<Staff> staffs = staffDAO.findAllVetsGroomers();
             List<com.petclinic.model.Service> services = examinationService.getAllActiveServices();
 
             boolean isToday = filterDate.equals(LocalDate.now());
@@ -68,7 +68,7 @@ public class CheckInServlet extends HttpServlet {
             req.setAttribute("filterDate",        filterDate.toString());
             req.setAttribute("shiftFilter",        shiftFilter != null ? shiftFilter.toString() : "");
             req.setAttribute("isToday",           isToday);
-            req.setAttribute("vets",              vets);
+            req.setAttribute("staffs",              staffs);
             req.setAttribute("services",          services);
             req.setAttribute("currentSlotCount",  currentSlotCount);
             req.setAttribute("currentSlotFull",   currentSlotFull);
@@ -224,10 +224,10 @@ public class CheckInServlet extends HttpServlet {
 
             if (apptID == -1) {
                 session.setAttribute("flashError",
-                        "Ca hiện tại đã đủ 10 thú cưng, không thể nhận thêm khách vãng lai.");
+                        "Ca hiện tại đã đủ 10 thú cưng, không thể nhận thêm khách.");
             } else {
                 session.setAttribute("flashSuccess",
-                        "Walk-in thành công! Lịch khám #" + apptID
+                        "Tạo thành công! Lịch khám #" + apptID
                                 + " đã tạo và chuyển vào hàng chờ bác sĩ.");
             }
             resp.sendRedirect(req.getContextPath() + "/receptionist/checkin");
@@ -272,7 +272,7 @@ public class CheckInServlet extends HttpServlet {
             Integer shiftFilter  = parseShift(req.getParameter("shift"));
 
             List<Appointment> appointments = examinationService.getConfirmedByDate(filterDate, shiftFilter);
-            List<Staff> vets = staffDAO.findAllVets();
+            List<Staff> staffs = staffDAO.findAllVetsGroomers();
             List<com.petclinic.model.Service> services = examinationService.getAllActiveServices();
 
             boolean isToday = filterDate.equals(LocalDate.now());
@@ -283,7 +283,7 @@ public class CheckInServlet extends HttpServlet {
             req.setAttribute("filterDate",        filterDate.toString());
             req.setAttribute("shiftFilter",        shiftFilter != null ? shiftFilter.toString() : "");
             req.setAttribute("isToday",           isToday);
-            req.setAttribute("vets",              vets);
+            req.setAttribute("staffs",              staffs);
             req.setAttribute("services",          services);
             req.setAttribute("currentSlotCount",  currentSlotCount);
             req.setAttribute("currentSlotFull",   currentSlotCount >= AppointmentDAO.MAX_PER_SHIFT);

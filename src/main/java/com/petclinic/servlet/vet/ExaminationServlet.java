@@ -1,5 +1,6 @@
 package com.petclinic.servlet.vet;
 
+import com.petclinic.dao.AppointmentDAO;
 import com.petclinic.model.*;
 import com.petclinic.service.ExaminationService;
 import com.petclinic.service.ExaminationService.SaveRecordResult;
@@ -36,11 +37,11 @@ public class ExaminationServlet extends HttpServlet {
         if (action == null) action = "queue";
 
         switch (action) {
-            case "queue" -> showQueue(req, resp, vet);
-            case "start" -> startExam(req, resp, vet);
-            case "form" -> showExamForm(req, resp, vet);
-            case "view" -> viewRecord(req, resp, vet);
-            default -> resp.sendRedirect(req.getContextPath() + "/vet/examination");
+            case "queue"  -> showQueue(req, resp, vet);
+            case "start"  -> startExam(req, resp, vet);
+            case "form"   -> showExamForm(req, resp, vet);
+            case "view"   -> viewRecord(req, resp, vet);
+            default       -> resp.sendRedirect(req.getContextPath() + "/vet/examination");
         }
     }
 
@@ -60,9 +61,8 @@ public class ExaminationServlet extends HttpServlet {
         }
 
         int appointmentID;
-        try {
-            appointmentID = Integer.parseInt(apptIdStr);
-        } catch (NumberFormatException e) {
+        try { appointmentID = Integer.parseInt(apptIdStr); }
+        catch (NumberFormatException e) {
             resp.sendRedirect(req.getContextPath() + "/vet/examination");
             return;
         }
@@ -82,7 +82,7 @@ public class ExaminationServlet extends HttpServlet {
             record.setVetID(vet.getStaffID());
 
             String weightStr = req.getParameter("weight");
-            String tempStr = req.getParameter("temperature");
+            String tempStr   = req.getParameter("temperature");
             if (weightStr != null && !weightStr.isBlank())
                 record.setWeight(new BigDecimal(weightStr));
             if (tempStr != null && !tempStr.isBlank())
@@ -103,14 +103,18 @@ public class ExaminationServlet extends HttpServlet {
                     triggerInvoice(appointmentID);
                     resp.sendRedirect(req.getContextPath() + "/vet/examination");
                 }
-                case INSUFFICIENT_STOCK -> forwardFormWithError(req, resp, appointmentID, vet.getStaffID(),
-                        "Thuốc không đủ tồn kho. Vui lòng kiểm tra lại đơn thuốc.");
-                case RECORD_ALREADY_EXISTS -> forwardFormWithError(req, resp, appointmentID, vet.getStaffID(),
-                        "Bệnh án cho lịch khám này đã tồn tại.");
-                case WRONG_STATUS -> forwardFormWithError(req, resp, appointmentID, vet.getStaffID(),
-                        "Lịch hẹn không ở trạng thái InProgress.");
-                default -> forwardFormWithError(req, resp, appointmentID, vet.getStaffID(),
-                        "Lỗi hệ thống, vui lòng thử lại.");
+                case INSUFFICIENT_STOCK ->
+                        forwardFormWithError(req, resp, appointmentID, vet.getStaffID(),
+                                "Thuốc không đủ tồn kho. Vui lòng kiểm tra lại đơn thuốc.");
+                case RECORD_ALREADY_EXISTS ->
+                        forwardFormWithError(req, resp, appointmentID, vet.getStaffID(),
+                                "Bệnh án cho lịch khám này đã tồn tại.");
+                case WRONG_STATUS ->
+                        forwardFormWithError(req, resp, appointmentID, vet.getStaffID(),
+                                "Lịch hẹn không ở trạng thái InProgress.");
+                default ->
+                        forwardFormWithError(req, resp, appointmentID, vet.getStaffID(),
+                                "Lỗi hệ thống, vui lòng thử lại.");
             }
         } catch (NumberFormatException e) {
             forwardFormWithError(req, resp, appointmentID, vet.getStaffID(),
@@ -131,36 +135,35 @@ public class ExaminationServlet extends HttpServlet {
         LocalDate filterDate = LocalDate.now();
         String dateParam = req.getParameter("date");
         if (dateParam != null && !dateParam.isBlank()) {
-            try {
-                filterDate = LocalDate.parse(dateParam);
-            } catch (DateTimeParseException ignored) {
-            }
+            try { filterDate = LocalDate.parse(dateParam); } catch (DateTimeParseException ignored) {}
         }
 
         // Shift filter
         String shiftParam = req.getParameter("shift");
         Integer shiftFilter = null;
         if (shiftParam != null && !shiftParam.isBlank()) {
-            try {
-                shiftFilter = Integer.parseInt(shiftParam);
-            } catch (NumberFormatException ignored) {
-            }
+            try { shiftFilter = Integer.parseInt(shiftParam); } catch (NumberFormatException ignored) {}
         }
 
         try {
             List<Appointment> queue = examinationService.getVetQueue(vet.getStaffID(), filterDate);
+            List<Appointment> completed = examinationService.getVetCompletedToday(vet.getStaffID(), filterDate);
 
-            // Apply shift filter in memory
+            // Apply shift filter in memory (cho cả 2 danh sách)
             if (shiftFilter != null) {
                 final int sf = shiftFilter;
                 queue = queue.stream()
                         .filter(a -> a.getSlotShift() != null && a.getSlotShift() == sf)
                         .collect(Collectors.toList());
+                completed = completed.stream()
+                        .filter(a -> a.getSlotShift() != null && a.getSlotShift() == sf)
+                        .collect(Collectors.toList());
             }
 
-            req.setAttribute("queue", queue);
-            req.setAttribute("filterDate", filterDate.toString());
-            req.setAttribute("isToday", filterDate.equals(LocalDate.now()));
+            req.setAttribute("queue",       queue);
+            req.setAttribute("completed",   completed);
+            req.setAttribute("filterDate",  filterDate.toString());
+            req.setAttribute("isToday",     filterDate.equals(LocalDate.now()));
             req.setAttribute("shiftFilter", shiftParam != null ? shiftParam : "");
             req.getRequestDispatcher("/WEB-INF/views/vet/examination.jsp").forward(req, resp);
 
@@ -174,10 +177,7 @@ public class ExaminationServlet extends HttpServlet {
     private void startExam(HttpServletRequest req, HttpServletResponse resp, Staff vet)
             throws ServletException, IOException {
         String idStr = req.getParameter("appointmentID");
-        if (idStr == null) {
-            resp.sendRedirect(req.getContextPath() + "/vet/examination");
-            return;
-        }
+        if (idStr == null) { resp.sendRedirect(req.getContextPath() + "/vet/examination"); return; }
         try {
             int apptID = Integer.parseInt(idStr);
             StartExamResult result = examinationService.startExamination(apptID, vet.getStaffID());
@@ -198,27 +198,21 @@ public class ExaminationServlet extends HttpServlet {
     private void showExamForm(HttpServletRequest req, HttpServletResponse resp, Staff vet)
             throws ServletException, IOException {
         String idStr = req.getParameter("appointmentID");
-        if (idStr == null) {
-            resp.sendRedirect(req.getContextPath() + "/vet/examination");
-            return;
-        }
+        if (idStr == null) { resp.sendRedirect(req.getContextPath() + "/vet/examination"); return; }
         try {
             int apptID = Integer.parseInt(idStr);
             Appointment appt = examinationService.getAppointment(apptID);
-            if (appt == null) {
-                resp.sendRedirect(req.getContextPath() + "/vet/examination");
-                return;
-            }
+            if (appt == null) { resp.sendRedirect(req.getContextPath() + "/vet/examination"); return; }
 
             List<MedicalRecord> history = examinationService.getPetMedicalHistory(appt.getPetID());
-            List<Medicine> medicines = examinationService.getMedicinesInStock();
-            List<Service> labTests = examinationService.getLabTests();
-            List<Service> treatmentPlans = examinationService.getTreatmentPlans();
+            List<Medicine>      medicines = examinationService.getMedicinesInStock();
+            List<Service>       labTests  = examinationService.getLabTests();
+            List<Service>       treatmentPlans = examinationService.getTreatmentPlans();
 
-            req.setAttribute("appointment", appt);
-            req.setAttribute("history", history);
-            req.setAttribute("medicines", medicines);
-            req.setAttribute("labTests", labTests);
+            req.setAttribute("appointment",    appt);
+            req.setAttribute("history",        history);
+            req.setAttribute("medicines",      medicines);
+            req.setAttribute("labTests",       labTests);
             req.setAttribute("treatmentPlans", treatmentPlans);
             req.getRequestDispatcher("/WEB-INF/views/vet/examination-detail.jsp").forward(req, resp);
 
@@ -231,17 +225,11 @@ public class ExaminationServlet extends HttpServlet {
     private void viewRecord(HttpServletRequest req, HttpServletResponse resp, Staff vet)
             throws ServletException, IOException {
         String idStr = req.getParameter("recordID");
-        if (idStr == null) {
-            resp.sendRedirect(req.getContextPath() + "/vet/examination");
-            return;
-        }
+        if (idStr == null) { resp.sendRedirect(req.getContextPath() + "/vet/examination"); return; }
         try {
             int recordID = Integer.parseInt(idStr);
             MedicalRecord rec = examinationService.getMedicalRecord(recordID);
-            if (rec == null) {
-                resp.sendRedirect(req.getContextPath() + "/vet/examination");
-                return;
-            }
+            if (rec == null) { resp.sendRedirect(req.getContextPath() + "/vet/examination"); return; }
             req.setAttribute("record", rec);
             req.getRequestDispatcher("/WEB-INF/views/vet/examination-detail.jsp").forward(req, resp);
         } catch (Exception e) {
@@ -296,8 +284,8 @@ public class ExaminationServlet extends HttpServlet {
 
     private List<PrescriptionItem> parsePrescriptionItems(HttpServletRequest req) {
         String[] medicineIDs = req.getParameterValues("medicineID[]");
-        String[] dosages = req.getParameterValues("dosage[]");
-        String[] quantities = req.getParameterValues("quantity[]");
+        String[] dosages     = req.getParameterValues("dosage[]");
+        String[] quantities  = req.getParameterValues("quantity[]");
 
         List<PrescriptionItem> items = new ArrayList<>();
         if (medicineIDs == null) return items;
@@ -322,20 +310,18 @@ public class ExaminationServlet extends HttpServlet {
             Appointment appt = examinationService.getAppointment(appointmentID);
             List<MedicalRecord> history = appt != null
                     ? examinationService.getPetMedicalHistory(appt.getPetID()) : List.of();
-            List<Medicine> medicines = examinationService.getMedicinesInStock();
-            List<Service> labTests = examinationService.getLabTests();
-            List<Service> treatmentPlans = examinationService.getTreatmentPlans();
+            List<Medicine> medicines     = examinationService.getMedicinesInStock();
+            List<Service>  labTests      = examinationService.getLabTests();
+            List<Service>  treatmentPlans = examinationService.getTreatmentPlans();
 
-            req.setAttribute("appointment", appt);
-            req.setAttribute("history", history);
-            req.setAttribute("medicines", medicines);
-            req.setAttribute("labTests", labTests);
+            req.setAttribute("appointment",    appt);
+            req.setAttribute("history",        history);
+            req.setAttribute("medicines",      medicines);
+            req.setAttribute("labTests",       labTests);
             req.setAttribute("treatmentPlans", treatmentPlans);
-            req.setAttribute("error", errorMsg);
-            req.setAttribute("symptoms", req.getParameter("symptoms"));
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+            req.setAttribute("error",          errorMsg);
+            req.setAttribute("symptoms",       req.getParameter("symptoms"));
+        } catch (Exception e) { e.printStackTrace(); }
         req.getRequestDispatcher("/WEB-INF/views/vet/examination-detail.jsp").forward(req, resp);
     }
 

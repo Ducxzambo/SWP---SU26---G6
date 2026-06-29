@@ -30,7 +30,7 @@ public class MedicalRecordDAO {
                 FROM MedicalRecords mr
                 JOIN Pets     p  ON p.PetID       = mr.PetID
                 JOIN Customers c  ON c.CustomerID  = (SELECT CustomerID FROM Pets WHERE PetID = mr.PetID)
-                JOIN Staff    st ON st.StaffID     = mr.VetID
+                JOIN Staff    st ON st.StaffID     = mr.StaffID
                 WHERE mr.AppointmentID = ?
                 """;
         try (Connection conn = DBConnection.getConnection();
@@ -56,7 +56,7 @@ public class MedicalRecordDAO {
                 FROM MedicalRecords mr
                 JOIN Pets     p  ON p.PetID       = mr.PetID
                 JOIN Customers c  ON c.CustomerID  = (SELECT CustomerID FROM Pets WHERE PetID = mr.PetID)
-                JOIN Staff    st ON st.StaffID     = mr.VetID
+                JOIN Staff    st ON st.StaffID     = mr.StaffID
                 WHERE mr.RecordID = ?
                 """;
         try (Connection conn = DBConnection.getConnection();
@@ -85,7 +85,7 @@ public class MedicalRecordDAO {
                 FROM MedicalRecords mr
                 JOIN Pets     p  ON p.PetID       = mr.PetID
                 JOIN Customers c ON c.CustomerID  = (SELECT CustomerID FROM Pets WHERE PetID = mr.PetID)
-                JOIN Staff    st ON st.StaffID     = mr.VetID
+                JOIN Staff    st ON st.StaffID     = mr.StaffID
                 WHERE mr.PetID = ?
                 ORDER BY mr.CreatedAt DESC
                 """;
@@ -150,7 +150,7 @@ public class MedicalRecordDAO {
     private int insertRecord(Connection conn, MedicalRecord r) throws SQLException {
         String sql = """
                 INSERT INTO MedicalRecords
-                    (AppointmentID, PetID, VetID, Weight, Temperature, Symptoms, Diagnosis, TreatmentPlan)
+                    (AppointmentID, PetID, StaffID, Weight, Temperature, Symptoms, Diagnosis, TreatmentPlan)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """;
         try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
@@ -239,7 +239,7 @@ public class MedicalRecordDAO {
         r.setRecordID(rs.getInt("RecordID"));
         r.setAppointmentID(rs.getInt("AppointmentID"));
         r.setPetID(rs.getInt("PetID"));
-        r.setVetID(rs.getInt("VetID"));
+        r.setVetID(rs.getInt("StaffID"));
         r.setWeight(rs.getBigDecimal("Weight"));
         r.setTemperature(rs.getBigDecimal("Temperature"));
         r.setSymptoms(rs.getString("Symptoms"));

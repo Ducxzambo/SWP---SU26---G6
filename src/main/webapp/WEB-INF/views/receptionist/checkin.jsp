@@ -224,7 +224,6 @@
                     <label class="form-label">Số điện thoại khách <span class="required">*</span></label>
                     <input type="tel" name="phone" class="form-control no-icon" autofocus
                            placeholder="VD: 0912345678" pattern="[0-9]{9,11}" required>
-                    <div class="form-hint">Hệ thống sẽ kiểm tra xem khách đã có trong dữ liệu chưa.</div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline" onclick="closeWalkIn()">Hủy</button>
@@ -261,7 +260,7 @@
                                             <input type="radio" name="petID" value="${pet.petID}"
                                                    onclick="hideNewPetFields()" required>
                                             <div class="pet-info">
-                                                <div class="name">🐾 <c:out value="${pet.name}"/></div>
+                                                <div class="name"><c:out value="${pet.name}"/></div>
                                                 <div class="sub"><c:out value="${pet.speciesName}"/> — <c:out value="${pet.breedName}"/></div>
                                             </div>
                                         </label>
@@ -277,7 +276,7 @@
                         </c:otherwise>
                     </c:choose>
 
-                    <%-- Khối nhập pet mới — ẩn/hiện bằng CSS, không cần JS phức tạp --%>
+                    <%-- Khối nhập pet mới — ẩn/hiện bằng CSS --%>
                     <div id="newPetFields" style="${empty walkInPets ? '' : 'display:none;'}">
                         <div class="form-group">
                             <label class="form-label">Tên thú cưng mới <span class="required">*</span></label>
@@ -340,8 +339,8 @@
                     <label class="form-label">Phân công bác sĩ <span class="required">*</span></label>
                     <select name="vetID" class="form-control" required>
                         <option value="">— Chọn bác sĩ —</option>
-                        <c:forEach items="${vets}" var="vet">
-                            <option value="${vet.staffID}"><c:out value="${vet.fullName}"/></option>
+                        <c:forEach items="${staffs}" var="staff">
+                            <option value="${staff.staffID}"><c:out value="${staff.fullName}"/></option>
                         </c:forEach>
                     </select>
                 </div>

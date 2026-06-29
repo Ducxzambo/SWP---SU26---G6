@@ -1,6 +1,7 @@
 package com.petclinic.dao;
 
 import com.petclinic.model.Service;
+import com.petclinic.model.ServiceCategory;
 import com.petclinic.util.DBConnection;
 
 import java.sql.*;
@@ -16,7 +17,7 @@ public class ServiceDAO {
     public List<Service> findByCategory(String categoryName) throws SQLException {
         String sql = """
                 SELECT s.ServiceID, s.Name, s.Price, s.DurationMinutes, s.IsActive,
-                       sc.Name AS CategoryName
+                       sc.Name AS CategoryName, sc.CategoryID AS CategoryID
                 FROM Services s
                 JOIN ServiceCategories sc ON sc.CategoryID = s.CategoryID
                 WHERE sc.Name = ? AND s.IsActive = 1
@@ -29,11 +30,28 @@ public class ServiceDAO {
         }
     }
 
+    /** All active services under a given CategoryID — dùng cho walk-in (chọn category trước). */
+    public List<Service> findByCategoryId(int categoryID) throws SQLException {
+        String sql = """
+                SELECT s.ServiceID, s.Name, s.Price, s.DurationMinutes, s.IsActive,
+                       sc.Name AS CategoryName, sc.CategoryID AS CategoryID
+                FROM Services s
+                JOIN ServiceCategories sc ON sc.CategoryID = s.CategoryID
+                WHERE s.CategoryID = ? AND s.IsActive = 1
+                ORDER BY s.ServiceID
+                """;
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, categoryID);
+            return mapList(ps.executeQuery());
+        }
+    }
+
     /** All active services across all categories (for general dropdowns, e.g. walk-in). */
     public List<Service> findAllActive() throws SQLException {
         String sql = """
                 SELECT s.ServiceID, s.Name, s.Price, s.DurationMinutes, s.IsActive,
-                       sc.Name AS CategoryName
+                       sc.Name AS CategoryName, sc.CategoryID AS CategoryID
                 FROM Services s
                 JOIN ServiceCategories sc ON sc.CategoryID = s.CategoryID
                 WHERE s.IsActive = 1
@@ -54,7 +72,45 @@ public class ServiceDAO {
 
     /** All active treatment plan services. */
     public List<Service> findTreatmentPlans() throws SQLException {
-        return findByCategory("Phác đồ điều trị");
+        return findByCategory("Điều trị");
+    }
+
+    /** Tìm 1 Service theo ID — dùng để snapshot giá tại thời điểm khám. */
+    public Service findById(int serviceID) throws SQLException {
+        String sql = """
+                SELECT s.ServiceID, s.Name, s.Price, s.DurationMinutes, s.IsActive,
+                       sc.Name AS CategoryName, sc.CategoryID AS CategoryID
+                FROM Services s
+                JOIN ServiceCategories sc ON sc.CategoryID = s.CategoryID
+                WHERE s.ServiceID = ?
+                """;
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, serviceID);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? mapRow(rs) : null;
+            }
+        }
+    }
+
+    /**
+     * Tất cả ServiceCategories — dùng để hiển thị dropdown "Loại dịch vụ" đầu tiên
+     * trong walk-in, trước khi chọn dịch vụ cụ thể.
+     */
+    public List<ServiceCategory> findAllCategories() throws SQLException {
+        String sql = "SELECT CategoryID, Name FROM ServiceCategories ORDER BY CategoryID";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            List<ServiceCategory> list = new ArrayList<>();
+            while (rs.next()) {
+                ServiceCategory c = new ServiceCategory();
+                c.setCategoryID(rs.getInt("CategoryID"));
+                c.setName(rs.getString("Name"));
+                list.add(c);
+            }
+            return list;
+        }
     }
 
     // ── Mapping ───────────────────────────────────────────────────────────────
@@ -72,6 +128,7 @@ public class ServiceDAO {
         s.setDurationMinutes(rs.getInt("DurationMinutes"));
         s.setActive(rs.getBoolean("IsActive"));
         try { s.setCategoryName(rs.getString("CategoryName")); } catch (SQLException ignored) {}
+        try { s.setCategoryID(rs.getInt("CategoryID")); } catch (SQLException ignored) {}
         return s;
     }
 }

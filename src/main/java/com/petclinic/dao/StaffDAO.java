@@ -56,6 +56,9 @@ public class StaffDAO {
         return findAllByRole("Groomer");
     }
 
+    public List<Staff> findAllVetsGroomers() throws SQLException {
+        return findAllBy2Role("Veterinarian", "Groomer");
+    }
     /** Generic role lookup. */
     private List<Staff> findAllByRole(String roleName) throws SQLException {
         String sql = """
@@ -68,6 +71,26 @@ public class StaffDAO {
         try (Connection c = DBConnection.getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, roleName);
+            try (ResultSet rs = ps.executeQuery()) {
+                List<Staff> list = new ArrayList<>();
+                while (rs.next()) list.add(mapRow(rs));
+                return list;
+            }
+        }
+    }
+    private List<Staff> findAllBy2Role(String roleName, String roleName2) throws SQLException {
+        String sql = """
+                SELECT s.*, r.RoleName
+                FROM Staff s
+                JOIN Roles r ON r.RoleID = s.RoleID
+                WHERE r.RoleName = ? OR r.RoleName = ? AND s.IsActive = 1
+                ORDER BY s.FullName
+                """;
+        try (Connection c = DBConnection.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setString(1, roleName);
+            ps.setString(2, roleName2);
+
             try (ResultSet rs = ps.executeQuery()) {
                 List<Staff> list = new ArrayList<>();
                 while (rs.next()) list.add(mapRow(rs));

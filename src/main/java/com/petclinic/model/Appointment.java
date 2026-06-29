@@ -22,6 +22,7 @@ public class Appointment {
     private String serviceName;
     private String vetName;
     private String groomerName;
+    private Integer recordID; // RecordID của MedicalRecord/GroomingRecord nếu status = Done (nullable)
 
     public Appointment() {}
 
@@ -59,4 +60,6 @@ public class Appointment {
     public void   setVetName(String v)           { vetName = v; }
     public String getGroomerName()               { return groomerName; }
     public void   setGroomerName(String v)       { groomerName = v; }
+    public Integer getRecordID()                 { return recordID; }
+    public void    setRecordID(Integer v)        { recordID = v; }
 }

@@ -60,7 +60,7 @@ public class GroomingRecordDAO {
             throws SQLException {
         String sql = """
                 SELECT a.AppointmentID, a.CustomerID, a.PetID, a.ServiceID,
-                       a.AssignedVetID, a.AssignedGroomerID,
+                       a.AssignedStaffID, 
                        a.AppointmentDate, a.StartTime, a.EndTime, a.Status, a.SlotShift,
                        c.FullName  AS CustomerName,
                        p.Name      AS PetName,
@@ -71,11 +71,11 @@ public class GroomingRecordDAO {
                 JOIN Pets      p ON p.PetID       = a.PetID
                 JOIN Services  s ON s.ServiceID   = a.ServiceID
                 JOIN ServiceCategories sc ON sc.CategoryID = s.CategoryID
-                LEFT JOIN Staff st ON st.StaffID = a.AssignedGroomerID
+                LEFT JOIN Staff st ON st.StaffID = a.AssignedStaffID
                 WHERE a.AppointmentDate = ?
                   AND sc.Name = 'Grooming'
                   AND a.Status IN ('Arrived','InProgress')
-                  AND (a.AssignedGroomerID = ? OR a.AssignedGroomerID IS NULL)
+                  AND (a.AssignedStaffID = ? OR a.AssignedStaffID IS NULL)
                 ORDER BY
                   CASE a.Status WHEN 'InProgress' THEN 0 ELSE 1 END,
                   a.StartTime
@@ -92,7 +92,7 @@ public class GroomingRecordDAO {
                     a.setCustomerID(rs.getInt("CustomerID"));
                     a.setPetID(rs.getInt("PetID"));
                     a.setServiceID(rs.getInt("ServiceID"));
-                    int gid = rs.getInt("AssignedGroomerID");
+                    int gid = rs.getInt("AssignedStaffID");
                     a.setAssignedGroomerID(rs.wasNull() ? null : gid);
                     Date d = rs.getDate("AppointmentDate"); if (d != null) a.setAppointmentDate(d.toLocalDate());
                     Time st = rs.getTime("StartTime");      if (st != null) a.setStartTime(st.toLocalTime());
@@ -141,7 +141,7 @@ public class GroomingRecordDAO {
     // ── Assign groomer ────────────────────────────────────────────────────────
 
     public void assignGroomer(int appointmentID, int groomerID) throws SQLException {
-        String sql = "UPDATE Appointments SET AssignedGroomerID = ? WHERE AppointmentID = ?";
+        String sql = "UPDATE Appointments SET AssignedStaffID = ? WHERE AppointmentID = ?";
         try (Connection c = DBConnection.getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, groomerID); ps.setInt(2, appointmentID);
