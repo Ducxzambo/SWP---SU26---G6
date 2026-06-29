@@ -16,7 +16,7 @@ public class GoogleAuthServlet extends HttpServlet {
 
     private static final String CLIENT_ID = System.getenv("GOOGLE_CLIENT_ID");
     private static final String CLIENT_SECRET = System.getenv("GOOGLE_CLIENT_SECRET");
-    private static final String REDIRECT_URI  = "http://localhost:8080/PetClinicWeb/auth/google/callback";
+    private static final String REDIRECT_URI  = System.getenv("REDIRECT_URI");
     private static final String SCOPE         = "openid email profile";
 
     private final CustomerDAO customerDAO = new CustomerDAO();

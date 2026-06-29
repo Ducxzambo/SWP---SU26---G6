@@ -2,9 +2,10 @@ package com.petclinic.service;
 
 import com.petclinic.dao.AppointmentDAO;
 import com.petclinic.dao.ServiceDAO;
+import com.petclinic.dto.PetBookingRequest;
+import com.petclinic.dto.TimeSlot;
 import com.petclinic.model.*;
 
-import java.math.BigDecimal;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -29,9 +30,6 @@ import java.util.*;
  *      categoryId = 3 (Spa/Grooming) → Groomer (roleId 4)
  *      mọi categoryId khác (Khám, Phẫu thuật, Vaccine) → Vet (roleId 3)
  *
- *  Nếu khách chọn dịch vụ từ CẢ 2 nhóm, capacity tính riêng từng nhóm;
- *  slot hết chỗ nếu MỘT trong 2 nhóm đầy.
- *
  *  Chỉ Confirmed/InProgress/Done mới tính vào load. Pending không tính.
  */
 public class BookingService {
@@ -41,7 +39,7 @@ public class BookingService {
     private static final LocalTime LUNCH_END        = LocalTime.of(13, 30);
     private static final int    DAYS_AHEAD          = 30;
 
-    /** 4 slot chính, cố định — KHÔNG còn phụ thuộc StaffAvailability/DayOfWeek. */
+    /** 4 slot chính, cố định */
     public static final LocalTime[][] FIXED_SLOTS = {
             { LocalTime.of(8, 0),  LocalTime.of(10, 0) },
             { LocalTime.of(10, 0), LocalTime.of(12, 0) },
@@ -59,8 +57,9 @@ public class BookingService {
     public static final LocalTime INPATIENT_AFTERNOON_START = LocalTime.of(13, 30);
     public static final LocalTime INPATIENT_AFTERNOON_END   = LocalTime.of(17, 30);
 
-    public static final double DEPOSIT_RATIO_NORMAL  = 0.20;
-    public static final long   DEPOSIT_INPATIENT_VND = 200_000L;
+    /** Tiền cọc cố định */
+    public static final long DEPOSIT_NORMAL    = 50_000L;
+    public static final long DEPOSIT_INPATIENT = 200_000L;
 
 
     public static final int GROOMING_CATEGORY_ID  = 3;
@@ -73,9 +72,8 @@ public class BookingService {
     }
 
     /**
-     * Suy ra SlotShift (cột mới trong DB) từ giờ bắt đầu — 1-4 khớp index
+     * SlotShift: 1-4
      * FIXED_SLOTS+1, 5 = slot phụ OT. Trả về null nếu không khớp slot nào
-     * (ví dụ: Inpatient — không gán SlotShift vì không tương ứng 1 ca cố định).
      */
     public static Integer slotShiftOf(LocalTime start) {
         if (start == null) return null;
@@ -96,7 +94,6 @@ public class BookingService {
     /**
      * Fix cứng: 1 nhân viên (vet/groomer) được nhận tối đa 5 pets / slot.
      * maxCapacity = (số nhân viên active của role tương ứng) × 5.
-     * KHÔNG còn tính theo duration dịch vụ.
      */
     public int computeMaxCapacity(List<Service> services, int categoryId) {
         if (services == null || services.isEmpty()) return 5;
@@ -104,33 +101,6 @@ public class BookingService {
         try { staff = Math.max(1, serviceDAO.countStaffByCategoryId(categoryId)); }
         catch (Exception ignored) {}
         return staff * 5;
-    }
-
-
-    /**
-     * Capacity info for a slot, split by role group.
-     * Returns a SlotCapacity with grooming and vet parts separate.
-     */
-    public SlotCapacity computeSlotCapacity(
-            List<Service> groomingServices,
-            List<Service> vetServices) throws Exception {
-
-        int groomCap = groomingServices.isEmpty() ? 0
-                : computeMaxCapacity(groomingServices, GROOMING_CATEGORY_ID);
-        int vetCap   = vetServices.isEmpty() ? 0
-                : computeMaxCapacity(vetServices, 2 /* any non-1 categoryId → Vet */);
-
-        return new SlotCapacity(groomCap, vetCap,
-                groomingServices.isEmpty() ? 0 : serviceDAO.countStaffByCategoryId(GROOMING_CATEGORY_ID),
-                vetServices.isEmpty()      ? 0 : serviceDAO.countStaffByCategoryId(2));
-    }
-
-    /** Simple holder for per-role-group capacity info. */
-    public static class SlotCapacity {
-        public final int groomCap, vetCap, groomStaff, vetStaff;
-        public SlotCapacity(int gc, int vc, int gs, int vs) {
-            groomCap = gc; vetCap = vc; groomStaff = gs; vetStaff = vs;
-        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -170,8 +140,7 @@ public class BookingService {
         LocalDate today       = LocalDate.now();
         Map<LocalDate, List<TimeSlot>> result = new LinkedHashMap<>();
 
-        // Lịch CỐ ĐỊNH, giống nhau mọi ngày (không còn phân biệt DayOfWeek /
-        // StaffAvailability) — chỉ 4 slot chính, KHÔNG bao gồm slot phụ OT.
+
         for (int d = 0; d < DAYS_AHEAD; d++) {
             LocalDate date  = today.plusDays(d);
             List<TimeSlot> slots = new ArrayList<>();
@@ -185,7 +154,7 @@ public class BookingService {
                     continue;
                 }
 
-                int slotShift = slotShiftOf(cursor); // luôn khớp 1 trong FIXED_SLOTS ở đây
+                int slotShift = slotShiftOf(cursor); // luôn khớp 1 trong FIXED_SLOTS
                 int groomLoad = groomSvcs.isEmpty() ? 0
                         : appointmentDAO.countConfirmedInSlotByRoleGroup(
                         date, slotShift, GROOMING_CATEGORY_ID);
@@ -206,17 +175,8 @@ public class BookingService {
                 ts.setGroomLoad(groomLoad);  ts.setGroomCap(groomCap);
                 ts.setVetLoad(vetLoad);       ts.setVetCap(vetCap);
                 slots.add(ts);
-
-                System.out.print("Cap: ");
-                System.out.println(groomCap + "   " + vetCap + "    " + totalCap);
-                System.out.print("Load: ");
-                System.out.println(groomLoad + "   " + vetLoad + "   " + totalLoad);
-                System.out.println(groomSvcs.size() + "   " + vetSvcs.size());
-                System.out.println(allServices.size() + "   " + slots.size());
             }
             if (!slots.isEmpty()) result.put(date, slots);
-
-
         }
         return result;
     }
@@ -225,10 +185,22 @@ public class BookingService {
     //  APPOINTMENT CREATION
     // ─────────────────────────────────────────────────────────────────────────
 
+    /**
+     * Dùng cho luồng Nội trú: tạo 1 Appointment cho 1 pet + 1 service
+     * placeholder (nội trú). Validate cardinality để khớp model
+     * "1 appointment - 1 pet - 1 service - 1 slot" áp dụng toàn hệ thống.
+     */
     public List<Integer> createAppointments(int customerId, List<Integer> petIds,
                                             List<Integer> serviceIds, String slotKey,
                                             boolean isInpatient, String inpatientDate,
                                             String inpatientPeriod) throws Exception {
+        if (petIds == null || petIds.size() != 1) {
+            throw new IllegalArgumentException("Mỗi lượt đặt lịch chỉ áp dụng cho đúng 1 thú cưng.");
+        }
+        if (serviceIds == null || serviceIds.size() != 1) {
+            throw new IllegalArgumentException("Mỗi lượt đặt lịch chỉ áp dụng cho đúng 1 dịch vụ.");
+        }
+
         List<Integer> created = new ArrayList<>();
         DateTimeFormatter df = DateTimeFormatter.ofPattern("yyyy-MM-dd");
         DateTimeFormatter tf = DateTimeFormatter.ofPattern("HH:mm");
@@ -246,32 +218,91 @@ public class BookingService {
             end   = start.plusMinutes(SLOT_MINUTES);
         }
 
-        for (int petId : petIds) {
-            for (int serviceId : serviceIds) {
-                Appointment a = new Appointment();
-                a.setCustomerID(customerId);
-                a.setPetID(petId);
-                a.setServiceID(serviceId);
-                a.setAppointmentDate(date);
-                a.setStartTime(start);
-                a.setEndTime(end);
-                a.setStatus("Pending");
-                // Inpatient không khớp 1 ca cố định nào (gộp 2 ca buổi sáng/chiều)
-                // nên để SlotShift = null, chỉ set cho booking thường.
-                if (!isInpatient) a.setSlotShift(slotShiftOf(start));
-                created.add(appointmentDAO.insert(a));
+        Appointment a = new Appointment();
+        a.setCustomerID(customerId);
+        a.setPetID(petIds.get(0));
+        a.setServiceID(serviceIds.get(0));
+        a.setAppointmentDate(date);
+        a.setStartTime(start);
+        a.setEndTime(end);
+        a.setStatus("Pending");
+        // Inpatient không khớp 1 ca cố định nào nên để SlotShift = null
+        if (!isInpatient) a.setSlotShift(slotShiftOf(start));
+        created.add(appointmentDAO.insert(a));
+        return created;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  APPOINTMENT CREATION — 1 appointment = 1 pet + 1 service + 1 slot
+    // ─────────────────────────────────────────────────────────────────────────
+    /**
+     * Tạo ĐÚNG 1 Appointment cho (pet, service) duy nhất trong booking.
+     * mỗi lượt đặt lịch chỉ ứng với 1 thú cưng và
+     * 1 dịch vụ (hoặc 1 vaccine) duy nhất — khách có thể mở rộng thêm dịch
+     * vụ trực tiếp khi đến khám. Validate cardinality để chống bypass từ phía client.
+     */
+    public List<Integer> createAppointmentsForPets(int customerId, List<PetBookingRequest> booking,
+                                                   String slotKey) throws Exception {
+        if (booking == null || booking.size() != 1) {
+            throw new IllegalArgumentException("Mỗi lượt đặt lịch chỉ áp dụng cho đúng 1 thú cưng.");
+        }
+        PetBookingRequest r = booking.get(0);
+        int totalItems = r.getServiceIds().size() + r.getVaccineIds().size();
+        if (totalItems != 1) {
+            throw new IllegalArgumentException("Mỗi lượt đặt lịch chỉ áp dụng cho đúng 1 dịch vụ.");
+        }
+
+        List<Integer> created = new ArrayList<>();
+        DateTimeFormatter df = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+        DateTimeFormatter tf = DateTimeFormatter.ofPattern("HH:mm");
+
+        String[] parts = slotKey.split("\\|");
+        LocalDate date  = LocalDate.parse(parts[0], df);
+        LocalTime start = LocalTime.parse(parts[1], tf);
+        LocalTime end   = start.plusMinutes(SLOT_MINUTES);
+        Integer   shift = slotShiftOf(start);
+
+        if (!r.getServiceIds().isEmpty()) {
+            int serviceId = r.getServiceIds().get(0);
+            created.add(appointmentDAO.insert(
+                    buildAppointment(customerId, r.getPetId(), serviceId, date, start, end, shift)));
+        } else {
+            // Vaccine: dùng 1 Service placeholder của category Vaccine để
+            // appointment tham chiếu đúng 1 ServiceID
+            List<Service> vSvcs = serviceDAO.findByCategory(VACCINE_CATEGORY_ID);
+            int vaccineServiceId = vSvcs.isEmpty() ? -1 : vSvcs.get(0).getServiceID();
+            if (vaccineServiceId > 0) {
+                created.add(appointmentDAO.insert(
+                        buildAppointment(customerId, r.getPetId(), vaccineServiceId, date, start, end, shift)));
             }
         }
         return created;
+    }
+
+    private Appointment buildAppointment(int customerId, int petId, int serviceId,
+                                         LocalDate date, LocalTime start, LocalTime end, Integer shift) {
+        Appointment a = new Appointment();
+        a.setCustomerID(customerId);
+        a.setPetID(petId);
+        a.setServiceID(serviceId);
+        a.setAppointmentDate(date);
+        a.setStartTime(start);
+        a.setEndTime(end);
+        a.setStatus("Pending");
+        a.setSlotShift(shift);
+        return a;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
     //  DEPOSIT
     // ─────────────────────────────────────────────────────────────────────────
 
-    public long computeDeposit(BigDecimal totalPrice, boolean isInpatient) {
-        if (isInpatient) return DEPOSIT_INPATIENT_VND;
-        if (totalPrice == null) return 0L;
-        return Math.max(1L, Math.round(totalPrice.doubleValue() * DEPOSIT_RATIO_NORMAL));
+    /**
+     * Tiền cọc CỐ ĐỊNH:
+     *   - Nội trú:    DEPOSIT_INPATIENT (200.000đ)
+     *   - Bình thường: DEPOSIT_NORMAL    (50.000đ)
+     */
+    public long computeDeposit(boolean isInpatient) {
+        return isInpatient ? DEPOSIT_INPATIENT : DEPOSIT_NORMAL;
     }
 }

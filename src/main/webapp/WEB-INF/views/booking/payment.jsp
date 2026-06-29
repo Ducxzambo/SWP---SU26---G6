@@ -28,7 +28,7 @@
       <strong><fmt:formatNumber value="${totalPrice}" type="number" groupingUsed="true"/>₫</strong>
     </div>
     <div class="pay-sum-row pay-sum-row--deposit">
-      <span>Tiền cọc tối thiểu <c:if test="${isInpatient}">(200.000₫ nội trú)</c:if><c:if test="${!isInpatient}">(20% giá trị)</c:if></span>
+      <span>Tiền cọc tối thiểu <c:if test="${isInpatient}">(200.000đ nội trú)</c:if><c:if test="${!isInpatient}">(50.000đ đặt cọc)</c:if></span>
       <strong><fmt:formatNumber value="${depositAmount}" type="number" groupingUsed="true"/>₫</strong>
     </div>
   </div>
@@ -37,7 +37,7 @@
   <div class="pay-options">
 
     <!-- Full payment -->
-    <div class="pay-option" id="optFull" onclick="selectPay('full', this)">
+    <!-- <div class="pay-option" id="optFull" onclick="selectPay('full', this)">
       <div class="pay-opt-check" id="checkFull"></div>
       <div class="pay-opt-icon"></div>
       <div class="pay-opt-body">
@@ -47,7 +47,7 @@
           <fmt:formatNumber value="${totalPrice}" type="number" groupingUsed="true"/>₫
         </div>
       </div>
-    </div>
+    </div> -->
 
     <!-- Partial payment (deposit) -->
     <div class="pay-option" id="optPartial" onclick="selectPay('partial', this)">
@@ -63,7 +63,13 @@
         <div class="pay-opt-amount pay-opt-amount--deposit" id="amtPartial">
           <fmt:formatNumber value="${depositAmount}" type="number" groupingUsed="true"/>₫
           <span class="pay-opt-remaining">
+          <c:set var="ctx" value="${pageContext.request.contextPath}"/>
+          <c:if test="${totalPrice - depositAmount > 0}">
             (còn lại <fmt:formatNumber value="${totalPrice - depositAmount}" type="number" groupingUsed="true"/>₫ tại quầy)
+          </c:if>
+          <c:if test="${totalPrice - depositAmount < 0}">
+             (số tiền nộp dư <fmt:formatNumber value="${depositAmount - totalPrice}" type="number" groupingUsed="true"/>₫ sẽ được refund tại quầy)
+          </c:if>
           </span>
         </div>
       </div>

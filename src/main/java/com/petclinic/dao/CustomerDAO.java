@@ -5,10 +5,25 @@ import com.petclinic.util.DBConnection;
 
 import java.sql.*;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 public class CustomerDAO {
 
     // ── Lookup ───────────────────────────────────────────────────────────────
+
+    public List<Customer> findAllActive(int max) throws SQLException {
+        List<Customer> list = new ArrayList<>();
+        String sql = "SELECT * FROM Customers WHERE IsActive = 1" +
+                " GROUP BY customerID, FullName, Email, Phone, PasswordHash, IsActive, CreatedAt, RememberMeToken, TokenExpiredTime" +
+                " HAVING COUNT(CustomerId)<=max";
+        try (Connection c = DBConnection.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) list.add(mapRow(rs));
+        }
+        return list;
+    }
 
     public Customer findByEmail(String email) throws SQLException {
         String sql = "SELECT * FROM Customers WHERE Email = ? AND IsActive = 1";

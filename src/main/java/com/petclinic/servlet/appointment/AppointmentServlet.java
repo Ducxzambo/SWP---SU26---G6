@@ -1,14 +1,15 @@
 package com.petclinic.servlet.appointment;
 
 import com.petclinic.dao.*;
+import com.petclinic.dto.TimeSlot;
 import com.petclinic.model.*;
 import com.petclinic.service.BookingService;
 
-import com.petclinic.servlet.home.NotificationServlet;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -270,13 +271,17 @@ public class AppointmentServlet extends HttpServlet {
 
         boolean isInpatient = appt.getStartTime() != null && appt.getEndTime() != null
                 && Duration.between(appt.getStartTime(), appt.getEndTime()).toMinutes() >= 240;
-        long deposit = bookingSvc.computeDeposit(invoice.getTotalAmount(), isInpatient);
+        long deposit = bookingSvc.computeDeposit(isInpatient);
+        BigDecimal payableTotal = invoice.getTotalAmount();
+        if (isInpatient && (payableTotal == null || payableTotal.signum() <= 0)) {
+            payableTotal = BigDecimal.valueOf(deposit);
+        }
 
         HttpSession sess = req.getSession(true);
         sess.setAttribute("pay_apptId",    id);
         sess.setAttribute("pay_apptIds",   Collections.singletonList(id));
         sess.setAttribute("pay_invoiceId", invoice.getInvoiceID());
-        sess.setAttribute("pay_total",     invoice.getTotalAmount());
+        sess.setAttribute("pay_total",     payableTotal);
         sess.setAttribute("pay_deposit",   deposit);
         sess.setAttribute("pay_inpatient", isInpatient);
         resp.sendRedirect(req.getContextPath() + "/booking/payment");

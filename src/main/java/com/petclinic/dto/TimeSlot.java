@@ -1,4 +1,4 @@
-package com.petclinic.model;
+package com.petclinic.dto;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -16,7 +16,7 @@ public class TimeSlot {
     private boolean   available;
     private double    maxCapacity;
     private int       currentLoad;
-    private boolean   inpatient;
+    private boolean    inpatient;
 
     // Per-role-group breakdown (populated by BookingService)
     private int groomLoad;

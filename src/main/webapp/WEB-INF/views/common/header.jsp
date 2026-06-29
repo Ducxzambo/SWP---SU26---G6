@@ -6,6 +6,7 @@
 <%-- Meta tag lets main.js know the context path without inline scripts --%>
 <meta name="ctx" content="${ctx}">
 <header class="site-header">
+  <link rel="stylesheet" href="${ctx}/css/reviews.css">
   <nav class="nav-inner">
 
     <!-- Logo -->
@@ -86,18 +87,18 @@
       </li>
 
       <!-- ── Customer-only nav items ──────────────────────────────────── -->
-      <c:if test="${not empty customer}">
-        <li class="nav-item">
-          <a href="${ctx}/notifications" class="nav-link">Thông báo
-            <c:if test="${unreadCount > 0}">
-              <span style="background:var(--green-400);color:var(--green-900);
-                border-radius:10px;padding:1px 7px;font-size:11px;font-weight:700;">
-                ${unreadCount}
-              </span>
+            <c:if test="${not empty customer}">
+              <li class="nav-item">
+                <a href="${ctx}/notifications" class="nav-link">Thông báo
+                  <c:if test="${unreadCount > 0}">
+                    <span style="background:var(--green-400);color:var(--green-900);
+                      border-radius:10px;padding:1px 7px;font-size:11px;font-weight:700;">
+                      ${unreadCount}
+                    </span>
+                  </c:if>
+                </a>
+              </li>
             </c:if>
-          </a>
-        </li>
-      </c:if>
 
     </ul><!-- /nav-links -->
 
@@ -154,20 +155,36 @@
   <div class="notif-panel" id="notifPanel">
     <div class="notif-panel-head">
       <h4>Thông báo</h4>
-      <a href="${ctx}/notifications/mark-read" onclick="markAllRead(event)">Đánh dấu đã đọc</a>
+      <a href="${ctx}/notifications" style="font-size:12px;color:var(--green-500);">Xem tất cả</a>
     </div>
-    <div class="notif-list" id="notifList">
-      <div class="notif-empty" id="notifLoading">Đang tải...</div>
+    <%-- Pill filters --%>
+    <div style="display:flex;gap:6px;padding:8px 14px;overflow-x:auto;border-bottom:1px solid var(--border);scrollbar-width:none;">
+      <button class="notif-pill active" onclick="filterDropdown('ALL',this)">Tất cả</button>
+      <button class="notif-pill" onclick="filterDropdown('REMINDER',this)">Nhắc lịch</button>
+      <button class="notif-pill" onclick="filterDropdown('PAYMENT',this)">Thanh toán</button>
+      <button class="notif-pill" onclick="filterDropdown('EXAM_RESULT',this)">Kết quả</button>
+      <button class="notif-pill" onclick="filterDropdown('CARE_TIP',this)">Chăm sóc</button>
+    </div>
+    <div class="notif-list" id="notifList" style="max-height:380px;overflow-y:auto;">
+      <div class="notif-dropdown-loading">Đang tải...</div>
+    </div>
+    <div class="notif-dropdown-footer">
+      <form action="${ctx}/notifications/mark-read" method="post" style="display:inline;">
+        <button type="submit" style="background:none;border:none;cursor:pointer;
+                font-size:12.5px;color:var(--warm-gray);font-family:'DM Sans',sans-serif;">
+          ✓ Đánh dấu tất cả đã đọc
+        </button>
+      </form>
     </div>
   </div>
 </c:if>
 
 <!-- Flash messages -->
 <c:if test="${not empty sessionScope.flashSuccess}">
-  <div class="flash flash-success">✓ ${sessionScope.flashSuccess}</div>
+  <div class="flash flash-success">${sessionScope.flashSuccess}</div>
   <c:remove var="flashSuccess" scope="session"/>
 </c:if>
 <c:if test="${not empty sessionScope.flashError}">
-  <div class="flash flash-error">✗ ${sessionScope.flashError}</div>
+  <div class="flash flash-error">${sessionScope.flashError}</div>
   <c:remove var="flashError" scope="session"/>
 </c:if>

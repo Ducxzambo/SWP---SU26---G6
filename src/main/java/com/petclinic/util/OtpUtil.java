@@ -29,9 +29,6 @@ public class OtpUtil {
 
     /** Send OTP via email using JavaMail. */
     public static void sendOtpEmail(String toEmail, String otp, String purpose) throws MessagingException, UnsupportedEncodingException {
-        System.out.println("EMAIL_USER = " + EMAIL_USER);
-        System.out.println("EMAIL_PASS = " + EMAIL_PASS);
-
         Properties props = new Properties();
         props.put("mail.smtp.auth",            "true");
         props.put("mail.smtp.starttls.enable", "true");
@@ -54,24 +51,6 @@ public class OtpUtil {
         msg.setContent(body, "text/html; charset=UTF-8");
 
         Transport.send(msg);
-    }
-
-    /**
-     * Send OTP via SMS using Twilio.
-     * Uncomment and add Twilio dependency to enable.
-     */
-    public static void sendOtpSms(String toPhone, String otp, String purpose) {
-        // ── Twilio integration (uncomment when dependency is added) ──────────
-        // com.twilio.Twilio.init(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
-        // String messageBody = buildSmsBody(otp, purpose);
-        // com.twilio.rest.api.v2010.account.Message.creator(
-        //     new com.twilio.type.PhoneNumber(toPhone),
-        //     new com.twilio.type.PhoneNumber(TWILIO_FROM_PHONE),
-        //     messageBody
-        // ).create();
-
-        // ── Stub: log to console until Twilio is configured ─────────────────
-        System.out.printf("[SMS STUB] To: %s | OTP: %s | Purpose: %s%n", toPhone, otp, purpose);
     }
 
     // ── Private helpers ─────────────────────────────────────────────────────
@@ -98,8 +77,4 @@ public class OtpUtil {
              + "</div>";
     }
 
-    private static String buildSmsBody(String otp, String purpose) {
-        return "[PetClinic] Your verification code is: " + otp
-             + ". Valid for " + OTP_EXPIRE_MINUTES + " minutes.";
-    }
 }

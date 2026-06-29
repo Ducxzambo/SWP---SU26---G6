@@ -8,6 +8,7 @@ import com.petclinic.dao.NotificationDAO;
 import com.petclinic.model.Appointment;
 import com.petclinic.model.Customer;
 import com.petclinic.model.Invoice;
+import com.petclinic.service.BookingService;
 import com.petclinic.service.EmailService;
 import com.petclinic.service.PaymentService;
 
@@ -36,7 +37,7 @@ public class PaymentWebhookServlet extends HttpServlet {
     private final ServiceDAO      serviceDAO     = new ServiceDAO();
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // POST /payment/webhook  — không thay đổi gì so với bản cũ
+    // POST /payment/webhook
     // ═══════════════════════════════════════════════════════════════════════════
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp)
@@ -60,16 +61,16 @@ public class PaymentWebhookServlet extends HttpServlet {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // GET /payment/result  — rewritten
+    // GET /payment/result
     //
     // PayOS redirect URL params:
-    //   code       = "00"   → giao dịch thành công
+    //   code       = "00"   - giao dịch thành công
     //   status     = "PAID" | "CANCELLED" | "PENDING"
-    //   cancel     = "true" → khách bấm Cancel
-    //   orderCode  = order code ta đã tạo
+    //   cancel     = "true" - khách bấm Cancel
+    //   orderCode  = order code đã tạo
     //   id         = PayOS internal transaction ID
     //
-    // Our own params (appended khi tạo payment link):
+    // own params (appended khi tạo payment link):
     //   apptId     = AppointmentID
     //   invoiceId  = InvoiceID
     //   full       = "true" nếu chọn Fully Paid, "false" nếu deposit
@@ -124,10 +125,15 @@ public class PaymentWebhookServlet extends HttpServlet {
 
                 if (current != null && "Unpaid".equals(current.getStatus())) {
                     // Tính số tiền đã trả
-                    BigDecimal paidAmount = full
-                            ? current.getTotalAmount()
-                            : BigDecimal.valueOf(computeDeposit(current.getTotalAmount(),
-                            false));
+                    Appointment appt = appointmentDAO.findById(apptId);
+                    boolean isInpatient = appt != null && appt.getStartTime() != null && appt.getEndTime() != null
+                            && java.time.Duration.between(appt.getStartTime(), appt.getEndTime()).toMinutes() >= 240;
+                    long deposit = computeDeposit(isInpatient);
+                    BigDecimal invoiceTotal = current.getTotalAmount();
+                    if (isInpatient && (invoiceTotal == null || invoiceTotal.signum() <= 0)) {
+                        invoiceTotal = BigDecimal.valueOf(deposit);
+                    }
+                    BigDecimal paidAmount = full ? invoiceTotal : BigDecimal.valueOf(deposit);
 
                     // Cập nhật Invoice status
                     String newStatus = full ? "Paid" : "PartiallyPaid";
@@ -137,7 +143,6 @@ public class PaymentWebhookServlet extends HttpServlet {
                     invoiceDAO.insertPayment(invoiceId, paidAmount, "E-Wallet");
 
                     // Cập nhật Appointment → Confirmed
-                    Appointment appt = appointmentDAO.findById(apptId);
                     if (appt != null && "Pending".equals(appt.getStatus())) {
                         appointmentDAO.updateStatus(apptId, "Confirmed");
                     }
@@ -205,7 +210,6 @@ public class PaymentWebhookServlet extends HttpServlet {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // Không thay đổi các method dưới đây
     // ═══════════════════════════════════════════════════════════════════════════
 
     private void sendConfirmationEmailFromWebhook(String webhookBody) {
@@ -213,8 +217,8 @@ public class PaymentWebhookServlet extends HttpServlet {
             String orderCodeStr = extractField(webhookBody, "orderCode");
             if (orderCodeStr.isBlank()) return;
             long    orderCode = Long.parseLong(orderCodeStr);
-            int     invoiceId = (int)(orderCode / 10);
-            boolean isFull    = (orderCode % 10) == 1;
+            int     invoiceId = paymentSvc.decodeInvoiceId(orderCode);
+            boolean isFull    = paymentSvc.decodeIsFullPayment(orderCode);
             long    amount    = Long.parseLong(extractField(webhookBody, "amount"));
 
             Invoice invoice = invoiceDAO.findById(invoiceId);
@@ -259,9 +263,8 @@ public class PaymentWebhookServlet extends HttpServlet {
         catch (Exception e) { return -1; }
     }
 
-    private long computeDeposit(BigDecimal total, boolean isInpatient) {
-        if (isInpatient) return 200_000L;
-        if (total == null) return 0L;
-        return Math.round(total.doubleValue() * 0.20);
+    /** Tiền cọc cố định */
+    private long computeDeposit(boolean isInpatient) {
+        return isInpatient ? BookingService.DEPOSIT_INPATIENT : BookingService.DEPOSIT_NORMAL;
     }
 }
