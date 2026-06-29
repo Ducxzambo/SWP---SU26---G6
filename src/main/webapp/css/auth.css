@@ -48,6 +48,8 @@ body {
   box-shadow: var(--shadow-md);
   overflow: hidden;
   animation: slideUp .4s var(--transition) both;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
 }
 @keyframes slideUp {
   from { opacity:0; transform:translateY(24px); }
@@ -56,8 +58,8 @@ body {
 
 /* ── Header strip ────────────────────────────────────────────────────────── */
 .auth-header {
-  background: var(--green-900);
-  padding: 32px 40px 28px;
+  background: linear-gradient(120deg, var(--green-700), var(--green-400));
+  padding: 28px 28px;
   text-align: center;
 }
 .auth-header .logo {
@@ -81,6 +83,30 @@ body {
 
 /* ── Body ────────────────────────────────────────────────────────────────── */
 .auth-body { padding: 36px 40px 40px; }
+
+/* New: decorative left side for larger screens */
+.auth-side {
+  background: linear-gradient(180deg, rgba(20,147,160,.06), rgba(20,147,160,.03));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 36px 24px;
+  flex-direction: column;
+  gap: 12px;
+}
+.auth-side .side-illustration {
+  font-size: 72px;
+  filter: drop-shadow(0 8px 24px rgba(20,147,160,.08));
+}
+.auth-side .side-text {
+  color: var(--text-mid);
+  font-size: 15px;
+  text-align: center;
+  max-width: 260px;
+}
+
+/* Place header to span both columns */
+.auth-header { grid-column: 1 / -1; }
 
 /* ── Steps indicator ─────────────────────────────────────────────────────── */
 .step-indicator {
@@ -241,13 +267,13 @@ body {
   letter-spacing: .2px;
 }
 .btn-primary {
-  background: var(--green-700);
+  background: var(--green-500);
   color: #fff;
 }
 .btn-primary:hover {
-  background: var(--green-900);
+  background: var(--green-700);
   transform: translateY(-1px);
-  box-shadow: 0 6px 18px rgba(15,61,36,.25);
+  box-shadow: 0 10px 30px rgba(20,147,160,.18);
 }
 .btn-primary:active { transform: translateY(0); }
 .btn-google {
@@ -357,3 +383,10 @@ body {
   .auth-header { padding: 26px 24px 22px; }
   .otp-digit { width: 44px; height: 54px; font-size: 20px; }
 }
+
+@media (max-width: 840px) {
+  /* collapse split layout on narrower screens */
+  .auth-card { grid-template-columns: 1fr; max-width: 460px; }
+  .auth-side { display: none; }
+}
+

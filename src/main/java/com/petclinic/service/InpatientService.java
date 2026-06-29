@@ -36,7 +36,7 @@ public class InpatientService {
         List<String> occupied = dao.findOccupiedCages();
         if (occupied.contains(cageNumber.trim())) {
             throw new IllegalStateException(
-                "Cage " + cageNumber + " is already occupied.");
+                    "Cage " + cageNumber + " is already occupied.");
         }
         return dao.create(recordID, petID, cageNumber.trim());
     }
@@ -59,25 +59,25 @@ public class InpatientService {
 
         // 2. fee calculation
         LocalDate admitDate = a.getAdmitDate() != null
-            ? a.getAdmitDate() : LocalDate.now();
+                ? a.getAdmitDate() : LocalDate.now();
         long days = Math.max(1, ChronoUnit.DAYS.between(admitDate, LocalDate.now()));
         double total = DAILY_RATE * days;
 
         // 3. create invoice
         int invoiceID = invoiceDAO.create(
-            a.getAppointmentID(),
-            a.getCustomerID(),
-            total,
-            "Unpaid"
+                a.getAppointmentID(),
+                a.getCustomerID(),
+                total,
+                "Unpaid"
         );
 
         // 4. notify owner
         notifDAO.createForCustomer(
-            a.getCustomerID(),
-            "Your pet " + a.getPetName() + " has been discharged",
-            "Stay duration: " + days + " day(s). "
-            + "Total fee: " + String.format("%,.0f", total) + " VND. "
-            + "Please proceed to payment."
+                a.getCustomerID(),
+                "Your pet " + a.getPetName() + " has been discharged",
+                "Stay duration: " + days + " day(s). "
+                        + "Total fee: " + String.format("%,.0f", total) + " VND. "
+                        + "Please proceed to payment."
         );
 
         return invoiceID;
@@ -103,29 +103,27 @@ public class InpatientService {
     // ── Veterinarian ──────────────────────────────────────────────────────────
 
     /**
-     * Save daily assessment:
-     *   1. Prevent duplicate (one per day per admission)
-     *   2. Insert DailyAssessments row
-     *   3. Notify customer of today's update
+     * Save daily assessment.
+     * Uses StaffID (updated schema — column was VetID before).
      */
-    public void saveDailyAssessment(int admissionID, int vetID,
-                                     String condition, String treatment)
+    public void saveDailyAssessment(int admissionID, int staffID,
+                                    String condition, String treatment)
             throws SQLException {
         if (dao.hasTodayAssessment(admissionID)) {
             throw new IllegalStateException(
-                "Today's assessment has already been submitted for this admission.");
+                    "Today's assessment has already been submitted for this admission.");
         }
-        dao.createAssessment(admissionID, vetID,
-            condition  != null ? condition.trim()  : "",
-            treatment  != null ? treatment.trim()  : "");
+        dao.createAssessment(admissionID, staffID,
+                condition  != null ? condition.trim()  : "",
+                treatment  != null ? treatment.trim()  : "");
 
         // notify owner
         InpatientAdmission a = dao.findById(admissionID);
         if (a != null) {
             notifDAO.createForCustomer(
-                a.getCustomerID(),
-                "Daily update for " + a.getPetName(),
-                "Today's condition: " + condition
+                    a.getCustomerID(),
+                    "Daily update for " + a.getPetName(),
+                    "Today's condition: " + condition
             );
         }
     }
@@ -138,9 +136,9 @@ public class InpatientService {
         InpatientAdmission a = dao.findById(admissionID);
         if (a != null) {
             notifDAO.createForCustomer(
-                a.getCustomerID(),
-                "⚠️ URGENT: " + a.getPetName() + " is in Critical Condition",
-                "Please contact the clinic immediately."
+                    a.getCustomerID(),
+                    "⚠️ URGENT: " + a.getPetName() + " is in Critical Condition",
+                    "Please contact the clinic immediately."
             );
         }
     }

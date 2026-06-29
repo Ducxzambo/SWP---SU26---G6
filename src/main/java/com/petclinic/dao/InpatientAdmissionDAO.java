@@ -30,8 +30,8 @@ public class InpatientAdmissionDAO {
      */
     public int create(int recordID, int petID, String cageNumber) throws SQLException {
         String sql =
-            "INSERT INTO InpatientAdmissions (RecordID, PetID, AdmitDate, CageNumber, Status) " +
-            "VALUES (?, ?, CAST(GETDATE() AS date), ?, 'Admitted')";
+                "INSERT INTO InpatientAdmissions (RecordID, PetID, AdmitDate, CageNumber, Status) " +
+                        "VALUES (?, ?, CAST(GETDATE() AS date), ?, 'Admitted')";
 
         try (Connection cn = DBConnection.getConnection();
              PreparedStatement ps = cn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
@@ -50,18 +50,18 @@ public class InpatientAdmissionDAO {
      */
     public InpatientAdmission findById(int admissionID) throws SQLException {
         String sql =
-            "SELECT ia.AdmissionID, ia.RecordID, ia.PetID, ia.AdmitDate, " +
-            "       ia.DischargeDate, ia.CageNumber, ia.Status, " +
-            "       p.Name          AS PetName, " +
-            "       c.FullName      AS OwnerName, " +
-            "       c.Email         AS OwnerEmail, " +
-            "       c.CustomerID, " +
-            "       mr.AppointmentID " +
-            "FROM   InpatientAdmissions ia " +
-            "JOIN   Pets           p  ON p.PetID        = ia.PetID " +
-            "JOIN   Customers      c  ON c.CustomerID   = p.CustomerID " +
-            "JOIN   MedicalRecords mr ON mr.RecordID    = ia.RecordID " +
-            "WHERE  ia.AdmissionID = ?";
+                "SELECT ia.AdmissionID, ia.RecordID, ia.PetID, ia.AdmitDate, " +
+                        "       ia.DischargeDate, ia.CageNumber, ia.Status, " +
+                        "       p.Name          AS PetName, " +
+                        "       c.FullName      AS OwnerName, " +
+                        "       c.Email         AS OwnerEmail, " +
+                        "       c.CustomerID, " +
+                        "       mr.AppointmentID " +
+                        "FROM   InpatientAdmissions ia " +
+                        "JOIN   Pets           p  ON p.PetID        = ia.PetID " +
+                        "JOIN   Customers      c  ON c.CustomerID   = p.CustomerID " +
+                        "JOIN   MedicalRecords mr ON mr.RecordID    = ia.RecordID " +
+                        "WHERE  ia.AdmissionID = ?";
 
         try (Connection cn = DBConnection.getConnection();
              PreparedStatement ps = cn.prepareStatement(sql)) {
@@ -78,19 +78,19 @@ public class InpatientAdmissionDAO {
      */
     public List<InpatientAdmission> findAllActive() throws SQLException {
         String sql =
-            "SELECT ia.AdmissionID, ia.RecordID, ia.PetID, ia.AdmitDate, " +
-            "       ia.DischargeDate, ia.CageNumber, ia.Status, " +
-            "       p.Name          AS PetName, " +
-            "       c.FullName      AS OwnerName, " +
-            "       c.Email         AS OwnerEmail, " +
-            "       c.CustomerID, " +
-            "       mr.AppointmentID " +
-            "FROM   InpatientAdmissions ia " +
-            "JOIN   Pets           p  ON p.PetID        = ia.PetID " +
-            "JOIN   Customers      c  ON c.CustomerID   = p.CustomerID " +
-            "JOIN   MedicalRecords mr ON mr.RecordID    = ia.RecordID " +
-            "WHERE  ia.Status IN ('Admitted', 'Critical') " +
-            "ORDER  BY ia.AdmitDate ASC";
+                "SELECT ia.AdmissionID, ia.RecordID, ia.PetID, ia.AdmitDate, " +
+                        "       ia.DischargeDate, ia.CageNumber, ia.Status, " +
+                        "       p.Name          AS PetName, " +
+                        "       c.FullName      AS OwnerName, " +
+                        "       c.Email         AS OwnerEmail, " +
+                        "       c.CustomerID, " +
+                        "       mr.AppointmentID " +
+                        "FROM   InpatientAdmissions ia " +
+                        "JOIN   Pets           p  ON p.PetID        = ia.PetID " +
+                        "JOIN   Customers      c  ON c.CustomerID   = p.CustomerID " +
+                        "JOIN   MedicalRecords mr ON mr.RecordID    = ia.RecordID " +
+                        "WHERE  ia.Status IN ('Admitted', 'Critical') " +
+                        "ORDER  BY ia.AdmitDate ASC";
 
         return query(sql);
     }
@@ -101,19 +101,19 @@ public class InpatientAdmissionDAO {
      */
     public List<InpatientAdmission> findByCustomer(int customerID) throws SQLException {
         String sql =
-            "SELECT ia.AdmissionID, ia.RecordID, ia.PetID, ia.AdmitDate, " +
-            "       ia.DischargeDate, ia.CageNumber, ia.Status, " +
-            "       p.Name          AS PetName, " +
-            "       c.FullName      AS OwnerName, " +
-            "       c.Email         AS OwnerEmail, " +
-            "       c.CustomerID, " +
-            "       mr.AppointmentID " +
-            "FROM   InpatientAdmissions ia " +
-            "JOIN   Pets           p  ON p.PetID        = ia.PetID " +
-            "JOIN   Customers      c  ON c.CustomerID   = p.CustomerID " +
-            "JOIN   MedicalRecords mr ON mr.RecordID    = ia.RecordID " +
-            "WHERE  c.CustomerID = ? " +
-            "ORDER  BY ia.AdmitDate DESC";
+                "SELECT ia.AdmissionID, ia.RecordID, ia.PetID, ia.AdmitDate, " +
+                        "       ia.DischargeDate, ia.CageNumber, ia.Status, " +
+                        "       p.Name          AS PetName, " +
+                        "       c.FullName      AS OwnerName, " +
+                        "       c.Email         AS OwnerEmail, " +
+                        "       c.CustomerID, " +
+                        "       mr.AppointmentID " +
+                        "FROM   InpatientAdmissions ia " +
+                        "JOIN   Pets           p  ON p.PetID        = ia.PetID " +
+                        "JOIN   Customers      c  ON c.CustomerID   = p.CustomerID " +
+                        "JOIN   MedicalRecords mr ON mr.RecordID    = ia.RecordID " +
+                        "WHERE  c.CustomerID = ? " +
+                        "ORDER  BY ia.AdmitDate DESC";
 
         try (Connection cn = DBConnection.getConnection();
              PreparedStatement ps = cn.prepareStatement(sql)) {
@@ -132,9 +132,9 @@ public class InpatientAdmissionDAO {
      */
     public List<String> findOccupiedCages() throws SQLException {
         String sql =
-            "SELECT CageNumber FROM InpatientAdmissions " +
-            "WHERE  Status IN ('Admitted', 'Critical') " +
-            "AND    CageNumber IS NOT NULL";
+                "SELECT CageNumber FROM InpatientAdmissions " +
+                        "WHERE  Status IN ('Admitted', 'Critical') " +
+                        "AND    CageNumber IS NOT NULL";
 
         List<String> list = new ArrayList<>();
         try (Connection cn = DBConnection.getConnection();
@@ -164,9 +164,9 @@ public class InpatientAdmissionDAO {
      */
     public void discharge(int admissionID) throws SQLException {
         String sql =
-            "UPDATE InpatientAdmissions " +
-            "SET    DischargeDate = CAST(GETDATE() AS date), Status = 'Discharged' " +
-            "WHERE  AdmissionID = ?";
+                "UPDATE InpatientAdmissions " +
+                        "SET    DischargeDate = CAST(GETDATE() AS date), Status = 'Discharged' " +
+                        "WHERE  AdmissionID = ?";
         try (Connection cn = DBConnection.getConnection();
              PreparedStatement ps = cn.prepareStatement(sql)) {
             ps.setInt(1, admissionID);
@@ -180,19 +180,20 @@ public class InpatientAdmissionDAO {
 
     /**
      * Insert today's assessment.
+     * Column: StaffID (updated schema — was VetID before)
      * @return generated AssessmentID
      */
-    public int createAssessment(int admissionID, int vetID,
-                                 String condition, String treatmentToday) throws SQLException {
+    public int createAssessment(int admissionID, int staffID,
+                                String condition, String treatmentToday) throws SQLException {
         String sql =
-            "INSERT INTO DailyAssessments " +
-            "  (AdmissionID, VetID, AssessmentDate, Condition, TreatmentToday) " +
-            "VALUES (?, ?, CAST(GETDATE() AS date), ?, ?)";
+                "INSERT INTO DailyAssessments " +
+                        "  (AdmissionID, StaffID, AssessmentDate, Condition, TreatmentToday) " +
+                        "VALUES (?, ?, CAST(GETDATE() AS date), ?, ?)";
 
         try (Connection cn = DBConnection.getConnection();
              PreparedStatement ps = cn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setInt(1, admissionID);
-            ps.setInt(2, vetID);
+            ps.setInt(2, staffID);
             ps.setString(3, condition);
             ps.setString(4, treatmentToday);
             ps.executeUpdate();
@@ -204,16 +205,17 @@ public class InpatientAdmissionDAO {
 
     /**
      * All assessments for one admission, newest first.
+     * JOIN Staff on StaffID (updated schema).
      */
     public List<DailyAssessment> findAssessmentsByAdmission(int admissionID) throws SQLException {
         String sql =
-            "SELECT da.AssessmentID, da.AdmissionID, da.VetID, " +
-            "       da.AssessmentDate, da.Condition, da.TreatmentToday, " +
-            "       s.FullName AS VetName " +
-            "FROM   DailyAssessments da " +
-            "JOIN   Staff s ON s.StaffID = da.VetID " +
-            "WHERE  da.AdmissionID = ? " +
-            "ORDER  BY da.AssessmentDate DESC";
+                "SELECT da.AssessmentID, da.AdmissionID, da.StaffID, " +
+                        "       da.AssessmentDate, da.Condition, da.TreatmentToday, " +
+                        "       s.FullName AS VetName " +
+                        "FROM   DailyAssessments da " +
+                        "JOIN   Staff s ON s.StaffID = da.StaffID " +
+                        "WHERE  da.AdmissionID = ? " +
+                        "ORDER  BY da.AssessmentDate DESC";
 
         List<DailyAssessment> list = new ArrayList<>();
         try (Connection cn = DBConnection.getConnection();
@@ -232,9 +234,9 @@ public class InpatientAdmissionDAO {
      */
     public boolean hasTodayAssessment(int admissionID) throws SQLException {
         String sql =
-            "SELECT 1 FROM DailyAssessments " +
-            "WHERE  AdmissionID   = ? " +
-            "AND    AssessmentDate = CAST(GETDATE() AS date)";
+                "SELECT 1 FROM DailyAssessments " +
+                        "WHERE  AdmissionID   = ? " +
+                        "AND    AssessmentDate = CAST(GETDATE() AS date)";
         try (Connection cn = DBConnection.getConnection();
              PreparedStatement ps = cn.prepareStatement(sql)) {
             ps.setInt(1, admissionID);
@@ -285,7 +287,7 @@ public class InpatientAdmissionDAO {
         DailyAssessment d = new DailyAssessment();
         d.setAssessmentID(rs.getInt("AssessmentID"));
         d.setAdmissionID(rs.getInt("AdmissionID"));
-        d.setVetID(rs.getInt("VetID"));
+        d.setVetID(rs.getInt("StaffID"));   // column renamed StaffID in new schema
         d.setCondition(rs.getString("Condition"));
         d.setTreatmentToday(rs.getString("TreatmentToday"));
         d.setVetName(rs.getString("VetName"));

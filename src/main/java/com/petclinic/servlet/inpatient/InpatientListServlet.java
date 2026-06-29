@@ -20,7 +20,7 @@ import java.io.IOException;
  *   All actors → single admission + assessment history
  *   (each actor gets a different JSP view)
  */
-//@WebServlet(urlPatterns = {"/inpatient/list", "/inpatient/detail"})
+
 public class InpatientListServlet extends HttpServlet {
 
     private final InpatientService svc = new InpatientService();
