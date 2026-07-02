@@ -79,7 +79,7 @@ public class ExaminationServlet extends HttpServlet {
             MedicalRecord record = new MedicalRecord();
             record.setAppointmentID(appointmentID);
             record.setPetID(appt.getPetID());
-            record.setVetID(vet.getStaffID());
+            record.setStaffID(vet.getStaffID());
 
             String weightStr = req.getParameter("weight");
             String tempStr   = req.getParameter("temperature");

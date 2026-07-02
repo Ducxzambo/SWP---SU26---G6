@@ -202,7 +202,7 @@
             <div class="pet-strip">
                 <div class="pet-strip-item"><span class="lbl">Thú cưng</span><span class="val">🐾 <c:out value="${record.petName}"/></span></div>
                 <div class="pet-strip-item"><span class="lbl">Chủ nhân</span><span class="val"><c:out value="${record.ownerName}"/></span></div>
-                <div class="pet-strip-item"><span class="lbl">Bác sĩ</span><span class="val"><c:out value="${record.vetName}"/></span></div>
+                <div class="pet-strip-item"><span class="lbl">Bác sĩ</span><span class="val"><c:out value="${record.staffName}"/></span></div>
                 <div class="pet-strip-item"><span class="lbl">Ngày khám</span><span class="val">${record.createdAt}</span></div>
             </div>
 
@@ -269,7 +269,7 @@
                                     <td><strong><c:out value="${pi.medicineName}"/></strong></td>
                                     <td><c:out value="${pi.dosage}"/></td>
                                     <td>${pi.quantity}</td>
-                                    <td><c:out value="${pi.medicineUnit}"/></td>
+                                    <td><c:out value="${pi.unit}"/></td>
                                     <td><fmt:formatNumber value="${pi.unitPrice}" type="number" groupingUsed="true"/></td>
                                     <td><strong><fmt:formatNumber value="${pi.lineTotal}" type="number" groupingUsed="true"/></strong></td>
                                 </tr>
@@ -300,7 +300,7 @@
             <div class="pet-strip">
                 <div class="pet-strip-item"><span class="lbl">Thú cưng</span><span class="val">🐾 <c:out value="${appointment.petName}"/></span></div>
                 <div class="pet-strip-item"><span class="lbl">Chủ nhân</span><span class="val"><c:out value="${appointment.customerName}"/></span></div>
-                <div class="pet-strip-item"><span class="lbl">Bác sĩ</span><span class="val"><c:out value="${not empty appointment.vetName ? appointment.vetName : sessionScope.staff.fullName}"/></span></div>
+                <div class="pet-strip-item"><span class="lbl">Bác sĩ</span><span class="val"><c:out value="${not empty appointment.staffName ? appointment.staffName : sessionScope.staff.fullName}"/></span></div>
                 <div class="pet-strip-item"><span class="lbl">Ca</span><span class="val">Ca ${appointment.slotShift}</span></div>
                 <div class="pet-strip-item"><span class="lbl">Trạng thái</span><span class="val"><span class="badge badge-info">Đang khám</span></span></div>
             </div>

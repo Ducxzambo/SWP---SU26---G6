@@ -29,6 +29,29 @@ public class ServiceDAO {
             return mapList(ps.executeQuery());
         }
     }
+    public List<Service> findByCategory(int categoryId) throws SQLException {
+        String sql = "SELECT * FROM Services WHERE CategoryID = ? AND IsActive = 1 ORDER BY Name";
+        List<Service> list = new ArrayList<>();
+        try (Connection c = DBConnection.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, categoryId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) list.add(mapService(rs));
+            }
+        }
+        return list;
+    }
+
+    private Service mapService(ResultSet rs) throws SQLException {
+        Service s = new Service();
+        s.setServiceID(rs.getInt("ServiceID"));
+        s.setCategoryID(rs.getInt("CategoryID"));
+        s.setName(rs.getString("Name"));
+        s.setPrice(rs.getBigDecimal("Price"));
+        s.setDurationMinutes(rs.getInt("DurationMinutes"));
+        s.setActive(rs.getBoolean("IsActive"));
+        return s;
+    }
 
     /** All active services under a given CategoryID — dùng cho walk-in (chọn category trước). */
     public List<Service> findByCategoryId(int categoryID) throws SQLException {
@@ -130,5 +153,45 @@ public class ServiceDAO {
         try { s.setCategoryName(rs.getString("CategoryName")); } catch (SQLException ignored) {}
         try { s.setCategoryID(rs.getInt("CategoryID")); } catch (SQLException ignored) {}
         return s;
+    }
+
+    public static int roleIdForCategory(int categoryId) {
+        return categoryId == 3 ? 4 : 3;
+    }
+
+    public List<ServiceCategory> findAllCategoriesWithServices() throws SQLException {
+        List<ServiceCategory> cats = findAllCategories();
+        for (ServiceCategory cat : cats) {
+            cat.setServices(findByCategory(cat.getCategoryID()));
+        }
+        return cats;
+    }
+
+    public int countStaffByCategoryId(int categoryId) throws SQLException {
+        int roleId = roleIdForCategory(categoryId);
+        String sql = "SELECT COUNT(*) FROM Staff WHERE RoleID = ? AND IsActive = 1";
+        try (Connection c = DBConnection.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, roleId);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? Math.max(1, rs.getInt(1)) : 1;
+            }
+        }
+    }
+
+    public List<Service> findByIds(List<Integer> ids) throws SQLException {
+        if (ids == null || ids.isEmpty()) return new ArrayList<>();
+        StringBuilder sb = new StringBuilder("SELECT * FROM Services WHERE ServiceID IN (");
+        for (int i = 0; i < ids.size(); i++) { sb.append(i > 0 ? ",?" : "?"); }
+        sb.append(") AND IsActive = 1");
+        List<Service> list = new ArrayList<>();
+        try (Connection c = DBConnection.getConnection();
+             PreparedStatement ps = c.prepareStatement(sb.toString())) {
+            for (int i = 0; i < ids.size(); i++) ps.setInt(i + 1, ids.get(i));
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) list.add(mapService(rs));
+            }
+        }
+        return list;
     }
 }

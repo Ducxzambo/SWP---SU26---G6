@@ -5,6 +5,8 @@ import com.petclinic.util.DBConnection;
 
 import java.sql.*;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 public class CustomerDAO {
 
@@ -173,5 +175,18 @@ public class CustomerDAO {
         Timestamp tokenExp = rs.getTimestamp("TokenExpiredTime");
         if (tokenExp != null) cust.setTokenExpiredTime(tokenExp.toLocalDateTime());
         return cust;
+    }
+
+    public List<Customer> findAllActive(int max) throws SQLException {
+        List<Customer> list = new ArrayList<>();
+        String sql = "SELECT * FROM Customers WHERE IsActive = 1" +
+                " GROUP BY customerID, FullName, Email, Phone, PasswordHash, IsActive, CreatedAt, RememberMeToken, TokenExpiredTime" +
+                " HAVING COUNT(CustomerId)<=max";
+        try (Connection c = DBConnection.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) list.add(mapRow(rs));
+        }
+        return list;
     }
 }

@@ -102,7 +102,7 @@ public class CheckInServlet extends HttpServlet {
 
         // ── Normal check-in ───────────────────────────────────────────────────
         String appointmentIdStr = req.getParameter("appointmentID");
-        String vetIdStr         = req.getParameter("vetID");
+        String staffIDStr         = req.getParameter("StaffID");
 
         if (appointmentIdStr == null || appointmentIdStr.isBlank()) {
             session.setAttribute("flashError", "Thiếu mã lịch hẹn.");
@@ -112,10 +112,10 @@ public class CheckInServlet extends HttpServlet {
 
         try {
             int     appointmentID = Integer.parseInt(appointmentIdStr);
-            Integer vetID = (vetIdStr != null && !vetIdStr.isBlank())
-                    ? Integer.parseInt(vetIdStr) : null;
+            Integer staffID = (staffIDStr != null && !staffIDStr.isBlank())
+                    ? Integer.parseInt(staffIDStr) : null;
 
-            CheckInResult result = examinationService.checkIn(appointmentID, vetID);
+            CheckInResult result = examinationService.checkIn(appointmentID, staffID);
             switch (result) {
                 case SUCCESS ->
                         session.setAttribute("flashSuccess", "Check-in thành công!");
@@ -177,16 +177,16 @@ public class CheckInServlet extends HttpServlet {
         String species       = req.getParameter("species");
         String breed          = req.getParameter("breed");
         String serviceIdStr  = req.getParameter("serviceID");
-        String vetIdStr      = req.getParameter("vetID");
+        String staffIDStr      = req.getParameter("staffID");
 
-        if (isBlank(serviceIdStr) || isBlank(vetIdStr)) {
+        if (isBlank(serviceIdStr) || isBlank(staffIDStr)) {
             reloadCheckinWithWalkInError(req, resp, "Vui lòng chọn Dịch vụ và Bác sĩ.", phone, null);
             return;
         }
 
         try {
             int serviceID = Integer.parseInt(serviceIdStr);
-            int vetID     = Integer.parseInt(vetIdStr);
+            int staffID     = Integer.parseInt(staffIDStr);
             int apptID;
 
             boolean hasCustomerID = !isBlank(customerIdStr);
@@ -196,7 +196,7 @@ public class CheckInServlet extends HttpServlet {
                 // Khách cũ + pet đã có sẵn
                 apptID = examinationService.createWalkInExisting(
                         Integer.parseInt(customerIdStr), Integer.parseInt(petIdStr),
-                        serviceID, vetID);
+                        serviceID, staffID);
 
             } else if (hasCustomerID && !hasPetID) {
                 // Khách cũ + pet MỚI
@@ -207,7 +207,7 @@ public class CheckInServlet extends HttpServlet {
                 apptID = examinationService.createWalkInWithNewPet(
                         Integer.parseInt(customerIdStr), petName.trim(),
                         blankToDefault(species, "Chưa rõ"), blankToDefault(breed, "Chưa rõ"),
-                        serviceID, vetID);
+                        serviceID, staffID);
 
             } else {
                 // Khách HOÀN TOÀN mới
@@ -219,7 +219,7 @@ public class CheckInServlet extends HttpServlet {
                 apptID = examinationService.createWalkInWithNewCustomer(
                         fullName.trim(), phone.trim(), petName.trim(),
                         blankToDefault(species, "Chưa rõ"), blankToDefault(breed, "Chưa rõ"),
-                        serviceID, vetID);
+                        serviceID, staffID);
             }
 
             if (apptID == -1) {

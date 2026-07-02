@@ -10,9 +10,10 @@ public class PrescriptionItem {
     private BigDecimal quantity;
     private BigDecimal unitPrice;    // snapshot at time of prescription
 
+
     // ── Transient join field ─────────────────────────────────────────────────
     private String medicineName;
-    private String medicineUnit;
+    private String unit;
 
     public PrescriptionItem() {
     }
@@ -84,12 +85,12 @@ public class PrescriptionItem {
         medicineName = v;
     }
 
-    public String getMedicineUnit() {
-        return medicineUnit;
+    public String getUnit() {
+        return unit;
     }
 
-    public void setMedicineUnit(String v) {
-        medicineUnit = v;
+    public void setUnit(String v) {
+        unit = v;
     }
 
     /**

@@ -103,7 +103,7 @@
                                 <td><c:out value="${appt.serviceName}"/></td>
                                 <td>
                                     <c:choose>
-                                        <c:when test="${not empty appt.groomerName}"><c:out value="${appt.groomerName}"/></c:when>
+                                        <c:when test="${not empty appt.staffName}"><c:out value="${appt.staffName}"/></c:when>
                                         <c:otherwise><span class="badge badge-warning">Chưa phân công</span></c:otherwise>
                                     </c:choose>
                                 </td>
@@ -111,10 +111,10 @@
                                     <form action="${pageContext.request.contextPath}/receptionist/grooming-checkin"
                                           method="post" style="display:flex;gap:6px;align-items:center;">
                                         <input type="hidden" name="appointmentID" value="${appt.appointmentID}">
-                                        <select name="groomerID" class="form-control" style="width:160px;padding:5px 8px;font-size:13px;">
+                                        <select name="staffID" class="form-control" style="width:160px;padding:5px 8px;font-size:13px;">
                                             <option value="">— Groomer (tùy chọn) —</option>
-                                            <c:forEach items="${groomers}" var="g">
-                                                <option value="${g.staffID}" ${appt.assignedGroomerID == g.staffID ? 'selected' : ''}>
+                                            <c:forEach items="${staffs}" var="g">
+                                                <option value="${g.staffID}" ${appt.assignedStaffID == g.staffID ? 'selected' : ''}>
                                                     <c:out value="${g.fullName}"/>
                                                 </option>
                                             </c:forEach>

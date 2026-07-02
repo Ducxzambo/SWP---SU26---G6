@@ -100,7 +100,7 @@
                     <c:when test="${appt.status == 'InProgress'}">
                       <span class="badge badge-info"> Đang grooming</span>
                     </c:when>
-                    <c:when test="${empty appt.assignedGroomerID}">
+                    <c:when test="${empty appt.assignedStaffID}">
                       <span class="unassigned-badge"> Chưa có groomer</span>
                     </c:when>
                     <c:otherwise>
@@ -111,7 +111,7 @@
                 <td style="white-space:nowrap;">
                   <c:choose>
                     <%-- Unassigned: show Accept button --%>
-                    <c:when test="${empty appt.assignedGroomerID}">
+                    <c:when test="${empty appt.assignedStaffID}">
                       <a href="${pageContext.request.contextPath}/groomer/session?action=accept&appointmentID=${appt.appointmentID}"
                          class="btn btn-secondary btn-sm"
                          onclick="return confirm('Nhận ca grooming cho ${appt.petName}?')">

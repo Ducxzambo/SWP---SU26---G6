@@ -2,10 +2,7 @@ package com.petclinic.filter;
 
 import jakarta.servlet.*;
 import jakarta.servlet.annotation.WebFilter;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.http.HttpSession;
-
+import jakarta.servlet.http.*;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -31,16 +28,13 @@ public class CustomerAuthFilter implements Filter {
     public void doFilter(ServletRequest req, ServletResponse resp, FilterChain chain)
             throws IOException, ServletException {
 
-        HttpServletRequest request = (HttpServletRequest) req;
+        HttpServletRequest  request  = (HttpServletRequest)  req;
         HttpServletResponse response = (HttpServletResponse) resp;
 
         String path = request.getServletPath();
 
         // Always allow public paths
-        if (isPublic(path)) {
-            chain.doFilter(req, resp);
-            return;
-        }
+        if (isPublic(path)) { chain.doFilter(req, resp); return; }
 
         HttpSession session = request.getSession(false);
         if (session != null && session.getAttribute("customer") != null) {
@@ -61,11 +55,6 @@ public class CustomerAuthFilter implements Filter {
         return false;
     }
 
-    @Override
-    public void init(FilterConfig config) {
-    }
-
-    @Override
-    public void destroy() {
-    }
+    @Override public void init(FilterConfig config) {}
+    @Override public void destroy() {}
 }

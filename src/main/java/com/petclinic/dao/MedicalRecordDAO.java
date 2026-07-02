@@ -26,7 +26,7 @@ public class MedicalRecordDAO {
                 SELECT mr.*,
                        p.Name      AS PetName,
                        c.FullName  AS OwnerName,
-                       st.FullName AS VetName
+                       st.FullName AS StaffName
                 FROM MedicalRecords mr
                 JOIN Pets     p  ON p.PetID       = mr.PetID
                 JOIN Customers c  ON c.CustomerID  = (SELECT CustomerID FROM Pets WHERE PetID = mr.PetID)
@@ -47,12 +47,72 @@ public class MedicalRecordDAO {
         }
     }
 
+    public List<MedicalRecord> findByPet(int petId) throws SQLException {
+        String sql = "SELECT mr.* "
+                + "FROM MedicalRecords mr "
+                + "WHERE mr.PetID = ? Order by mr.AppointmentID desc";
+        List<MedicalRecord> list = new ArrayList<>();
+        try (Connection c = DBConnection.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, petId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) list.add(mapRecord(rs));
+            }
+        }
+        return list;
+    }
+
+    /** Load medical record for an appointment (null if not yet created). */
+    public MedicalRecord findByAppointment(int appointmentId) throws SQLException {
+        String sql = "SELECT mr.*, s.FullName AS StaffName "
+                + "FROM MedicalRecords mr "
+                + "JOIN Staff s ON mr.StaffID = s.StaffID "
+                + "WHERE mr.AppointmentID = ?";
+        try (Connection c = DBConnection.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, appointmentId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) return null;
+                MedicalRecord mr = mapRecord(rs);
+                mr.setPrescriptionItems(findPrescriptions(mr.getRecordID()));
+                return mr;
+            }
+        }
+    }
+
+    public List<PrescriptionItem> findPrescriptions(int recordId) throws SQLException {
+        String sql = "SELECT pi.*, m.Name AS MedicineName, m.Unit "
+                + "FROM PrescriptionItems pi "
+                + "JOIN Medicines m ON pi.MedicineID = m.MedicineID "
+                + "WHERE pi.RecordID = ?";
+        List<PrescriptionItem> list = new ArrayList<>();
+        try (Connection c = DBConnection.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, recordId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    PrescriptionItem item = new PrescriptionItem();
+                    item.setItemID(rs.getInt("ItemID"));
+                    item.setRecordID(rs.getInt("RecordID"));
+                    item.setMedicineID(rs.getInt("MedicineID"));
+                    item.setMedicineName(rs.getString("MedicineName"));
+                    item.setUnit(rs.getString("Unit"));
+                    item.setDosage(rs.getString("Dosage"));
+                    item.setQuantity(rs.getBigDecimal("Quantity"));
+                    item.setUnitPrice(rs.getBigDecimal("UnitPrice"));
+                    list.add(item);
+                }
+            }
+        }
+        return list;
+    }
+
     public MedicalRecord findById(int recordID) throws SQLException {
         String sql = """
                 SELECT mr.*,
                        p.Name      AS PetName,
                        c.FullName  AS OwnerName,
-                       st.FullName AS VetName
+                       st.FullName AS StaffName
                 FROM MedicalRecords mr
                 JOIN Pets     p  ON p.PetID       = mr.PetID
                 JOIN Customers c  ON c.CustomerID  = (SELECT CustomerID FROM Pets WHERE PetID = mr.PetID)
@@ -74,14 +134,14 @@ public class MedicalRecordDAO {
     }
 
     /**
-     * Full history for a pet (for vet to review before examination).
+     * Full history for a pet (for Staff to review before examination).
      */
     public List<MedicalRecord> findHistoryByPetId(int petID) throws SQLException {
         String sql = """
                 SELECT mr.*,
                        p.Name      AS PetName,
                        c.FullName  AS OwnerName,
-                       st.FullName AS VetName
+                       st.FullName AS StaffName
                 FROM MedicalRecords mr
                 JOIN Pets     p  ON p.PetID       = mr.PetID
                 JOIN Customers c ON c.CustomerID  = (SELECT CustomerID FROM Pets WHERE PetID = mr.PetID)
@@ -129,7 +189,7 @@ public class MedicalRecordDAO {
                     insertPrescriptionItem(conn, item);
                     int qty = item.getQuantity().intValue();
                     medicineDAO.deductStock(conn, item.getMedicineID(), qty);
-                    insertStockTransaction(conn, item, record.getVetID());
+                    insertStockTransaction(conn, item, record.getStaffID());
                 }
             }
 
@@ -156,7 +216,7 @@ public class MedicalRecordDAO {
         try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setInt(1, r.getAppointmentID());
             ps.setInt(2, r.getPetID());
-            ps.setInt(3, r.getVetID());
+            ps.setInt(3, r.getStaffID());
             if (r.getWeight() != null) ps.setBigDecimal(4, r.getWeight());
             else ps.setNull(4, Types.DECIMAL);
             if (r.getTemperature() != null) ps.setBigDecimal(5, r.getTemperature());
@@ -191,7 +251,7 @@ public class MedicalRecordDAO {
      * Append a stock-out transaction for audit trail (mirrors StockTransactions table).
      */
     private void insertStockTransaction(Connection conn, PrescriptionItem item,
-                                        int performedByVetID) throws SQLException {
+                                        int performedByStaffID) throws SQLException {
         String sql = """
                 INSERT INTO StockTransactions (ItemType, ItemID, QuantityChange, Reason, PerformedByID)
                 VALUES ('Medicine', ?, ?, 'Used', ?)
@@ -199,7 +259,7 @@ public class MedicalRecordDAO {
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, item.getMedicineID());
             ps.setBigDecimal(2, item.getQuantity().negate()); // negative = stock out
-            ps.setInt(3, performedByVetID);
+            ps.setInt(3, performedByStaffID);
             ps.executeUpdate();
         }
     }
@@ -226,7 +286,7 @@ public class MedicalRecordDAO {
                     p.setQuantity(rs.getBigDecimal("Quantity"));
                     p.setUnitPrice(rs.getBigDecimal("UnitPrice"));
                     p.setMedicineName(rs.getString("MedicineName"));
-                    p.setMedicineUnit(rs.getString("MedicineUnit"));
+                    p.setUnit(rs.getString("MedicineUnit"));
                     list.add(p);
                 }
                 return list;
@@ -239,7 +299,7 @@ public class MedicalRecordDAO {
         r.setRecordID(rs.getInt("RecordID"));
         r.setAppointmentID(rs.getInt("AppointmentID"));
         r.setPetID(rs.getInt("PetID"));
-        r.setVetID(rs.getInt("StaffID"));
+        r.setStaffID(rs.getInt("StaffID"));
         r.setWeight(rs.getBigDecimal("Weight"));
         r.setTemperature(rs.getBigDecimal("Temperature"));
         r.setSymptoms(rs.getString("Symptoms"));
@@ -256,7 +316,7 @@ public class MedicalRecordDAO {
         } catch (SQLException ignored) {
         }
         try {
-            r.setVetName(rs.getString("VetName"));
+            r.setStaffName(rs.getString("StaffName"));
         } catch (SQLException ignored) {
         }
         return r;
