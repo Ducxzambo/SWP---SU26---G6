@@ -53,7 +53,7 @@ public class CheckInServlet extends HttpServlet {
                     ? examinationService.searchForCheckIn(keyword, filterDate)
                     : examinationService.getConfirmedByDate(filterDate, shiftFilter);
 
-            List<Staff> vets = staffDAO.findAllVets();
+            List<Staff> staffs = staffDAO.findAllVetsGroomers();
             List<com.petclinic.model.Service> services = examinationService.getAllActiveServices();
 
             boolean isToday = filterDate.equals(LocalDate.now());
@@ -68,7 +68,7 @@ public class CheckInServlet extends HttpServlet {
             req.setAttribute("filterDate",        filterDate.toString());
             req.setAttribute("shiftFilter",        shiftFilter != null ? shiftFilter.toString() : "");
             req.setAttribute("isToday",           isToday);
-            req.setAttribute("vets",              vets);
+            req.setAttribute("staffs",              staffs);
             req.setAttribute("services",          services);
             req.setAttribute("currentSlotCount",  currentSlotCount);
             req.setAttribute("currentSlotFull",   currentSlotFull);
@@ -102,7 +102,7 @@ public class CheckInServlet extends HttpServlet {
 
         // ── Normal check-in ───────────────────────────────────────────────────
         String appointmentIdStr = req.getParameter("appointmentID");
-        String vetIdStr         = req.getParameter("vetID");
+        String staffIDStr         = req.getParameter("StaffID");
 
         if (appointmentIdStr == null || appointmentIdStr.isBlank()) {
             session.setAttribute("flashError", "Thiếu mã lịch hẹn.");
@@ -112,10 +112,10 @@ public class CheckInServlet extends HttpServlet {
 
         try {
             int     appointmentID = Integer.parseInt(appointmentIdStr);
-            Integer vetID = (vetIdStr != null && !vetIdStr.isBlank())
-                    ? Integer.parseInt(vetIdStr) : null;
+            Integer staffID = (staffIDStr != null && !staffIDStr.isBlank())
+                    ? Integer.parseInt(staffIDStr) : null;
 
-            CheckInResult result = examinationService.checkIn(appointmentID, vetID);
+            CheckInResult result = examinationService.checkIn(appointmentID, staffID);
             switch (result) {
                 case SUCCESS ->
                         session.setAttribute("flashSuccess", "Check-in thành công!");
@@ -177,16 +177,16 @@ public class CheckInServlet extends HttpServlet {
         String species       = req.getParameter("species");
         String breed          = req.getParameter("breed");
         String serviceIdStr  = req.getParameter("serviceID");
-        String vetIdStr      = req.getParameter("vetID");
+        String staffIDStr      = req.getParameter("staffID");
 
-        if (isBlank(serviceIdStr) || isBlank(vetIdStr)) {
+        if (isBlank(serviceIdStr) || isBlank(staffIDStr)) {
             reloadCheckinWithWalkInError(req, resp, "Vui lòng chọn Dịch vụ và Bác sĩ.", phone, null);
             return;
         }
 
         try {
             int serviceID = Integer.parseInt(serviceIdStr);
-            int vetID     = Integer.parseInt(vetIdStr);
+            int staffID     = Integer.parseInt(staffIDStr);
             int apptID;
 
             boolean hasCustomerID = !isBlank(customerIdStr);
@@ -196,7 +196,7 @@ public class CheckInServlet extends HttpServlet {
                 // Khách cũ + pet đã có sẵn
                 apptID = examinationService.createWalkInExisting(
                         Integer.parseInt(customerIdStr), Integer.parseInt(petIdStr),
-                        serviceID, vetID);
+                        serviceID, staffID);
 
             } else if (hasCustomerID && !hasPetID) {
                 // Khách cũ + pet MỚI
@@ -207,7 +207,7 @@ public class CheckInServlet extends HttpServlet {
                 apptID = examinationService.createWalkInWithNewPet(
                         Integer.parseInt(customerIdStr), petName.trim(),
                         blankToDefault(species, "Chưa rõ"), blankToDefault(breed, "Chưa rõ"),
-                        serviceID, vetID);
+                        serviceID, staffID);
 
             } else {
                 // Khách HOÀN TOÀN mới
@@ -219,15 +219,15 @@ public class CheckInServlet extends HttpServlet {
                 apptID = examinationService.createWalkInWithNewCustomer(
                         fullName.trim(), phone.trim(), petName.trim(),
                         blankToDefault(species, "Chưa rõ"), blankToDefault(breed, "Chưa rõ"),
-                        serviceID, vetID);
+                        serviceID, staffID);
             }
 
             if (apptID == -1) {
                 session.setAttribute("flashError",
-                        "Ca hiện tại đã đủ 10 thú cưng, không thể nhận thêm khách vãng lai.");
+                        "Ca hiện tại đã đủ 10 thú cưng, không thể nhận thêm khách.");
             } else {
                 session.setAttribute("flashSuccess",
-                        "Walk-in thành công! Lịch khám #" + apptID
+                        "Tạo thành công! Lịch khám #" + apptID
                                 + " đã tạo và chuyển vào hàng chờ bác sĩ.");
             }
             resp.sendRedirect(req.getContextPath() + "/receptionist/checkin");
@@ -272,7 +272,7 @@ public class CheckInServlet extends HttpServlet {
             Integer shiftFilter  = parseShift(req.getParameter("shift"));
 
             List<Appointment> appointments = examinationService.getConfirmedByDate(filterDate, shiftFilter);
-            List<Staff> vets = staffDAO.findAllVets();
+            List<Staff> staffs = staffDAO.findAllVetsGroomers();
             List<com.petclinic.model.Service> services = examinationService.getAllActiveServices();
 
             boolean isToday = filterDate.equals(LocalDate.now());
@@ -283,7 +283,7 @@ public class CheckInServlet extends HttpServlet {
             req.setAttribute("filterDate",        filterDate.toString());
             req.setAttribute("shiftFilter",        shiftFilter != null ? shiftFilter.toString() : "");
             req.setAttribute("isToday",           isToday);
-            req.setAttribute("vets",              vets);
+            req.setAttribute("staffs",              staffs);
             req.setAttribute("services",          services);
             req.setAttribute("currentSlotCount",  currentSlotCount);
             req.setAttribute("currentSlotFull",   currentSlotCount >= AppointmentDAO.MAX_PER_SHIFT);

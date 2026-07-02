@@ -41,7 +41,7 @@ public class GroomingService {
         if (!"Arrived".equals(appt.getStatus())) return AcceptResult.WRONG_STATUS;
 
         // Already taken by another groomer?
-        if (appt.getAssignedGroomerID() != null && appt.getAssignedGroomerID() != groomerID)
+        if (appt.getAssignedStaffID() != null && appt.getAssignedStaffID() != groomerID)
             return AcceptResult.ALREADY_TAKEN;
 
         groomingRecordDAO.assignGroomer(appointmentID, groomerID);
@@ -55,7 +55,7 @@ public class GroomingService {
         Appointment appt = appointmentDAO.findById(appointmentID);
         if (appt == null) return StartResult.NOT_FOUND;
         if (!"Arrived".equals(appt.getStatus())) return StartResult.WRONG_STATUS;
-        if (appt.getAssignedGroomerID() == null || appt.getAssignedGroomerID() != groomerID)
+        if (appt.getAssignedStaffID() == null || appt.getAssignedStaffID() != groomerID)
             return StartResult.NOT_ASSIGNED;
 
         appointmentDAO.updateStatus(appointmentID, "InProgress");

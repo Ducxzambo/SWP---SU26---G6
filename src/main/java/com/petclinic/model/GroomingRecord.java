@@ -18,7 +18,7 @@ public class GroomingRecord {
     // transient join fields
     private String petName;
     private String ownerName;
-    private String groomerName;
+    private String staffName;
     private String serviceName;
 
     public GroomingRecord() {}
@@ -51,8 +51,8 @@ public class GroomingRecord {
     public void   setPetName(String v){ petName = v; }
     public String getOwnerName()   { return ownerName; }
     public void   setOwnerName(String v){ ownerName = v; }
-    public String getGroomerName() { return groomerName; }
-    public void   setGroomerName(String v){ groomerName = v; }
+    public String getStaffName() { return staffName; }
+    public void   setStaffName(String v){ staffName = v; }
     public String getServiceName() { return serviceName; }
     public void   setServiceName(String v){ serviceName = v; }
 }

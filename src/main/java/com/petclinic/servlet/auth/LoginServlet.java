@@ -6,7 +6,6 @@ import com.petclinic.service.AuthService;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
-
 import java.io.IOException;
 
 @WebServlet("/auth/login")
@@ -21,7 +20,7 @@ public class LoginServlet extends HttpServlet {
 
         // Already logged in?
         if (req.getSession(false) != null &&
-                req.getSession(false).getAttribute("customer") != null) {
+            req.getSession(false).getAttribute("customer") != null) {
             resp.sendRedirect(req.getContextPath() + "/");
             return;
         }
@@ -39,8 +38,7 @@ public class LoginServlet extends HttpServlet {
                             resp.sendRedirect(req.getContextPath() + "/");
                             return;
                         }
-                    } catch (Exception ignored) {
-                    }
+                    } catch (Exception ignored) {}
                 }
             }
         }
@@ -54,12 +52,12 @@ public class LoginServlet extends HttpServlet {
             throws ServletException, IOException {
 
         req.setCharacterEncoding("UTF-8");
-        String identifier = req.getParameter("identifier");   // email or phone
-        String password = req.getParameter("password");
-        String rememberMe = req.getParameter("rememberMe");   // "on" if checked
+        String identifier  = req.getParameter("identifier");   // email or phone
+        String password    = req.getParameter("password");
+        String rememberMe  = req.getParameter("rememberMe");   // "on" if checked
 
         if (identifier == null || identifier.isBlank() ||
-                password == null || password.isBlank()) {
+            password   == null || password.isBlank()) {
             forwardWithError(req, resp, "Vui lòng nhập đầy đủ thông tin.");
             return;
         }

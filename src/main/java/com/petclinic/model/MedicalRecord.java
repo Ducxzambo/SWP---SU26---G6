@@ -8,7 +8,7 @@ public class MedicalRecord {
     private int recordID;
     private int appointmentID;
     private int petID;
-    private int vetID;
+    private int staffID;
     private BigDecimal weight;
     private BigDecimal temperature;
     private String symptoms;
@@ -18,7 +18,7 @@ public class MedicalRecord {
 
     // ── Transient fields ─────────────────────────────────────────────────────
     private String petName;
-    private String vetName;
+    private String staffName;
     private String ownerName;
     private List<PrescriptionItem> prescriptionItems;
 
@@ -50,12 +50,12 @@ public class MedicalRecord {
         petID = v;
     }
 
-    public int getVetID() {
-        return vetID;
+    public int getStaffID() {
+        return staffID;
     }
 
-    public void setVetID(int v) {
-        vetID = v;
+    public void setStaffID(int v) {
+        staffID = v;
     }
 
     public BigDecimal getWeight() {
@@ -115,12 +115,12 @@ public class MedicalRecord {
         petName = v;
     }
 
-    public String getVetName() {
-        return vetName;
+    public String getStaffName() {
+        return staffName;
     }
 
-    public void setVetName(String v) {
-        vetName = v;
+    public void setStaffName(String v) {
+        staffName = v;
     }
 
     public String getOwnerName() {

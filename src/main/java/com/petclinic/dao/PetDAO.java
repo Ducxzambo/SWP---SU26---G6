@@ -3,6 +3,7 @@ package com.petclinic.dao;
 import com.petclinic.model.Pet;
 import com.petclinic.util.DBConnection;
 
+import java.math.BigDecimal;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -74,5 +75,73 @@ public class PetDAO {
         p.setWeight(rs.getBigDecimal("Weight"));
         p.setDeleted(rs.getBoolean("IsDeleted"));
         return p;
+    }
+
+    public List<Pet> findByCustomer(int customerId) throws SQLException {
+        String sql =
+                "SELECT p.*," +
+                        " COUNT(a.AppointmentID)                                   AS TotalAppts," +
+                        " SUM(CASE WHEN a.Status = 'Done' THEN 1 ELSE 0 END)      AS DoneAppts," +
+                        " MAX(CASE WHEN a.Status = 'Done'" +
+                        " THEN CONVERT(VARCHAR(10), a.AppointmentDate, 120)" +
+                        " ELSE NULL END)                                   AS LastVisit" +
+                        " FROM Pets p" +
+                        " LEFT JOIN Appointments a ON a.PetID = p.PetID" +
+                        " WHERE p.CustomerID = ? AND p.IsDeleted = 0" +
+                        " GROUP BY p.PetID, p.CustomerID, p.Name, p.SpeciesName, p.BreedName," +
+                        " p.Gender, p.DateOfBirth, p.Weight, p.IsDeleted" +
+                        " ORDER BY p.Name"
+                ;
+        List<Pet> list = new ArrayList<>();
+        try (Connection c = DBConnection.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, customerId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) list.add(mapRowWithStats(rs));
+            }
+        }
+        return list;
+    }
+
+    private Pet mapRowWithStats(ResultSet rs) throws SQLException {
+        Pet p = mapRow(rs);
+        p.setTotalAppointments(rs.getInt("TotalAppts"));
+        p.setDoneAppointments(rs.getInt("DoneAppts"));
+        p.setLastVisitDate(rs.getString("LastVisit")); // yyyy-MM-dd or null
+        return p;
+    }
+
+    public void update(Pet pet) throws SQLException {
+        String sql = "UPDATE Pets SET Name=?, SpeciesName=?, BreedName=?, Gender=?, "
+                + "DateOfBirth=?, Weight=? WHERE PetID=? AND CustomerID=?";
+        try (Connection c = DBConnection.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setString(1, pet.getName());
+            ps.setString(2, pet.getSpeciesName());
+            ps.setString(3, pet.getBreedName());
+            ps.setString(4, pet.getGender());
+            ps.setDate(5, pet.getDateOfBirth() != null ? Date.valueOf(pet.getDateOfBirth()) : null);
+            setBigDecimalOrNull(ps, 6, pet.getWeight());
+            ps.setInt(7, pet.getPetID());
+            ps.setInt(8, pet.getCustomerID());
+            ps.executeUpdate();
+        }
+    }
+
+    /** Soft delete — sets IsDeleted = 1 */
+    public void softDelete(int petId, int customerId) throws SQLException {
+        String sql = "UPDATE Pets SET IsDeleted = 1 WHERE PetID = ? AND CustomerID = ?";
+        try (Connection c = DBConnection.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, petId);
+            ps.setInt(2, customerId);
+            ps.executeUpdate();
+        }
+    }
+
+    private void setBigDecimalOrNull(PreparedStatement ps, int idx, BigDecimal val)
+            throws SQLException {
+        if (val != null) ps.setBigDecimal(idx, val);
+        else             ps.setNull(idx, Types.DECIMAL);
     }
 }
