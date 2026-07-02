@@ -27,6 +27,7 @@ public class ExaminationService {
     private final AppointmentDAO appointmentDAO = new AppointmentDAO();
     private final MedicalRecordDAO medicalRecordDAO = new MedicalRecordDAO();
     private final MedicineDAO medicineDAO = new MedicineDAO();
+    private final StockService stockService = new StockService();
 
     // ══════════════════════════════════════════════════════════════════════════
     //  RECEPTIONIST: CHECK-IN
@@ -106,6 +107,7 @@ public class ExaminationService {
         try {
             // Save record + items + deduct stock (all in one DB transaction)
             medicalRecordDAO.save(record, items);
+            stockService.notifyLowStockAfterPrescription(items);
         } catch (SQLException e) {
             if (e.getMessage() != null && e.getMessage().contains("Insufficient stock"))
                 return SaveRecordResult.INSUFFICIENT_STOCK;

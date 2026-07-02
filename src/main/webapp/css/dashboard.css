@@ -706,6 +706,91 @@ select.form-control {
     white-space: pre-wrap;
 }
 
+.main-content-wide {
+    max-width: 1360px;
+}
+
+.metric-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.metric-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: var(--shadow);
+    padding: 18px 20px;
+}
+
+.metric-card strong {
+    display: block;
+    font-size: 26px;
+    line-height: 1.2;
+    color: var(--teal-800);
+    margin-top: 4px;
+}
+
+.metric-label,
+.text-soft {
+    color: var(--text-soft);
+    font-size: 13px;
+}
+
+.filter-bar {
+    display: grid;
+    grid-template-columns: minmax(240px, 1.4fr) repeat(2, minmax(150px, .8fr)) auto auto;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.filter-bar .input-wrap {
+    position: relative;
+}
+
+.report-filter {
+    grid-template-columns: repeat(2, minmax(180px, 220px)) auto auto;
+}
+
+.two-column-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px;
+}
+
+.inline-form {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.compact-input {
+    width: 84px;
+    padding: 6px 8px;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.empty-state.compact {
+    padding: 32px 20px;
+}
+
+.text-danger {
+    color: #b91c1c;
+    font-weight: 600;
+}
+
+.text-success {
+    color: #15803d;
+    font-weight: 600;
+}
+
 /* ── Responsive ──────────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
     .sidebar {
@@ -723,5 +808,16 @@ select.form-control {
     .record-field {
         grid-template-columns: 1fr;
         gap: 4px;
+    }
+
+    .metric-grid,
+    .two-column-grid,
+    .filter-bar,
+    .report-filter {
+        grid-template-columns: 1fr;
+    }
+
+    .inline-form {
+        align-items: stretch;
     }
 }

@@ -8,6 +8,7 @@ public class Medicine {
     private String unit;          // tablet | bottle | ampule ...
     private BigDecimal unitPrice;
     private int stockQty;
+    private int minStockLevel;
 
     public Medicine() {
     }
@@ -53,10 +54,32 @@ public class Medicine {
         stockQty = v;
     }
 
+    public int getMinStockLevel() {
+        return minStockLevel;
+    }
+
+    public void setMinStockLevel(int v) {
+        minStockLevel = v;
+    }
+
     /**
      * Convenience: display name with unit.
      */
     public String getDisplayName() {
         return name + " (" + unit + ")";
+    }
+
+    public boolean isOutOfStock() {
+        return stockQty <= 0;
+    }
+
+    public boolean isLowStock() {
+        return !isOutOfStock() && minStockLevel > 0 && stockQty < minStockLevel;
+    }
+
+    public String getStockStatus() {
+        if (isOutOfStock()) return "Out of stock";
+        if (isLowStock()) return "Low stock";
+        return "Available";
     }
 }

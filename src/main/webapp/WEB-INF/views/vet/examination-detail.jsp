@@ -26,6 +26,9 @@
             <a href="${pageContext.request.contextPath}/vet/examination" class="nav-item active">
                  Hàng chờ khám
             </a>
+            <a href="${pageContext.request.contextPath}/vet/stock" class="nav-item">
+                Tồn kho thuốc
+            </a>
         </nav>
         <div class="sidebar-user">
              ${sessionScope.staff.fullName}
