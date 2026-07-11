@@ -109,34 +109,32 @@
       <c:if test="${!isInpatient}">
         <c:forEach var="row" items="${petBreakdown}">
           <tr>
-            <td>${row.pet.name}</td>
+            <td>Tổng tiền</td>
             <td><fmt:formatNumber value="${row.subtotal}" type="number" groupingUsed="true"/>đ</td>
           </tr>
         </c:forEach>
-      </c:if>
-      <c:if test="${isInpatient}">
-        <tr>
-          <td>Đặt cọc nội trú</td>
-          <td><fmt:formatNumber value="${depositAmount}" type="number" groupingUsed="true"/>đ</td>
+        <tr style="background:var(--green-50);">
+          <td style="font-weight:600;color:var(--green-900);">Cần thanh toán (100%)</td>
+          <td style="font-weight:700;color:var(--green-700);font-size:16px;">
+            <fmt:formatNumber value="${totalPrice}" type="number" groupingUsed="true"/>đ
+          </td>
         </tr>
       </c:if>
-      <tr style="background:var(--green-50);">
-        <td style="font-weight:600;color:var(--green-900);">Tổng ước tính</td>
-        <td style="font-weight:700;color:var(--green-700);font-size:16px;">
-          <fmt:formatNumber value="${totalPrice}" type="number" groupingUsed="true"/>đ
-        </td>
-      </tr>
-      <tr>
-        <td>Tiền cọc</td>
-        <td><fmt:formatNumber value="${depositAmount}" type="number" groupingUsed="true"/>đ</td>
-      </tr>
+      <c:if test="${isInpatient}">
+        <tr style="background:var(--green-50);">
+          <td style="font-weight:600;color:var(--green-900);">Đặt cọc nội trú</td>
+          <td style="font-weight:700;color:var(--green-700);font-size:16px;">
+            <fmt:formatNumber value="${depositAmount}" type="number" groupingUsed="true"/>đ
+          </td>
+        </tr>
+      </c:if>
     </table>
   </div>
 
   <div style="background:var(--green-50);border:1px solid var(--green-100);border-radius:10px;padding:14px 18px;margin-top:20px;font-size:13.5px;color:var(--green-700);line-height:1.7;">
     <strong>Lưu ý:</strong> Sau khi đặt lịch, trạng thái sẽ là <strong>Chờ xác nhận</strong>.
     Nếu có bất kỳ yêu cầu hay thay đổi, vui lòng liên hệ trước lịch hẹn 12 tiếng.
-    Bạn có thể mở rộng các dịch vụ có thể thực hiện khi đến khám.
+    Bạn có thể mở rộng các dịch vụ khi đến khám.
   </div>
 
   <div class="confirm-actions">

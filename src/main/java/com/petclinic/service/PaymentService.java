@@ -38,13 +38,13 @@ public class PaymentService {
 
     // Các hàm Invoice giữ nguyên (hoặc bạn có thể chuyển hẳn sang InvoiceService)
     /**
-     * @param depositPaid true nếu tiền cọc đã được ghi nhận thanh toán ngay
-     *                    tại thời điểm tạo invoice → status='PartiallyPaid';
-     *                    false → status='Unpaid'.
+     * Invoice luôn được tạo ở trạng thái 'Unpaid' — được tạo NGAY SAU khi
+     * tạo appointment, TRƯỚC khi khách thanh toán. Sẽ tự chuyển 'PrePaid'
+     * ngay khi thanh toán 100% được xác nhận (xem
+     * InvoiceDAO.confirmPaymentInTransaction/insertPayment).
      */
-    public int createInvoice(int customerId, int appointmentId, BigDecimal totalAmount, boolean depositPaid) throws Exception {
-        String status = depositPaid ? "PartiallyPaid" : "Unpaid";
-        return invoiceDAO.createInvoice(customerId, appointmentId, totalAmount, status);
+    public int createInvoice(int customerId, int appointmentId, BigDecimal totalAmount) throws Exception {
+        return invoiceDAO.createInvoice(customerId, appointmentId, totalAmount, "Unpaid");
     }
 
     public void addInvoiceItem(int invoiceId, String itemType, String description, BigDecimal quantity, BigDecimal unitPrice) throws Exception {

@@ -227,11 +227,11 @@
               </div>
                <c:forEach var="pay" items="${invoice.payments}">
                  <div class="payment-row">
-                   <span class="pay-method">${pay.method}</span>
-                   <span class="pay-amount"><fmt:formatNumber value="${pay.amount}" type="number" groupingUsed="true"/>₫</span>
-                   <span class="pay-by">bởi ${pay.processedByName}</span>
-                   <c:if test="${not empty pay.paidAt}">
-                     <span class="pay-date">${pay.formattedPaidAt}</span>
+                   <span class="pay-method">${pay.payment.method}</span>
+                   <span class="pay-amount"><fmt:formatNumber value="${pay.allocatedAmount}" type="number" groupingUsed="true"/>₫</span>
+                   <span class="pay-by">bởi ${pay.payment.processedByName}</span>
+                   <c:if test="${not empty pay.payment.paidAt}">
+                     <span class="pay-date">${pay.payment.formattedPaidAt}</span>
                    </c:if>
                  </div>
                </c:forEach>

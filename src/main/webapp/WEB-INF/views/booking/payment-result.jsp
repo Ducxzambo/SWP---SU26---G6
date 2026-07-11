@@ -18,15 +18,15 @@
 
   <c:choose>
     <%-- Determine result by polling invoice status --%>
-    <c:when test="${not empty invoice and (invoice.status eq 'Paid' or invoice.status eq 'PartiallyPaid')}">
+    <c:when test="${not empty invoice and (invoice.status eq 'Paid' or invoice.status eq 'PrePaid')}">
 
       <!-- SUCCESS -->
       <div class="result-icon result-icon--success">✓</div>
       <h1 class="result-title result-title--success">Thanh toán thành công!</h1>
       <p class="result-subtitle">
         <c:choose>
-          <c:when test="${invoice.status eq 'Paid'}">Bạn đã thanh toán toàn bộ chi phí.</c:when>
-          <c:otherwise>Tiền cọc đã được xác nhận. Vui lòng thanh toán phần còn lại tại phòng khám.</c:otherwise>
+          <c:when test="${full}">Bạn đã thanh toán toàn bộ chi phí.</c:when>
+          <c:otherwise>Tiền cọc đã được xác nhận. Chi phí thực tế sẽ được tính khi xuất viện.</c:otherwise>
         </c:choose>
       </p>
 

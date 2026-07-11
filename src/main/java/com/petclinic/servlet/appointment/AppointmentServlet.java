@@ -160,7 +160,7 @@ public class AppointmentServlet extends HttpServlet {
         boolean isInpatient = appt.getStartTime() != null && appt.getEndTime() != null
                 && Duration.between(appt.getStartTime(), appt.getEndTime()).toMinutes() >= 240;
 
-        List<Integer> serviceIds = Collections.singletonList(appt.getServiceID());
+        List<Integer> serviceIds = appt.getServiceIds();
         Map<LocalDate, List<TimeSlot>> slots =
                 bookingSvc.generateSlotsForReschedule(serviceIds, appt.getAppointmentID());
 

@@ -16,7 +16,7 @@
 <div class="booking-wrap">
   <div class="booking-header">
     <h1>Đặt lịch khám mới</h1>
-    <p>Chọn thú cưng, 1 dịch vụ và khung giờ phù hợp</p>
+    <p>Chọn thú cưng, các dịch vụ và khung giờ phù hợp</p>
   </div>
 
   <c:if test="${not empty requestScope.error}">
@@ -76,11 +76,11 @@
 
           <div class="bk-panel" id="petConfigPanel" style="display:none;">
             <div class="bk-panel-head"><span class="bk-step-num">3</span> Chọn dịch vụ
-              <span class="bk-panel-hint">chọn 1 dịch vụ chính</span>
+              <span class="bk-panel-hint">chọn được nhiều nhóm &amp; dịch vụ</span>
             </div>
             <div class="bk-panel-body">
               <div class="bk-alert bk-alert--info" style="margin-bottom:14px;">
-                Mỗi lượt đặt lịch chỉ cần chọn 1 dịch vụ chính. Bạn có thể mở rộng các dịch vụ có thể thực hiện khi đến khám.
+                Chọn 1 hoặc nhiều nhóm dịch vụ, sau đó chọn 1 hoặc nhiều dịch vụ (hoặc vaccine) trong từng nhóm. Bạn có thể mở rộng thêm khi đến khám.
               </div>
               <div id="petConfigsContainer"></div>
             </div>

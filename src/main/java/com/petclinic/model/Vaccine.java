@@ -7,6 +7,7 @@ public class Vaccine {
     private String     name;
     private BigDecimal unitPrice;
     private int        stockQty;
+    private int        minStockLevel;
 
     public Vaccine() {}
 
@@ -18,4 +19,6 @@ public class Vaccine {
     public void       setUnitPrice(BigDecimal v){ unitPrice = v; }
     public int        getStockQty()        { return stockQty; }
     public void        setStockQty(int v)  { stockQty = v; }
+    public int        getMinStockLevel()   { return minStockLevel; }
+    public void       setMinStockLevel(int v)  { minStockLevel = v; }
 }

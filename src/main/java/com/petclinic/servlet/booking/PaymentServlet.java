@@ -58,19 +58,24 @@ public class PaymentServlet extends HttpServlet {
             return;
         }
 
-//        String payType = req.getParameter("payType"); // "full" or "partial"
+        String payType = req.getParameter("payType"); // "full" or "partial"
         int invoiceId = (int) sess.getAttribute("pay_invoiceId");
         int apptId = (int) sess.getAttribute("pay_apptId");
         BigDecimal total = (BigDecimal) sess.getAttribute("pay_total");
         long deposit = ((Number) sess.getAttribute("pay_deposit")).longValue();
+        boolean isInpatient = Boolean.TRUE.equals(sess.getAttribute("pay_inpatient"));
 
-//        boolean isFullPayment = "full".equals(payType);
-//        long amountVnd = isFullPayment ? total.longValue() : deposit;
+        // Booking thường KHÔNG còn lựa chọn đặt cọc — luôn thanh toán 100%
+        // tổng chi phí, bất kể payType gửi lên là gì (phòng vệ thêm ở tầng
+        // server, vì payment.jsp giờ chỉ còn render 1 lựa chọn cho trường
+        // hợp này). Nội trú giữ nguyên chỉ có lựa chọn đặt cọc cố định.
+        boolean isFullPayment = isInpatient ? "full".equals(payType) : true;
+        long amountVnd = isFullPayment ? total.longValue() : deposit;
         String desc = "PetClinic " + invoiceId;
 
         String checkoutUrl;
         try {
-            checkoutUrl = paymentSvc.createPaymentLink(invoiceId, apptId, deposit, desc, false);
+            checkoutUrl = paymentSvc.createPaymentLink(invoiceId, apptId, amountVnd, desc, isFullPayment);
         } catch (Exception ex) {
             ex.printStackTrace();
             req.getSession().setAttribute("flashError", "Không thể tạo liên kết thanh toán. Vui lòng thử lại.");

@@ -9,9 +9,9 @@ import java.util.List;
 
 public class ReviewDAO {
 
-    // ── Write ─────────────────────────────────────────────────────────────────
+    // -- Write --------------------------------------------------------------
 
-    /** Insert a new review. Returns the generated ReviewID. */
+    /** Insert review. Return reviewID */
     public int insert(Review r) throws SQLException {
         String sql = "INSERT INTO Reviews "
                 + "(AppointmentID, CustomerID, Rating, Comment, IsPublic, CreatedAt) "
@@ -46,9 +46,9 @@ public class ReviewDAO {
         }
     }
 
-    // ── Read ──────────────────────────────────────────────────────────────────
+    // Read
 
-    /** Find review for a specific appointment (null if not yet reviewed). */
+    /** Tìm review cho 1 appointment */
     public Review findByAppointment(int appointmentId) throws SQLException {
         String sql = buildBaseQuery()
                 + " WHERE r.AppointmentID = ?";
@@ -61,7 +61,7 @@ public class ReviewDAO {
         }
     }
 
-    /** All reviews by a customer (for "My Reviews" section). */
+    /** Review của 1 customers (nếu có My Review) */
     public List<Review> findByCustomer(int customerId) throws SQLException {
         String sql = buildBaseQuery()
                 + " WHERE r.CustomerID = ? ORDER BY r.CreatedAt DESC";
@@ -69,13 +69,13 @@ public class ReviewDAO {
     }
 
     /**
-     * Public reviews for the community page, with optional filters.
+     * Reviews for the community page
      *
      * @param categoryId  0 = all
      * @param serviceId   0 = all
      * @param staffId       0 = all
      * @param petSpecies  null/blank = all
-     * @param minRating   1–5, 0 = all
+     * @param minRating   1-5, 0 = all
      * @param sortBy      "newest" | "rating_desc" | "rating_asc"
      */
     public List<Review> findPublic(int categoryId, int serviceId, int staffId,
@@ -86,11 +86,18 @@ public class ReviewDAO {
                 .append(" WHERE r.IsPublic = 1 ");
 
         if (categoryId > 0)
-            sql.append("AND sc.CategoryID = ").append(categoryId).append(" ");
+            sql.append("AND EXISTS (SELECT 1 FROM AppointmentServices asvcf ")
+                    .append("JOIN Services sf ON asvcf.ServiceID = sf.ServiceID ")
+                    .append("WHERE asvcf.AppointmentID = a.AppointmentID AND sf.CategoryID = ")
+                    .append(categoryId).append(") ");
         if (serviceId > 0)
-            sql.append("AND s.ServiceID = ").append(serviceId).append(" ");
+            sql.append("AND EXISTS (SELECT 1 FROM AppointmentServices asvcf2 ")
+                    .append("WHERE asvcf2.AppointmentID = a.AppointmentID AND asvcf2.ServiceID = ")
+                    .append(serviceId).append(") ");
         if (staffId > 0)
-            sql.append("AND a.AssignedStaffID = ").append(staffId).append(" ");
+            sql.append("AND EXISTS (SELECT 1 FROM AppointmentServices asvcf3 ")
+                    .append("WHERE asvcf3.AppointmentID = a.AppointmentID AND asvcf3.AssignedStaffID = ")
+                    .append(staffId).append(") ");
         if (petSpecies != null && !petSpecies.isBlank())
             sql.append("AND p.SpeciesName = '")
                     .append(petSpecies.replace("'","''")).append("' ");
@@ -106,12 +113,13 @@ public class ReviewDAO {
         return queryList(sql.toString(), null);
     }
 
-    /** Average rating for a specific staff member (vet/groomer). */
+    /** Rating trung bình cho 1 staff */
     public double avgRatingByStaff(int staffId) throws SQLException {
         String sql = "SELECT AVG(CAST(r.Rating AS FLOAT)) "
                 + "FROM Reviews r "
                 + "JOIN Appointments a ON r.AppointmentID = a.AppointmentID "
-                + "WHERE a.AssignedStaffID = ?";
+                + "WHERE EXISTS (SELECT 1 FROM AppointmentServices asvc "
+                + "  WHERE asvc.AppointmentID = a.AppointmentID AND asvc.AssignedStaffID = ?)";
         try (Connection c = DBConnection.getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, staffId);
@@ -121,12 +129,13 @@ public class ReviewDAO {
         }
     }
 
-    /** Count and avg per rating star for a staff (for staff dashboard). */
+    /** Breakdown of ratings cho 1 staff */
     public List<int[]> ratingBreakdownByStaff(int staffId) throws SQLException {
         String sql = "SELECT r.Rating, COUNT(*) AS Cnt "
                 + "FROM Reviews r "
                 + "JOIN Appointments a ON r.AppointmentID = a.AppointmentID "
-                + "WHERE a.AssignedStaffID = ? "
+                + "WHERE EXISTS (SELECT 1 FROM AppointmentServices asvc "
+                + "  WHERE asvc.AppointmentID = a.AppointmentID AND asvc.AssignedStaffID = ?) "
                 + "GROUP BY r.Rating ORDER BY r.Rating DESC";
         List<int[]> result = new ArrayList<>();
         try (Connection c = DBConnection.getConnection();
@@ -140,7 +149,7 @@ public class ReviewDAO {
         return result;
     }
 
-    /** All distinct pet species that have public reviews (for community filter). */
+    /** Pet species đã có review (dùng ở filter) */
     public List<String> findPublicSpecies() throws SQLException {
         String sql = "SELECT DISTINCT p.SpeciesName "
                 + "FROM Reviews r "
@@ -157,23 +166,43 @@ public class ReviewDAO {
         return list;
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
+    // -- Helpers ----------------------------------------------------------------
 
     private String buildBaseQuery() {
         return "SELECT r.*, "
-                + "  s.Name   AS ServiceName, "
-                + "  sc.Name  AS CategoryName, "
-                + "  sc.CategoryID AS CategoryID, "
-                + "  st.FullName AS StaffName, "
-                + "  st.StaffID  AS StaffID, "
+                + "  svcAgg.ServiceNames  AS ServiceName, "
+                + "  catAgg.CategoryNames AS CategoryName, "
+                + "  catAgg.FirstCategoryID AS CategoryID, "
+                + "  staffPick.StaffName  AS StaffName, "
+                + "  staffPick.StaffID    AS StaffID, "
                 + "  p.SpeciesName AS PetSpecies, "
                 + "  a.AppointmentDate "
                 + "FROM Reviews r "
-                + "JOIN Appointments a  ON r.AppointmentID  = a.AppointmentID "
-                + "JOIN Services s      ON a.ServiceID       = s.ServiceID "
-                + "JOIN ServiceCategories sc ON s.CategoryID = sc.CategoryID "
-                + "LEFT JOIN Staff st   ON a.AssignedStaffID   = st.StaffID "
-                + "JOIN Pets p          ON a.PetID           = p.PetID ";
+                + "JOIN Appointments a ON r.AppointmentID = a.AppointmentID "
+                + "JOIN Pets p         ON a.PetID         = p.PetID "
+                + "OUTER APPLY ( "
+                + "    SELECT STRING_AGG(s.Name, ', ') AS ServiceNames "
+                + "    FROM AppointmentServices asvc "
+                + "    JOIN Services s ON asvc.ServiceID = s.ServiceID "
+                + "    WHERE asvc.AppointmentID = a.AppointmentID "
+                + ") svcAgg "
+                + "OUTER APPLY ( "
+                + "    SELECT STRING_AGG(y.CatName, ', ') AS CategoryNames, MIN(y.CategoryID) AS FirstCategoryID "
+                + "    FROM ( "
+                + "        SELECT DISTINCT sc.CategoryID, sc.Name AS CatName "
+                + "        FROM AppointmentServices asvc2 "
+                + "        JOIN Services s2 ON asvc2.ServiceID = s2.ServiceID "
+                + "        JOIN ServiceCategories sc ON s2.CategoryID = sc.CategoryID "
+                + "        WHERE asvc2.AppointmentID = a.AppointmentID "
+                + "    ) y "
+                + ") catAgg "
+                + "OUTER APPLY ( "
+                + "    SELECT TOP 1 st.StaffID, st.FullName AS StaffName "
+                + "    FROM AppointmentServices asvc3 "
+                + "    JOIN Staff st ON asvc3.AssignedStaffID = st.StaffID "
+                + "    WHERE asvc3.AppointmentID = a.AppointmentID AND asvc3.AssignedStaffID IS NOT NULL "
+                + "    ORDER BY asvc3.AppointmentServiceID "
+                + ") staffPick ";
     }
 
     private List<Review> queryList(String sql, Integer param) throws SQLException {
@@ -203,7 +232,7 @@ public class ReviewDAO {
         r.setStaffName(rs.getString("StaffName"));
         int vid = rs.getInt("StaffID"); if (!rs.wasNull()) r.setStaffID(vid);
         r.setPetSpecies(rs.getString("PetSpecies"));
-        // Anonymous label: "Khách hàng ẩn danh" by default
+        // Anonymous label: "Khach hang an danh" by default
         r.setAnonymousLabel("Khách hàng ẩn danh");
         return r;
     }

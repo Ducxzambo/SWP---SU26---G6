@@ -38,7 +38,7 @@
       </div>
     </div>
     <div class="profile-hero-actions">
-      <a href="${ctx}/pets/edit?id=${pet.petID}" class="btn-edit-pet">✏ Sửa</a>
+      <a href="${ctx}/pets/edit?id=${pet.petID}" class="btn-edit-pet">Sửa</a>
       <a href="${ctx}/booking/new?prefillPet=${pet.petID}" class="btn-edit-pet"
          style="background:var(--green-400);border-color:var(--green-400);color:var(--green-900);">
         Đặt lịch

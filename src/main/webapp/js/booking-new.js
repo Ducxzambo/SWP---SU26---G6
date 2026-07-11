@@ -31,8 +31,9 @@
     updateSummary();
   };
 
-  // Flow tối giản: chỉ cho chọn ĐÚNG 1 thú cưng / lượt đặt lịch (single-select,
-  // dùng lại UI chip-grid cũ — chọn pet khác sẽ tự bỏ chọn pet trước đó).
+  // Vẫn chỉ cho chọn ĐÚNG 1 thú cưng / lượt đặt lịch (single-select, dùng
+  // lại UI chip-grid cũ — chọn pet khác sẽ tự bỏ chọn pet trước đó). Nhưng
+  // với pet đã chọn, nay cho phép chọn NHIỀU category/dịch vụ/vaccine.
   window.toggleMainPet = function (el, petId, petName) {
     if (state.petConfigs.has(petId)) {
       state.petConfigs.delete(petId);
@@ -43,7 +44,7 @@
       state.petConfigs.clear();
       document.querySelectorAll('#mainPetChips .chip').forEach(c => c.classList.remove('selected'));
       state.pets.set(petId, petName || ('Pet #' + petId));
-      state.petConfigs.set(petId, { categoryId: null, serviceIds: new Set(), vaccineIds: new Set() });
+      state.petConfigs.set(petId, { categoryIds: new Set(), serviceIds: new Set(), vaccineIds: new Set() });
       el.classList.add('selected');
     }
     clearSlotSelection();
@@ -52,44 +53,46 @@
     updateSummary();
   };
 
-  // Chỉ cho chọn ĐÚNG 1 dịch vụ (hoặc 1 vaccine) — chọn item khác sẽ tự bỏ
-  // chọn item trước đó, bất kể cùng nhóm dịch vụ hay khác nhóm vaccine.
+  // Multi-select: chọn/bỏ chọn 1 dịch vụ trong danh sách, KHÔNG xoá các lựa
+  // chọn khác (khác hẳn hành vi cũ vốn chỉ cho đúng 1 dịch vụ toàn bộ).
   window.togglePetService = function (el, petId, serviceId) {
     const cfg = state.petConfigs.get(petId);
     if (!cfg) return;
-    const wasSelected = cfg.serviceIds.has(serviceId);
-    cfg.serviceIds.clear();
-    cfg.vaccineIds.clear();
-    if (!wasSelected) cfg.serviceIds.add(serviceId);
+    if (cfg.serviceIds.has(serviceId)) cfg.serviceIds.delete(serviceId);
+    else cfg.serviceIds.add(serviceId);
     renderPetConfigs();
     clearSlotSelection();
     refreshSlots();
     updateSummary();
   };
 
+  // Multi-select: chọn/bỏ chọn 1 vaccine, có thể chọn nhiều vaccine cùng lúc.
   window.togglePetVaccine = function (el, petId, vaccineId) {
     const cfg = state.petConfigs.get(petId);
     if (!cfg) return;
-    const wasSelected = cfg.vaccineIds.has(vaccineId);
-    cfg.serviceIds.clear();
-    cfg.vaccineIds.clear();
-    if (!wasSelected) cfg.vaccineIds.add(vaccineId);
+    if (cfg.vaccineIds.has(vaccineId)) cfg.vaccineIds.delete(vaccineId);
+    else cfg.vaccineIds.add(vaccineId);
     renderPetConfigs();
     clearSlotSelection();
     refreshSlots();
     updateSummary();
   };
 
-  window.selectPetCategory = function (petId, categoryId) {
+  // Multi-select: cho phép chọn NHIỀU category dịch vụ cùng lúc (thay vì chỉ
+  // 1 category như trước). Bỏ chọn 1 category sẽ tự bỏ chọn các dịch vụ/
+  // vaccine thuộc category đó.
+  window.togglePetCategory = function (petId, categoryId) {
     const cfg = state.petConfigs.get(petId);
     if (!cfg) return;
-    if (cfg.categoryId !== categoryId) {
-      // Đổi nhóm dịch vụ → bỏ chọn dịch vụ/vaccine cũ để giữ đúng "1 dịch vụ".
-      cfg.serviceIds.clear();
-      cfg.vaccineIds.clear();
+    if (cfg.categoryIds.has(categoryId)) {
+      cfg.categoryIds.delete(categoryId);
+      const cat = state.categories.find(c => c.id === categoryId);
+      if (cat) (cat.services || []).forEach(s => cfg.serviceIds.delete(s.id));
+      if (categoryId === state.vaccineCategoryId) cfg.vaccineIds.clear();
       clearSlotSelection();
+    } else {
+      cfg.categoryIds.add(categoryId);
     }
-    cfg.categoryId = categoryId;
     renderPetConfigs();
     refreshSlots();
     updateSummary();
@@ -142,7 +145,7 @@
       card.innerHTML =
           '<div class="pet-config-title">' + escHtml(state.pets.get(petId)) + '</div>' +
           '<div class="svc-group">' +
-          '<div class="svc-group-label">Loại dịch vụ</div>' +
+          '<div class="svc-group-label">Nhóm dịch vụ <span class="chip-sub">(chọn được nhiều)</span></div>' +
           '<div class="chip-grid pet-category-grid"></div>' +
           '</div>' +
           '<div class="pet-service-container"></div>';
@@ -150,19 +153,21 @@
       const categoryGrid = card.querySelector('.pet-category-grid');
       state.categories.forEach(cat => {
         const chip = document.createElement('div');
-        chip.className = 'chip' + (cfg.categoryId === cat.id ? ' selected' : '');
+        chip.className = 'chip' + (cfg.categoryIds.has(cat.id) ? ' selected' : '');
         chip.textContent = cat.name;
-        chip.onclick = () => window.selectPetCategory(petId, cat.id);
+        chip.onclick = () => window.togglePetCategory(petId, cat.id);
         categoryGrid.appendChild(chip);
       });
 
-      const selectedCat = state.categories.find(cat => cat.id === cfg.categoryId);
+      // Render 1 group dịch vụ/vaccine cho MỖI category đã chọn (multi-select).
       const serviceContainer = card.querySelector('.pet-service-container');
-      if (selectedCat) {
-        serviceContainer.appendChild(selectedCat.id === state.vaccineCategoryId
-            ? renderVaccineGroup(petId, cfg)
-            : renderServiceGroup(petId, cfg, selectedCat));
-      }
+      state.categories
+          .filter(cat => cfg.categoryIds.has(cat.id))
+          .forEach(cat => {
+            serviceContainer.appendChild(cat.id === state.vaccineCategoryId
+                ? renderVaccineGroup(petId, cfg)
+                : renderServiceGroup(petId, cfg, cat));
+          });
       wrap.appendChild(card);
     });
   }
@@ -170,7 +175,8 @@
   function renderServiceGroup(petId, cfg, cat) {
     const group = document.createElement('div');
     group.className = 'svc-group';
-    group.innerHTML = '<div class="svc-group-label">' + escHtml(cat.name) + '</div><div class="chip-grid"></div>';
+    group.innerHTML = '<div class="svc-divider"></div><div class="svc-group-label">' + escHtml(cat.name) +
+        ' <span class="chip-sub">(chọn được nhiều)</span></div><div class="chip-grid"></div>';
     const grid = group.querySelector('.chip-grid');
     (cat.services || []).forEach(svc => {
       const chip = document.createElement('div');
@@ -186,7 +192,7 @@
     const group = document.createElement('div');
     group.className = 'svc-group';
     group.innerHTML =
-        '<div class="svc-divider"></div><div class="svc-group-label">Vaccine</div>' +
+        '<div class="svc-divider"></div><div class="svc-group-label">Vaccine <span class="chip-sub">(chọn được nhiều)</span></div>' +
         '<div class="chip-grid"></div><p class="bk-panel-hint" style="margin-top:8px;">Chỉ hiển thị vaccine còn đủ tồn kho.</p>';
     const grid = group.querySelector('.chip-grid');
     state.vaccines.forEach(v => {
@@ -330,8 +336,9 @@
       document.getElementById('sumSvcs').innerHTML = renderServiceSummary(payload);
       slotSection.style.display = state.slotKey ? '' : 'none';
       document.getElementById('sumSlot').textContent = state.slotKey ? state.slotKey.replace('|', ' · ') : '';
+      // Nay cho phép NHIỀU mục (dịch vụ + vaccine), chỉ cần tối thiểu 1 mục.
       const itemCount = payload.length > 0 ? (payload[0].serviceIds.length + payload[0].vaccineIds.length) : 0;
-      ready = payload.length === 1 && itemCount === 1 && !!state.slotKey;
+      ready = payload.length === 1 && itemCount >= 1 && !!state.slotKey;
     }
 
     document.getElementById('sumPrice').textContent = formatVnd(currentTotal()) + 'đ';
@@ -368,9 +375,9 @@
 
     const payload = buildPayload();
     const itemCount = payload.length > 0 ? (payload[0].serviceIds.length + payload[0].vaccineIds.length) : 0;
-    if (payload.length !== 1 || itemCount !== 1 || !state.slotKey) {
+    if (payload.length !== 1 || itemCount < 1 || !state.slotKey) {
       e.preventDefault();
-      showCapacityError('Vui lòng chọn 1 thú cưng và đúng 1 dịch vụ (hoặc 1 vaccine), sau đó chọn khung giờ.');
+      showCapacityError('Vui lòng chọn 1 thú cưng và ít nhất 1 dịch vụ hoặc vaccine, sau đó chọn khung giờ.');
       return;
     }
     document.getElementById('bookingPayloadInput').value = JSON.stringify(payload);

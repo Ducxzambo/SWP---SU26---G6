@@ -2,6 +2,9 @@ package com.petclinic.dao;
 
 import com.petclinic.model.Appointment;
 import com.petclinic.model.Invoice;
+import com.petclinic.model.InvoiceItem;
+import com.petclinic.model.InvoicePayment;
+import com.petclinic.model.Payment;
 import com.petclinic.service.BookingService;
 import com.petclinic.util.DBConnection;
 
@@ -16,12 +19,8 @@ public class InvoiceDAO {
     private static final BigDecimal OT_FEE_RATE = new BigDecimal("0.05"); // 5%
 
     /**
-     * Tạo Invoice mới. Status truyền vào thay vì hardcode — 'PartiallyPaid'
-     * nếu khoản cọc đã được ghi nhận thanh toán tại thời điểm tạo invoice,
-     * 'Unpaid' nếu chưa. (Ở luồng booking hiện tại, invoice được tạo NGAY
-     * SAU khi đặt lịch — trước khi khách thanh toán cọc ở bước kế tiếp —
-     * nên status truyền vào luôn là 'Unpaid'; tham số này tồn tại để hỗ trợ
-     * các luồng tạo invoice khác sau này, ví dụ: thu cọc tại quầy.)
+     * Tạo Invoice mới. Status luôn truyền 'Unpaid'
+     * status sẽ được tính lại thành 'PrePaid' ngay khi thanh toán trước 100%
      */
     public int createInvoice(int customerId, int appointmentId, BigDecimal totalAmount, String status) throws Exception {
         String sql = "INSERT INTO Invoices (AppointmentID, CustomerID, TotalAmount, Status) "
@@ -65,7 +64,7 @@ public class InvoiceDAO {
                 if (!rs.next()) return null;
                 Invoice inv = mapInvoice(rs);
                 inv.setItems(findItems(inv.getInvoiceID()));
-                inv.setPayments(findPayments(inv.getInvoiceID()));
+                inv.setPayments(findInvoicePayments(inv.getInvoiceID()));
                 applyOvertimeFeeIfApplicable(inv, appointmentId);
                 return inv;
             }
@@ -81,7 +80,7 @@ public class InvoiceDAO {
                 if (!rs.next()) return null;
                 Invoice inv = mapInvoice(rs);
                 inv.setItems(findItems(invoiceId));
-                inv.setPayments(findPayments(invoiceId));
+                inv.setPayments(findInvoicePayments(invoiceId));
                 applyOvertimeFeeIfApplicable(inv, inv.getAppointmentID());
                 return inv;
             }
@@ -89,10 +88,8 @@ public class InvoiceDAO {
     }
 
     /**
-     * Nếu appointment của invoice này đã Done VÀ thuộc slot phụ (OT, bắt đầu
-     * 18:30) và chưa từng tính phụ thu, cộng thêm 5% TotalAmount vào
-     * TotalAmount và đánh dấu OtherFees='OT Fee' (idempotent — chỉ áp 1 lần
-     * nhờ check OtherFees rỗng).
+     * Nếu appointment của invoice này đã Done và thuộc slot phụ (OT, bắt đầu từ 18:30)
+     * và chưa từng tính phụ thu, cộng thêm 5% TotalAmount, đánh dấu OtherFees='OT Fee'
      */
     private void applyOvertimeFeeIfApplicable(Invoice inv, int appointmentId) {
         try {
@@ -133,15 +130,15 @@ public class InvoiceDAO {
         }
     }
 
-    private List<Invoice.InvoiceItem> findItems(int invoiceId) throws SQLException {
+    private List<InvoiceItem> findItems(int invoiceId) throws SQLException {
         String sql = "SELECT * FROM InvoiceItems WHERE InvoiceID = ?";
-        List<Invoice.InvoiceItem> list = new ArrayList<>();
+        List<InvoiceItem> list = new ArrayList<>();
         try (Connection c = DBConnection.getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, invoiceId);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    Invoice.InvoiceItem item = new Invoice.InvoiceItem();
+                    InvoiceItem item = new InvoiceItem();
                     item.setInvoiceItemID(rs.getInt("InvoiceItemID"));
                     item.setInvoiceID(rs.getInt("InvoiceID"));
                     item.setItemType(rs.getString("ItemType"));
@@ -156,39 +153,63 @@ public class InvoiceDAO {
         return list;
     }
 
-    public void insertPayment(int invoiceId, BigDecimal amount, String method)
-            throws SQLException {
-        String sql = "INSERT INTO Payments (InvoiceID, Amount, Method, PaidAt, ProcessedByID) "
-                + "VALUES (?, ?, ?, GETDATE(), 1)";
-        try (Connection c = DBConnection.getConnection();
-             PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setInt(1, invoiceId);
-            ps.setBigDecimal(2, amount);
-            ps.setString(3, method);
-            ps.executeUpdate();
+    // ── Payment recording (Payments/PaymentInvoices N-N) ────────────────────────
+
+    /**
+     * Ghi nhận 1 khoản thanh toán cho invoice — insert Payments.
+     */
+    public void insertPayment(int invoiceId, BigDecimal amount, String method) throws SQLException {
+        try (Connection c = DBConnection.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                int paymentId = insertPaymentRow(c, amount, method, 1);
+                if (paymentId > 0) {
+                    insertPaymentInvoiceRow(c, paymentId, invoiceId, amount);
+                    recomputeAndUpdateStatus(c, invoiceId);
+                }
+                c.commit();
+            } catch (Exception e) {
+                c.rollback();
+                throw e;
+            }
         }
     }
 
-    private List<Invoice.Payment> findPayments(int invoiceId) throws SQLException {
-        String sql = "SELECT p.*, s.FullName AS ProcessedByName "
-                + "FROM Payments p "
-                + "JOIN Staff s ON p.ProcessedByID = s.StaffID "
-                + "WHERE p.InvoiceID = ? ORDER BY p.PaidAt DESC";
-        List<Invoice.Payment> list = new ArrayList<>();
+    /**
+     * Danh sách InvoicePayment của 1 invoice,
+     * allocatedAmount là số tiền dùng cho invoice này — khác với payment.getAmount()
+     */
+    private List<InvoicePayment> findInvoicePayments(int invoiceId) throws SQLException {
+        String sql = "SELECT pi.PaymentInvoiceID, pi.PaymentID, pi.InvoiceID, pi.AllocatedAmount, "
+                + "p.Amount, p.Method, p.PaidAt, p.ProcessedByID, s.FullName AS ProcessedByName "
+                + "FROM PaymentInvoices pi "
+                + "JOIN Payments p ON pi.PaymentID = p.PaymentID "
+                + "LEFT JOIN Staff s ON p.ProcessedByID = s.StaffID "
+                + "WHERE pi.InvoiceID = ? ORDER BY p.PaidAt DESC";
+        List<InvoicePayment> list = new ArrayList<>();
         try (Connection c = DBConnection.getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, invoiceId);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    Invoice.Payment pay = new Invoice.Payment();
+                    InvoicePayment ip = new InvoicePayment();
+                    ip.setPaymentInvoiceID(rs.getInt("PaymentInvoiceID"));
+                    ip.setPaymentID(rs.getInt("PaymentID"));
+                    ip.setInvoiceID(rs.getInt("InvoiceID"));
+                    ip.setAllocatedAmount(rs.getBigDecimal("AllocatedAmount"));
+
+                    Payment pay = new Payment();
                     pay.setPaymentID(rs.getInt("PaymentID"));
-                    pay.setInvoiceID(rs.getInt("InvoiceID"));
                     pay.setAmount(rs.getBigDecimal("Amount"));
                     pay.setMethod(rs.getString("Method"));
                     Timestamp ts = rs.getTimestamp("PaidAt");
                     if (ts != null) pay.setPaidAt(ts.toLocalDateTime());
+                    int staffId = rs.getInt("ProcessedByID");
+                    if (!rs.wasNull()) pay.setProcessedByStaffID(staffId);
                     pay.setProcessedByName(rs.getString("ProcessedByName"));
-                    list.add(pay);
+
+                    ip.setPayment(pay);
+                    list.add(ip);
                 }
             }
         }
@@ -206,45 +227,46 @@ public class InvoiceDAO {
         return inv;
     }
 
+    /**
+     * Xác nhận thanh toán từ webhook PayOS (nguon xac nhan CHINH THUC).
+     * Insert Payments + PaymentInvoices, tính lại và cập nhật Status invoice
+     * (Unpaid/PrePaid/Paid), chuyển Status appointment sang 'Confirmed'.
+     *
+     * @return AppointmentID để gọi AssignmentService.autoAssign(), hoặc -1
+     *         nếu không có gì thay đổi (ví dụ invoice đã Paid/PrePaid trước đó, webhook gọi lại).
+     */
     public int confirmPaymentInTransaction(int invoiceId, long amountVnd, boolean isFullPayment) throws Exception {
-        String invoiceStatus = isFullPayment ? "Paid" : "PartiallyPaid";
-        int apptId = -1;
-
         try (Connection c = DBConnection.getConnection()) {
             c.setAutoCommit(false);
             try {
-                // 1. Update invoice
+                int apptId = -1;
+                String currentStatus = null;
                 try (PreparedStatement ps = c.prepareStatement(
-                        "UPDATE Invoices SET Status = ? WHERE InvoiceID = ?")) {
-                    ps.setString(1, invoiceStatus);
-                    ps.setInt(2, invoiceId);
-                    ps.executeUpdate();
-                }
-
-                // 2. Lấy ApptID
-                try (PreparedStatement ps = c.prepareStatement("" +
-                        "SELECT AppointmentID FROM Invoices WHERE InvoiceID = ?")) {
+                        "SELECT AppointmentID, Status FROM Invoices WHERE InvoiceID = ?")) {
                     ps.setInt(1, invoiceId);
                     try (ResultSet rs = ps.executeQuery()) {
-                        if (rs.next()) apptId = rs.getInt(1);
+                        if (rs.next()) {
+                            apptId = rs.getInt("AppointmentID");
+                            currentStatus = rs.getString("Status");
+                        }
                     }
                 }
+                if (apptId <= 0) { c.commit(); return -1; }
 
-                // 3. Update Appt
-                if (apptId > 0) {
-                    try (PreparedStatement ps = c.prepareStatement("" +
-                            "UPDATE Appointments SET Status = 'Confirmed' WHERE AppointmentID = ?")) {
-                        ps.setInt(1, apptId);
-                        ps.executeUpdate();
-                    }
+                if ("PrePaid".equals(currentStatus) || "Paid".equals(currentStatus)) {
+                    c.commit();
+                    return -1; // đã xử lý trước đó, không cần insert thêm Payment nữa
                 }
 
-                // 4. Insert Payment
+                int paymentId = insertPaymentRow(c, BigDecimal.valueOf(amountVnd), "BankTransfer", 1);
+                if (paymentId > 0) {
+                    insertPaymentInvoiceRow(c, paymentId, invoiceId, BigDecimal.valueOf(amountVnd));
+                    recomputeAndUpdateStatus(c, invoiceId);
+                }
+
                 try (PreparedStatement ps = c.prepareStatement(
-                        "INSERT INTO Payments (InvoiceID, Amount, Method, PaidAt, ProcessedByID) " +
-                                "VALUES (?, ?, 'BankTransfer', GETDATE(), 1)")) {
-                    ps.setInt(1, invoiceId);
-                    ps.setLong(2, amountVnd);
+                        "UPDATE Appointments SET Status = 'Confirmed' WHERE AppointmentID = ?")) {
+                    ps.setInt(1, apptId);
                     ps.executeUpdate();
                 }
 
@@ -254,6 +276,92 @@ public class InvoiceDAO {
             } catch (Exception e) {
                 c.rollback();
                 throw e;
+            }
+        }
+    }
+
+    /** Insert Payment */
+    private int insertPaymentRow(Connection c, BigDecimal amount, String method, Integer processedByStaffId)
+            throws SQLException {
+        String sql = "INSERT INTO Payments (Amount, Method, PaidAt, ProcessedByID) VALUES (?, ?, GETDATE(), ?)";
+        try (PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            ps.setBigDecimal(1, amount);
+            ps.setString(2, method);
+            if (processedByStaffId != null) ps.setInt(3, processedByStaffId);
+            else ps.setNull(3, Types.INTEGER);
+            ps.executeUpdate();
+            try (ResultSet keys = ps.getGeneratedKeys()) {
+                return keys.next() ? keys.getInt(1) : -1;
+            }
+        }
+    }
+
+    /** Insert PaymentInvoice */
+    private void insertPaymentInvoiceRow(Connection c, int paymentId, int invoiceId, BigDecimal allocatedAmount)
+            throws SQLException {
+        String sql = "INSERT INTO PaymentInvoices (PaymentID, InvoiceID, AllocatedAmount) VALUES (?, ?, ?)";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, paymentId);
+            ps.setInt(2, invoiceId);
+            ps.setBigDecimal(3, allocatedAmount);
+            ps.executeUpdate();
+        }
+    }
+
+    /**
+     * Tính lại Status (Unpaid/PrePaid/Paid) cho 1 invoice dựa trên tổng đã
+     * thu (SUM PaymentInvoices.AllocatedAmount) so với TotalAmount ban đầu
+     * (SUM InvoiceItems.LineTotal) và TotalAmount hiện tại (Invoices.TotalAmount),
+     * rồi UPDATE Status. Chạy trong cùng connection/transaction với bước ghi Payment
+     */
+    private void recomputeAndUpdateStatus(Connection c, int invoiceId) throws SQLException {
+        BigDecimal amountPaid   = sumAmountPaid(c, invoiceId);
+        BigDecimal initialTotal = sumInvoiceItems(c, invoiceId);
+        BigDecimal currentTotal;
+        try (PreparedStatement ps = c.prepareStatement("SELECT TotalAmount FROM Invoices WHERE InvoiceID = ?")) {
+            ps.setInt(1, invoiceId);
+            try (ResultSet rs = ps.executeQuery()) {
+                currentTotal = rs.next() ? rs.getBigDecimal(1) : BigDecimal.ZERO;
+            }
+        }
+        if (currentTotal == null) currentTotal = BigDecimal.ZERO;
+
+        String status = deriveStatus(amountPaid, initialTotal, currentTotal);
+
+        try (PreparedStatement ps = c.prepareStatement("UPDATE Invoices SET Status = ? WHERE InvoiceID = ?")) {
+            ps.setString(1, status);
+            ps.setInt(2, invoiceId);
+            ps.executeUpdate();
+        }
+    }
+
+    private String deriveStatus(BigDecimal amountPaid, BigDecimal initialTotal, BigDecimal currentTotal) {
+        if (amountPaid == null || amountPaid.compareTo(BigDecimal.ZERO) <= 0) return "Unpaid";
+        boolean coversCurrent = amountPaid.compareTo(currentTotal) >= 0;
+        boolean coversInitial = initialTotal != null && amountPaid.compareTo(initialTotal) >= 0;
+        boolean totalGrew     = initialTotal != null && currentTotal.compareTo(initialTotal) > 0;
+        if (coversCurrent && !totalGrew) return "PrePaid"; // thanh toán 100% khi đặt lịch
+        if (coversCurrent) return "Paid";                  // đã thanh toán hết cả phần phát sinh sau này
+        if (coversInitial) return "PrePaid";                // đủ tổng ban đầu, nhưng tổng hiện tại đã tăng thêm (còn thiếu phần phát sinh)
+        return "Unpaid";
+    }
+
+    private BigDecimal sumAmountPaid(Connection c, int invoiceId) throws SQLException {
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT ISNULL(SUM(AllocatedAmount),0) FROM PaymentInvoices WHERE InvoiceID = ?")) {
+            ps.setInt(1, invoiceId);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getBigDecimal(1) : BigDecimal.ZERO;
+            }
+        }
+    }
+
+    private BigDecimal sumInvoiceItems(Connection c, int invoiceId) throws SQLException {
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT ISNULL(SUM(LineTotal),0) FROM InvoiceItems WHERE InvoiceID = ?")) {
+            ps.setInt(1, invoiceId);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getBigDecimal(1) : BigDecimal.ZERO;
             }
         }
     }

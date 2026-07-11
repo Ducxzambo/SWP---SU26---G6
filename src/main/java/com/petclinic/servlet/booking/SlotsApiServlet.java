@@ -45,8 +45,10 @@ public class SlotsApiServlet extends HttpServlet {
         }
 
         try {
-            List<ServiceCategory> cats = serviceDAO.findAllCategoriesWithServices();
-            cats.removeIf(c -> c.getCategoryID() == BookingService.INPATIENT_CATEGORY_ID);
+            // Loai Noi tru (co luong rieng) VA loai theo TEN "Dieu tri"/"Chan
+            // doan" (bac si chi dinh tai phong kham, khong phai lua chon cua
+            // khach khi dat lich).
+            List<ServiceCategory> cats = serviceDAO.findBookableCategoriesWithServices();
 
             List<Vaccine> vaccines = vaccineDAO.findAvailable();
             Map<LocalDate, List<TimeSlot>> slots = bookingSvc.generateSlots(svcIds);

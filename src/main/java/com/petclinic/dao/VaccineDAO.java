@@ -9,9 +9,9 @@ import java.util.List;
 
 public class VaccineDAO {
 
-    /** Chỉ trả Vaccine còn đủ tồn kho (StockQty >= 5) — theo yêu cầu ẩn loại sắp hết hàng. */
+    /** Chỉ trả Vaccine còn đủ tồn kho (StockQty >= MinStockLevel) — theo yêu cầu ẩn loại sắp hết hàng. */
     public List<Vaccine> findAvailable() throws SQLException {
-        String sql = "SELECT * FROM Vaccines WHERE StockQty >= 5 ORDER BY Name";
+        String sql = "SELECT * FROM Vaccines WHERE StockQty >= MinStockLevel ORDER BY Name";
         List<Vaccine> list = new ArrayList<>();
         try (Connection c = DBConnection.getConnection();
              PreparedStatement ps = c.prepareStatement(sql);
@@ -38,6 +38,7 @@ public class VaccineDAO {
         v.setName(rs.getString("Name"));
         v.setUnitPrice(rs.getBigDecimal("UnitPrice"));
         v.setStockQty(rs.getInt("StockQty"));
+        v.setMinStockLevel(rs.getInt("MinStockLevel"));
         return v;
     }
 }

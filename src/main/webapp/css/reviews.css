@@ -5,7 +5,7 @@
 ══════════════════════════════════════════════════════════════════════════ */
 .review-section {
     background: #fff;
-    border: 1.5px solid var(--green-200, #a7d7bc);
+    border: 1.5px solid var(--green-100, #a7d7bc);
     border-radius: var(--radius);
     overflow: hidden;
     margin-top: 16px;
@@ -142,7 +142,7 @@
 .btn-sm.btn-outline:hover {
     background: var(--green-50, #f0fdf4);
     color: var(--green-700, #15803d);
-    border-color: var(--green-200, #bbf7d0);
+    border-color: var(--green-100, #a7d7bc);
 }
 
 /* Already reviewed display */
@@ -314,7 +314,7 @@
     gap: 12px;
     transition: var(--transition);
 }
-.review-card:hover { box-shadow: var(--shadow-sm); border-color: var(--green-200, #a7d7bc); }
+.review-card:hover { box-shadow: var(--shadow-sm); border-color: var(--green-100, #a7d7bc); }
 
 .review-card-header {
     display: flex;

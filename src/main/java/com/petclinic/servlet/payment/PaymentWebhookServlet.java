@@ -135,11 +135,9 @@ public class PaymentWebhookServlet extends HttpServlet {
                     }
                     BigDecimal paidAmount = full ? invoiceTotal : BigDecimal.valueOf(deposit);
 
-                    // Cập nhật Invoice status
-                    String newStatus = full ? "Paid" : "PartiallyPaid";
-                    invoiceDAO.updateStatus(invoiceId, newStatus);
-
-                    // Ghi payment record
+                    // Ghi payment record — insertPayment tự tính lại và cập
+                    // nhật Status invoice (Unpaid/PrePaid/Paid) bên trong dựa
+                    // trên tổng đã thu, không cần gọi updateStatus riêng nữa.
                     invoiceDAO.insertPayment(invoiceId, paidAmount, "E-Wallet");
 
                     // Cập nhật Appointment → Confirmed
@@ -156,7 +154,8 @@ public class PaymentWebhookServlet extends HttpServlet {
                     }
 
                     LOG.info("[PaymentResult] Updated: invoice #" + invoiceId
-                            + " → " + newStatus + ", appt #" + apptId + " → Confirmed");
+                            + " → " + (freshInv != null ? freshInv.getStatus() : "?")
+                            + ", appt #" + apptId + " → Confirmed");
                 } else {
                     LOG.info("[PaymentResult] Invoice #" + invoiceId
                             + " already processed (" + (current != null ? current.getStatus() : "null")
@@ -263,8 +262,8 @@ public class PaymentWebhookServlet extends HttpServlet {
         catch (Exception e) { return -1; }
     }
 
-    /** Tiền cọc cố định */
+    /** Tiền cọc cố định — CHỈ còn áp dụng cho Nội trú, booking thường = 0 (không còn cọc). */
     private long computeDeposit(boolean isInpatient) {
-        return isInpatient ? BookingService.DEPOSIT_INPATIENT : BookingService.DEPOSIT_NORMAL;
+        return isInpatient ? BookingService.DEPOSIT_INPATIENT : 0L;
     }
 }

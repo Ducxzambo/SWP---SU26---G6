@@ -27,53 +27,47 @@
       <span>Tổng chi phí dịch vụ</span>
       <strong><fmt:formatNumber value="${totalPrice}" type="number" groupingUsed="true"/>₫</strong>
     </div>
+    <c:if test="${isInpatient}">
     <div class="pay-sum-row pay-sum-row--deposit">
-      <span>Tiền cọc tối thiểu <c:if test="${isInpatient}">(200.000đ nội trú)</c:if><c:if test="${!isInpatient}">(50.000đ đặt cọc)</c:if></span>
+      <span>Tiền cọc nội trú (cố định)</span>
       <strong><fmt:formatNumber value="${depositAmount}" type="number" groupingUsed="true"/>₫</strong>
     </div>
+    </c:if>
   </div>
 
-  <!-- Two payment options -->
+  <!-- Booking thường: CHỈ còn 1 lựa chọn thanh toán toàn bộ (đã bỏ đặt cọc
+       50.000đ). Nội trú: giữ nguyên chỉ có lựa chọn đặt cọc cố định. -->
   <div class="pay-options">
 
-    <!-- Full payment -->
-    <!-- <div class="pay-option" id="optFull" onclick="selectPay('full', this)">
+    <!-- Full payment (booking thường) -->
+    <c:if test="${!isInpatient}">
+    <div class="pay-option" id="optFull" onclick="selectPay('full', this)">
       <div class="pay-opt-check" id="checkFull"></div>
       <div class="pay-opt-icon"></div>
       <div class="pay-opt-body">
         <div class="pay-opt-title">Thanh toán toàn bộ</div>
-        <div class="pay-opt-desc">Thanh toán đầy đủ ngay bây giờ. Lịch hẹn được xác nhận ngay.</div>
+        <div class="pay-opt-desc">Thanh toán 100% chi phí ngay khi đặt lịch.</div>
         <div class="pay-opt-amount" id="amtFull">
           <fmt:formatNumber value="${totalPrice}" type="number" groupingUsed="true"/>₫
         </div>
       </div>
-    </div> -->
+    </div>
+    </c:if>
 
-    <!-- Partial payment (deposit) -->
+    <!-- Đặt cọc nội trú -->
+    <c:if test="${isInpatient}">
     <div class="pay-option" id="optPartial" onclick="selectPay('partial', this)">
       <div class="pay-opt-check" id="checkPartial"></div>
       <div class="pay-opt-icon"></div>
       <div class="pay-opt-body">
         <div class="pay-opt-title">Đặt cọc trước</div>
-        <div class="pay-opt-desc">
-          Chỉ cần đặt cọc để giữ chỗ.
-          <c:if test="${isInpatient}">Số tiền cọc cố định cho dịch vụ nội trú.</c:if>
-          <c:if test="${!isInpatient}">Số tiền còn lại thanh toán tại phòng khám.</c:if>
-        </div>
+        <div class="pay-opt-desc">Cọc cố định cho dịch vụ nội trú. Chi phí điều trị thực tế sẽ được tính khi xuất viện.</div>
         <div class="pay-opt-amount pay-opt-amount--deposit" id="amtPartial">
           <fmt:formatNumber value="${depositAmount}" type="number" groupingUsed="true"/>₫
-          <span class="pay-opt-remaining">
-          <c:set var="ctx" value="${pageContext.request.contextPath}"/>
-          <c:if test="${totalPrice - depositAmount > 0}">
-            (còn lại <fmt:formatNumber value="${totalPrice - depositAmount}" type="number" groupingUsed="true"/>₫ tại quầy)
-          </c:if>
-          <c:if test="${totalPrice - depositAmount < 0}">
-             (số tiền nộp dư <fmt:formatNumber value="${depositAmount - totalPrice}" type="number" groupingUsed="true"/>₫ sẽ được refund tại quầy)
-          </c:if>
-          </span>
         </div>
       </div>
     </div>
+    </c:if>
 
   </div><!-- /pay-options -->
 
@@ -81,9 +75,9 @@
   <div class="pay-qr-note">
     <div class="pay-qr-note-icon"></div>
     <div>
-      <strong>Thanh toán bằng mã QR động (VietQR)</strong><br>
-      Sau khi chọn hình thức thanh toán, bạn sẽ được chuyển đến trang QR của PayOS.
-      Quét mã bằng app ngân hàng và xác nhận chuyển khoản — lịch hẹn sẽ được xác nhận ngay sau 2–3 giây.
+      <strong>Thanh toán bằng mã QR động</strong><br>
+      Sau khi chọn thanh toán, bạn sẽ được chuyển đến trang QR của PayOS.
+      Quét mã bằng app ngân hàng và xác nhận chuyển khoản - lịch hẹn sẽ ở trạng thái <strong>Xác nhận</strong>.
     </div>
   </div>
 

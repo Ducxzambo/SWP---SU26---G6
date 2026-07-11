@@ -28,9 +28,10 @@ public class StaffDAO {
     /** Số appointment (chưa Cancelled/NoShow) đang gán cho staff này, đúng ca (SlotShift) trong ngày. */
     public int countAssignedInSlot(int staffId, LocalDate date, int slotShift)
             throws SQLException {
-        String sql = "SELECT COUNT(*) FROM Appointments "
-                + "WHERE AssignedStaffID = ? AND AppointmentDate = ? AND SlotShift = ? "
-                + "AND Status NOT IN ('Cancelled','NoShow')";
+        String sql = "SELECT COUNT(DISTINCT a.AppointmentID) FROM Appointments a "
+                + "JOIN AppointmentServices asvc ON asvc.AppointmentID = a.AppointmentID "
+                + "WHERE asvc.AssignedStaffID = ? AND a.AppointmentDate = ? AND a.SlotShift = ? "
+                + "AND a.Status NOT IN ('Cancelled','NoShow')";
         try (Connection c = DBConnection.getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, staffId);
@@ -44,9 +45,10 @@ public class StaffDAO {
 
     /** Số appointment (chưa Cancelled/NoShow) đang gán cho staff này trong CẢ NGÀY (mọi slot). */
     public int countAssignedOnDate(int staffId, LocalDate date) throws SQLException {
-        String sql = "SELECT COUNT(*) FROM Appointments "
-                + "WHERE AssignedStaffID = ? AND AppointmentDate = ? "
-                + "AND Status NOT IN ('Cancelled','NoShow')";
+        String sql = "SELECT COUNT(DISTINCT a.AppointmentID) FROM Appointments a "
+                + "JOIN AppointmentServices asvc ON asvc.AppointmentID = a.AppointmentID "
+                + "WHERE asvc.AssignedStaffID = ? AND a.AppointmentDate = ? "
+                + "AND a.Status NOT IN ('Cancelled','NoShow')";
         try (Connection c = DBConnection.getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, staffId);
@@ -73,7 +75,6 @@ public class StaffDAO {
         Timestamp ts = rs.getTimestamp("CreatedAt");
         if (ts != null) s.setCreatedAt(ts.toLocalDateTime());
         try { s.setRoleName(rs.getString("RoleName")); } catch (SQLException ignored) {
-            // RoleName chỉ có khi query JOIN Roles (findActiveByRole) — bỏ qua nếu không có.
         }
         return s;
     }

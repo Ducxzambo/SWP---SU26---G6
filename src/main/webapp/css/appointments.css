@@ -396,6 +396,7 @@
   font-weight: 600;
 }
 .inv-status--unpaid          { background: #fff3cd; color: #856404; }
+.inv-status--prepaid         { background: #d4edda; color: #155724; }
 .inv-status--paid            { background: #d4edda; color: #155724; }
 .inv-status--refunded        { background: #d1ecf1; color: #0c5460; }
 .inv-status--partiallyrefunded { background: #d1ecf1; color: #0c5460; }

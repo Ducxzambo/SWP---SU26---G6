@@ -8,9 +8,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Full NotificationDAO — thay thế hoàn toàn bản cũ.
- */
 public class NotificationDAO {
 
     // ── Read ──────────────────────────────────────────────────────────────────
@@ -155,7 +152,6 @@ public class NotificationDAO {
         n.setBody(rs.getString("Body"));
         n.setRead(rs.getBoolean("IsRead"));
 
-        // New columns — graceful fallback if column doesn't exist yet
         try { n.setType(rs.getString("Type")); }         catch (Exception e) { n.setType(Notification.TYPE_INFO); }
         try { n.setActionUrl(rs.getString("ActionUrl")); } catch (Exception ignored) {}
         try {

@@ -114,26 +114,6 @@ public class PetDAO {
         }
     }
 
-    // ── Vaccination ───────────────────────────────────────────────────────────
-
-    public List<VaccinationRecord> findVaccinationsByPet(int petId) throws SQLException {
-        String sql = " SELECT vr.*, v.Name AS VaccineName, s.FullName AS StaffName"
-            + " FROM VaccinationRecords vr"
-            + " JOIN Vaccines v ON vr.VaccineID = v.VaccineID"
-            + " LEFT JOIN Staff s ON vr.StaffID = s.StaffID"
-            + " WHERE vr.PetID = ?"
-            + " ORDER BY vr.AdministeredDate DESC";
-        List<VaccinationRecord> list = new ArrayList<>();
-        try (Connection c = DBConnection.getConnection();
-             PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setInt(1, petId);
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) list.add(mapVaccineRow(rs));
-            }
-        }
-        return list;
-    }
-
     // ── Mapping ───────────────────────────────────────────────────────────────
 
     private Pet mapRowWithStats(ResultSet rs) throws SQLException {

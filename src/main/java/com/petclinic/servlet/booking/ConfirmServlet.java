@@ -58,6 +58,8 @@ public class ConfirmServlet extends HttpServlet {
                 req.setAttribute("inpatientPeriod", isMorning ? "Buổi sáng (08:00–12:00)" : "Buổi chiều (13:30–17:30)");
             }
             else {
+                // petBreakdown gom TẤT CẢ dịch vụ + vaccine đã chọn cho 1 pet
+                // (danh sách, không giới hạn 1 mục) — hiển thị đầy đủ ở confirm.jsp.
                 String bookingPayload = (String) sess.getAttribute("bk_payload");
                 List<PetBookingRequest> petBookings = parseBookingPayload(bookingPayload);
 
@@ -136,8 +138,9 @@ public class ConfirmServlet extends HttpServlet {
             int invoiceId;
 
             // Invoice được tạo NGAY SAU khi tạo appointment - khách CHƯA thanh
-            // toán cọc ở bước này -> depositPaid luôn = false → status = 'Unpaid'.
-            final boolean depositPaidAtCreation = false;
+            // toán ở bước này -> luôn tạo ở trạng thái 'Unpaid'. Sẽ tự chuyển
+            // 'PrePaid' ngay khi thanh toán 100% được xác nhận (xem
+            // InvoiceDAO.confirmPaymentInTransaction).
 
             if (isInpatient) {
                 String[] petIds = (String[]) sess.getAttribute("bk_petIds");
@@ -148,6 +151,9 @@ public class ConfirmServlet extends HttpServlet {
                         .map(Integer::parseInt)
                         .collect(Collectors.toList());
 
+                // Chỉ insert DUY NHẤT 1 dòng AppointmentServices đại diện cho
+                // category "Dịch vụ nội trú" (đúng quy tắc chung với Vaccine —
+                // xem BookingService.createAppointmentsForPets).
                 int inpatientServiceId = firstServiceIdOfCategory(BookingService.INPATIENT_CATEGORY_ID);
                 apptIds = bookingSvc.createAppointments(customer.getCustomerID(), petIdList, Collections.singletonList(inpatientServiceId), null, true, iDate, iPeriod);
 
@@ -157,16 +163,19 @@ public class ConfirmServlet extends HttpServlet {
                     return;
                 }
 
-                // Nội trú: totalAmount của invoice = tiền cọc
+                // Nội trú: totalAmount của invoice = tiền cọc (tổng chi phí nội
+                // trú thực tế chỉ biết được khi xuất viện — ngoài phạm vi codebase này).
                 invoiceId = paymentSvc.createInvoice(customer.getCustomerID(), apptIds.get(0),
-                        BigDecimal.valueOf(deposit), depositPaidAtCreation);
+                        BigDecimal.valueOf(deposit));
                 paymentSvc.addInvoiceItem(invoiceId, "Other", "Đặt cọc nội trú", BigDecimal.ONE, BigDecimal.valueOf(deposit));
             } else {
                 String bookingPayload = (String) sess.getAttribute("bk_payload");
                 String slotKey = (String) sess.getAttribute("bk_slotKey");
                 List<PetBookingRequest> petBookings = parseBookingPayload(bookingPayload);
 
-                // đúng 1 appointment cho 1 pet + 1 dịch vụ (hoặc 1 vaccine) duy nhất
+                // 1 appointment cho 1 pet + NHIỀU dịch vụ/vaccine đã chọn.
+                // AppointmentServices được ghi bên trong createAppointmentsForPets
+                // (1 dòng/dịch vụ thực sự chọn; riêng Vaccine chỉ 1 dòng đại diện).
                 apptIds = bookingSvc.createAppointmentsForPets(customer.getCustomerID(), petBookings, slotKey);
 
                 if (apptIds.isEmpty()) {
@@ -175,8 +184,8 @@ public class ConfirmServlet extends HttpServlet {
                     return;
                 }
 
-                // totalAmount của invoice = giá đúng 1 dịch vụ (hoặc vaccine) đã chọn.
-                invoiceId = paymentSvc.createInvoice(customer.getCustomerID(), apptIds.get(0), total, depositPaidAtCreation);
+                // totalAmount của invoice = tổng giá TẤT CẢ dịch vụ + vaccine đã chọn.
+                invoiceId = paymentSvc.createInvoice(customer.getCustomerID(), apptIds.get(0), total);
 
                 PetBookingRequest pb = petBookings.get(0);
                 Pet pet = petDAO.findByCustomer(customer.getCustomerID()).stream()
@@ -184,17 +193,26 @@ public class ConfirmServlet extends HttpServlet {
                         .findFirst().orElse(null);
                 String petName = pet != null ? pet.getName() : ("Pet " + pb.getPetId());
 
+                // InvoiceItems ghi CHI TIẾT từng dịch vụ VÀ từng vaccine đã chọn
+                // (ItemType phân biệt 'Service'/'Vaccine') — đây là nơi lưu đầy
+                // đủ danh sách vaccine cụ thể, vì AppointmentServices chỉ có 1
+                // dòng đại diện chung cho cả category Vaccine.
                 if (!pb.getServiceIds().isEmpty()) {
-                    Service svc = serviceDAO.findByIds(pb.getServiceIds()).stream().findFirst().orElse(null);
-                    if (svc != null) {
-                        paymentSvc.addInvoiceItem(invoiceId, "Service", petName + " - " + svc.getName(), BigDecimal.ONE, svc.getPrice());
+                    List<Service> svcs = serviceDAO.findByIds(pb.getServiceIds());
+                    for (Service svc : svcs) {
+                        paymentSvc.addInvoiceItem(invoiceId, "Service", petName + " - " + svc.getName(),
+                                BigDecimal.ONE, svc.getPrice());
                     }
-                } else if (!pb.getVaccineIds().isEmpty()) {
-                    Vaccine v = vaccineDAO.findAvailable().stream()
-                            .filter(x -> x.getVaccineID() == pb.getVaccineIds().get(0))
-                            .findFirst().orElse(null);
-                    if (v != null) {
-                        paymentSvc.addInvoiceItem(invoiceId, "Vaccine", petName + " - " + v.getName(), BigDecimal.ONE, v.getUnitPrice());
+                }
+                if (!pb.getVaccineIds().isEmpty()) {
+                    Map<Integer, Vaccine> vaccineById = vaccineDAO.findAvailable().stream()
+                            .collect(Collectors.toMap(Vaccine::getVaccineID, v -> v));
+                    for (Integer vaccineId : new LinkedHashSet<>(pb.getVaccineIds())) {
+                        Vaccine v = vaccineById.get(vaccineId);
+                        if (v != null) {
+                            paymentSvc.addInvoiceItem(invoiceId, "Vaccine", petName + " - " + v.getName(),
+                                    BigDecimal.ONE, v.getUnitPrice());
+                        }
                     }
                 }
             }

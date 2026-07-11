@@ -23,7 +23,8 @@ import java.util.stream.Collectors;
  * POST /booking/new → Validate → Step 2 confirm
  * GET /booking/confirm → Step 2 confirm page (from session)
  * POST /booking/confirm → Create Pending appointments → Step 3 payment
- * GET /booking/payment → Step 3 payment page (full / partial)
+ * GET /booking/payment → Step 3 payment page (chỉ còn "Thanh toán toàn bộ"
+ *      cho booking thường; Nội trú giữ nguyên đặt cọc cố định)
  * POST /booking/payment → Call PayOS, redirect to QR checkout
  *
  * LƯU Ý KIẾN TRÚC: toàn bộ dữ liệu JSON (categories/vaccines/slots) cho
@@ -31,13 +32,13 @@ import java.util.stream.Collectors;
  * Servlet này chỉ forward dữ liệu "tĩnh" (pets, today, prefill) — JS sẽ tự
  * gọi /booking/slots để lấy categories/vaccines/slots.
  *
- * Flow ĐÃ TỐI GIẢN: 1 appointment - 1 pet - 1 dịch vụ (hoặc 1 vaccine) -
- * 1 slot - 1 invoice. bookingPayload gửi lên vẫn dùng cấu trúc JSON cũ để
- * tái dùng UI hiện có, nhưng CHỈ CÒN ĐÚNG 1 phần tử với tổng đúng 1
- * serviceId/vaccineId:
- * [{"petId":1,"serviceIds":[11],"vaccineIds":[]}]
- * Khách có thể mở rộng thêm dịch vụ trực tiếp khi đến khám — không cần
- * chọn hết từ lúc đặt lịch.
+ * Flow: 1 appointment - 1 pet - NHIỀU dịch vụ/vaccine - 1 slot - 1 invoice.
+ * Quy trình: chọn loại lịch (thường/nội trú) → chọn pet → chọn (nhiều)
+ * category dịch vụ (trừ "Điều trị"/"Chẩn đoán" — lọc sẵn ở SlotsApiServlet)
+ * → chọn (nhiều) dịch vụ/vaccine trong các category đã chọn → chọn 1 khung
+ * giờ. bookingPayload vẫn dùng cấu trúc JSON cũ để tái dùng UI hiện có,
+ * nhưng nay serviceIds/vaccineIds có thể chứa NHIỀU phần tử:
+ * [{"petId":1,"serviceIds":[11,12],"vaccineIds":[3,5]}]
  *
  * Nội trú GIỮ NGUYÊN logic cũ (ngày + buổi sáng/chiều, không qua slotKey),
  * chỉ siết lại đúng 1 thú cưng / lượt đặt.
@@ -101,7 +102,9 @@ public class NewServlet extends HttpServlet {
     }
 
     /**
-     * Nội trú
+     * Nội trú — GIỮ NGUYÊN đặt cọc cố định 200.000đ (không thuộc phạm vi bỏ
+     * cọc lần này, vì tổng chi phí nội trú thực tế chỉ biết được khi xuất
+     * viện — ngoài phạm vi codebase này).
      */
     private void handleStep1PostInpatient(HttpServletRequest req, HttpServletResponse resp, Customer customer) throws Exception {
         String[] petIds = req.getParameterValues("petIds");
@@ -154,9 +157,11 @@ public class NewServlet extends HttpServlet {
     }
 
     /**
-     * Khám/Spa/Vaccine — flow tối giản: ĐÚNG 1 thú cưng + ĐÚNG 1 dịch vụ
-     * (hoặc 1 vaccine) duy nhất / lượt đặt lịch. Khách có thể mở rộng thêm
-     * dịch vụ trực tiếp khi đến khám.
+     * Khám/Spa/Vaccine — ĐÚNG 1 thú cưng / lượt đặt lịch, nhưng nay cho phép
+     * chọn NHIỀU dịch vụ và/hoặc NHIỀU vaccine (tối thiểu 1 mục). Không còn
+     * đặt cọc 50.000đ — khách thanh toán 100% tổng chi phí ngay khi đặt lịch
+     * (xem bookingSvc.computeDeposit(false) == 0, payment.jsp chỉ còn 1 lựa
+     * chọn "Thanh toán toàn bộ").
      */
     private void handleStep1PostNormal(HttpServletRequest req, HttpServletResponse resp, Customer customer) throws Exception {
         String bookingPayload = req.getParameter("bookingPayload");
@@ -180,9 +185,9 @@ public class NewServlet extends HttpServlet {
 
         PetBookingRequest onlyBooking = petBookings.get(0);
         int totalItems = onlyBooking.getServiceIds().size() + onlyBooking.getVaccineIds().size();
-        if (totalItems != 1) {
+        if (totalItems < 1) {
             forwardStep1Error(req, resp, customer,
-                    "Vui lòng chọn đúng 1 dịch vụ (hoặc 1 vaccine). Bạn có thể mở rộng các dịch vụ có thể thực hiện khi đến khám.");
+                    "Vui lòng chọn ít nhất 1 dịch vụ hoặc vaccine.");
             return;
         }
 
@@ -224,6 +229,8 @@ public class NewServlet extends HttpServlet {
             petBreakdown.add(row);
         }
 
+        // Booking thường KHÔNG còn đặt cọc — computeDeposit(false) luôn = 0.
+        // Khách thanh toán 100% "total" ngay (xem PaymentServlet/payment.jsp).
         long depositAmount = bookingSvc.computeDeposit(false);
 
         HttpSession sess = req.getSession(true);
@@ -263,8 +270,10 @@ public class NewServlet extends HttpServlet {
 
     // ── bookingPayload parser ────────────────────────────────────────────────
     // Parser tối giản, KHÔNG dùng thư viện JSON ngoài (đồng bộ style với
-    // PaymentService.extractJsonField) — chỉ cần đủ cho đúng 1 cấu trúc cố
-    // định: [{"petId":N,"serviceIds":[..],"vaccineIds":[..]}, ...]
+    // PaymentService.extractJsonField) — cấu trúc cố định:
+    // [{"petId":N,"serviceIds":[..],"vaccineIds":[..]}, ...]
+    // (serviceIds/vaccineIds nay có thể chứa NHIỀU phần tử — không đổi so
+    // với parser, vì đây vốn đã là mảng.)
 
     private static final Pattern PET_ID_RE = Pattern.compile("\"petId\"\\s*:\\s*(-?\\d+)");
 

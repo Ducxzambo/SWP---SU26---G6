@@ -11,7 +11,7 @@ import java.util.List;
 
 public class MedicalRecordDAO {
 
-    /** Load medical record for an appointment (null if not yet created). */
+    /** Load medical record cho một appointment */
     public MedicalRecord findByAppointment(int appointmentId) throws SQLException {
         String sql = "SELECT mr.*, s.FullName AS StaffName "
                 + "FROM MedicalRecords mr "

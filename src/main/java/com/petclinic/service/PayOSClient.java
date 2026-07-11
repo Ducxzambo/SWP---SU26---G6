@@ -90,6 +90,5 @@ public class PayOSClient {
         return new WebhookData(data.get("orderCode").getAsLong(), data.get("amount").getAsLong());
     }
 
-    // Dùng Record của Java 14+ để chứa dữ liệu trả về cho gọn
     public record WebhookData(long orderCode, long amount) {}
 }

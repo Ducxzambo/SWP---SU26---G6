@@ -36,6 +36,15 @@
   // Expose for inline onclick in payment.jsp
   window.selectPay = selectPay;
 
+  // Tự động chọn khi trang chỉ còn ĐÚNG 1 lựa chọn thanh toán — nay là
+  // trường hợp chung cho cả booking thường (chỉ còn "Thanh toán toàn bộ")
+  // lẫn nội trú (chỉ có "Đặt cọc trước"), nên khách không cần bấm chọn nữa.
+  const onlyOption = document.querySelectorAll('.pay-option');
+  if (onlyOption.length === 1) {
+    const el = onlyOption[0];
+    selectPay(el.id === 'optFull' ? 'full' : 'partial', el);
+  }
+
   payForm.addEventListener('submit', function (e) {
     if (!selectedPayType) {
       e.preventDefault();
