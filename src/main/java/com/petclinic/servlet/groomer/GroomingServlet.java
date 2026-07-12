@@ -17,12 +17,11 @@ import java.util.List;
 /**
  * BP-03 — Groomer side.
  *
- * GET  /groomer/session              → queue (Arrived + InProgress today)
- * GET  /groomer/session?action=accept&appointmentID=X → accept unassigned session
- * GET  /groomer/session?action=start&appointmentID=X  → start (Arrived→InProgress)
- * GET  /groomer/session?action=form&appointmentID=X   → grooming form
- * GET  /groomer/session?action=view&recordID=X        → read-only record
- * POST /groomer/session              → save grooming record → Done
+ * GET  /groomer/session              → hàng chờ (assigned-to-me + unassigned)
+ * GET  /groomer/session?action=start&appointmentID=X → tự nhận + bắt đầu
+ * GET  /groomer/session?action=form&appointmentID=X  → form ghi nhận
+ * GET  /groomer/session?action=view&recordID=X        → xem lại (read-only)
+ * POST /groomer/session              → lưu bản ghi grooming → Done
  */
 @WebServlet("/groomer/session")
 public class GroomingServlet extends HttpServlet {
@@ -40,7 +39,6 @@ public class GroomingServlet extends HttpServlet {
 
         switch (action) {
             case "queue"  -> showQueue(req, resp, groomer);
-            case "accept" -> acceptSession(req, resp, groomer);
             case "start"  -> startSession(req, resp, groomer);
             case "form"   -> showForm(req, resp, groomer);
             case "view"   -> viewRecord(req, resp, groomer);
@@ -71,7 +69,7 @@ public class GroomingServlet extends HttpServlet {
         try {
             Appointment appt = groomingService.getAppointment(appointmentID);
             if (appt == null) {
-                forwardFormError(req, resp, appointmentID, groomer, "Không tìm thấy lịch hẹn.");
+                forwardFormError(req, resp, appointmentID, "Không tìm thấy lịch hẹn.");
                 return;
             }
 
@@ -96,15 +94,15 @@ public class GroomingServlet extends HttpServlet {
                     resp.sendRedirect(req.getContextPath() + "/groomer/session");
                 }
                 case RECORD_ALREADY_EXISTS ->
-                        forwardFormError(req, resp, appointmentID, groomer, "Phiên grooming này đã có bản ghi rồi.");
+                        forwardFormError(req, resp, appointmentID, "Phiên grooming này đã có bản ghi rồi.");
                 case WRONG_STATUS ->
-                        forwardFormError(req, resp, appointmentID, groomer, "Lịch hẹn không ở trạng thái InProgress.");
+                        forwardFormError(req, resp, appointmentID, "Lịch hẹn không ở trạng thái InProgress.");
                 default ->
-                        forwardFormError(req, resp, appointmentID, groomer, "Lỗi hệ thống, vui lòng thử lại.");
+                        forwardFormError(req, resp, appointmentID, "Lỗi hệ thống, vui lòng thử lại.");
             }
         } catch (Exception e) {
             e.printStackTrace();
-            forwardFormError(req, resp, appointmentID, groomer, "Lỗi hệ thống: " + e.getMessage());
+            forwardFormError(req, resp, appointmentID, "Lỗi hệ thống: " + e.getMessage());
         }
     }
 
@@ -115,17 +113,24 @@ public class GroomingServlet extends HttpServlet {
         LocalDate filterDate = parseDate(req.getParameter("date"));
         String shiftParam = req.getParameter("shift");
         try {
-            List<Appointment> queue = groomingService.getGroomerQueue(groomer.getStaffID(), filterDate);
+            List<Appointment> queue     = groomingService.getGroomerQueue(groomer.getStaffID(), filterDate);
+            List<Appointment> completed = groomingService.getGroomerCompletedToday(groomer.getStaffID(), filterDate);
+
             if (shiftParam != null && !shiftParam.isBlank()) {
                 int sf = Integer.parseInt(shiftParam);
                 queue = queue.stream()
                         .filter(a -> a.getSlotShift() != null && a.getSlotShift() == sf)
                         .collect(java.util.stream.Collectors.toList());
+                completed = completed.stream()
+                        .filter(a -> a.getSlotShift() != null && a.getSlotShift() == sf)
+                        .collect(java.util.stream.Collectors.toList());
             }
             req.setAttribute("queue",       queue);
+            req.setAttribute("completed",   completed);
             req.setAttribute("filterDate",  filterDate.toString());
             req.setAttribute("isToday",     filterDate.equals(LocalDate.now()));
             req.setAttribute("shiftFilter", shiftParam != null ? shiftParam : "");
+            req.setAttribute("currentGroomerID", groomer.getStaffID());
             req.getRequestDispatcher("/WEB-INF/views/groomer/session.jsp").forward(req, resp);
         } catch (Exception e) {
             e.printStackTrace();
@@ -134,30 +139,7 @@ public class GroomingServlet extends HttpServlet {
         }
     }
 
-    private void acceptSession(HttpServletRequest req, HttpServletResponse resp, Staff groomer)
-            throws ServletException, IOException {
-        String idStr = req.getParameter("appointmentID");
-        if (idStr == null) { resp.sendRedirect(req.getContextPath() + "/groomer/session"); return; }
-        try {
-            AcceptResult result = groomingService.acceptSession(
-                    Integer.parseInt(idStr), groomer.getStaffID());
-            switch (result) {
-                case SUCCESS ->
-                        req.getSession().setAttribute("flashSuccess", "Đã nhận ca grooming thành công!");
-                case ALREADY_TAKEN ->
-                        req.getSession().setAttribute("flashWarning", "Ca này đã được groomer khác nhận.");
-                case WRONG_STATUS ->
-                        req.getSession().setAttribute("flashWarning", "Trạng thái lịch hẹn không hợp lệ.");
-                default ->
-                        req.getSession().setAttribute("flashError", "Không tìm thấy lịch hẹn.");
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            req.getSession().setAttribute("flashError", "Lỗi hệ thống.");
-        }
-        resp.sendRedirect(req.getContextPath() + "/groomer/session");
-    }
-
+    /** Bắt đầu grooming: tự nhận ca nếu chưa ai nhận, rồi chuyển InProgress + mở form. */
     private void startSession(HttpServletRequest req, HttpServletResponse resp, Staff groomer)
             throws ServletException, IOException {
         String idStr = req.getParameter("appointmentID");
@@ -171,8 +153,10 @@ public class GroomingServlet extends HttpServlet {
                 return;
             }
             String msg = switch (result) {
-                case WRONG_STATUS -> "Trạng thái lịch hẹn không hợp lệ.";
-                default -> "Không tìm thấy lịch hẹn.";
+                case ALREADY_TAKEN        -> "Ca này đã được groomer khác nhận, không thể bắt đầu.";
+                case NO_GROOMING_SERVICE  -> "Lịch hẹn này không có dịch vụ Grooming.";
+                case WRONG_STATUS         -> "Trạng thái lịch hẹn không hợp lệ (phải là Arrived).";
+                default                   -> "Không tìm thấy lịch hẹn.";
             };
             req.getSession().setAttribute("flashWarning", msg);
         } catch (Exception e) {
@@ -219,7 +203,7 @@ public class GroomingServlet extends HttpServlet {
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private void forwardFormError(HttpServletRequest req, HttpServletResponse resp,
-                                  int appointmentID, Staff groomer, String msg)
+                                  int appointmentID, String msg)
             throws ServletException, IOException {
         try {
             Appointment appt = groomingService.getAppointment(appointmentID);
