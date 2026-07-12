@@ -72,9 +72,14 @@ public class EmailService {
                     + "<p>Nếu bạn không thể đến, lịch hẹn sẽ bị đánh dấu <strong>Vắng mặt</strong> sau 24 giờ.</p>"
                     + "<p style='font-size:13px;color:#8c8680;'>Hotline: <strong>(028) 123 456 789</strong></p>"
                     + "</div></body></html>";
-            send(customer.getEmail(), subject, body);
-            LOG.info("Overdue notification sent to " + customer.getEmail()
-                    + " for appt #" + appt.getAppointmentID());
+            boolean ok = send(customer.getEmail(), subject, body);
+            if (ok) {
+                LOG.info("Overdue notification sent to " + customer.getEmail()
+                        + " for appt #" + appt.getAppointmentID());
+            } else {
+                LOG.warning("Overdue notification NOT sent to " + customer.getEmail()
+                        + " for appt #" + appt.getAppointmentID());
+            }
         });
     }
 
@@ -106,15 +111,25 @@ public class EmailService {
                                        BigDecimal total, BigDecimal paid, boolean isFullPayment) {
         String subject = "[PetClinic] Xác nhận đặt lịch #" + appt.getAppointmentID();
         String body = buildConfirmHtml(customer, appt, total, paid, isFullPayment);
-        send(customer.getEmail(), subject, body);
-        LOG.info("Confirmation email sent to " + customer.getEmail());
+        boolean ok = send(customer.getEmail(), subject, body);
+        if (ok) {
+            LOG.info("Confirmation email sent to " + customer.getEmail());
+        } else {
+            LOG.warning("Confirmation email NOT sent to " + customer.getEmail()
+                    + " (appt #" + appt.getAppointmentID() + ") — xem log 'Email send failed' phía trên để biết nguyên nhân");
+        }
     }
 
     private void sendReminderEmail(Customer customer, Appointment appt, int hoursAhead) {
         String subject = "[PetClinic] Nhắc nhở – Lịch khám còn " + hoursAhead + " giờ nữa";
         String body    = buildReminderHtml(customer, appt, hoursAhead);
-        send(customer.getEmail(), subject, body);
-        LOG.info("Reminder (" + hoursAhead + "h) sent to " + customer.getEmail());
+        boolean ok = send(customer.getEmail(), subject, body);
+        if (ok) {
+            LOG.info("Reminder (" + hoursAhead + "h) sent to " + customer.getEmail());
+        } else {
+            LOG.warning("Reminder (" + hoursAhead + "h) NOT sent to " + customer.getEmail()
+                    + " (appt #" + appt.getAppointmentID() + ")");
+        }
     }
 
     // ── HTML templates ────────────────────────────────────────────────────────
@@ -168,7 +183,7 @@ public class EmailService {
 
     // ── Core send ─────────────────────────────────────────────────────────────
 
-    private void send(String to, String subject, String htmlBody) {
+    private boolean send(String to, String subject, String htmlBody) {
         try {
             Properties props = new Properties();
             props.put("mail.smtp.auth",            "true");
@@ -192,9 +207,11 @@ public class EmailService {
             msg.setSubject(subject);
             msg.setContent(htmlBody, "text/html; charset=UTF-8");
             Transport.send(msg);
+            return true;
 
         } catch (Exception e) {
             LOG.warning("Email send failed to " + to + ": " + e.getMessage());
+            return false;
         }
     }
 

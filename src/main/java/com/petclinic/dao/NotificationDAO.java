@@ -68,11 +68,11 @@ public class NotificationDAO {
             ps.setString(3, n.getTitle());
             ps.setString(4, n.getBody());
             ps.setString(5, n.getType() != null ? n.getType() : Notification.TYPE_INFO);
-            ps.setString(7, n.getActionUrl());
+            ps.setString(6, n.getActionUrl());
             if (n.getExpiresAt() != null)
-                ps.setTimestamp(8, Timestamp.valueOf(n.getExpiresAt()));
+                ps.setTimestamp(7, Timestamp.valueOf(n.getExpiresAt()));
             else
-                ps.setNull(8, Types.TIMESTAMP);
+                ps.setNull(7, Types.TIMESTAMP);
             ps.executeUpdate();
             try (ResultSet k = ps.getGeneratedKeys()) {
                 return k.next() ? k.getInt(1) : -1;

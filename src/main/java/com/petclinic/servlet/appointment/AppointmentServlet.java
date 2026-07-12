@@ -4,6 +4,7 @@ import com.petclinic.dao.*;
 import com.petclinic.dto.TimeSlot;
 import com.petclinic.model.*;
 import com.petclinic.service.BookingService;
+import com.petclinic.service.NotificationService;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -39,6 +40,7 @@ public class AppointmentServlet extends HttpServlet {
     private final ReviewDAO        reviewDAO  = new ReviewDAO();
     private final NotificationDAO  notiDAO    = new  NotificationDAO();
     private final BookingService   bookingSvc = new BookingService();
+    private final NotificationService notifSvc = new NotificationService();
 
     // ── GET ───────────────────────────────────────────────────────────────────
     @Override
@@ -247,6 +249,7 @@ public class AppointmentServlet extends HttpServlet {
 
         String reason = req.getParameter("cancelReason");
         apptDAO.cancel(id, reason != null && !reason.isBlank() ? reason.trim() : null);
+        notifSvc.onBookingCancelled(customer, appt, reason);
         req.getSession().setAttribute("flashSuccess", "Đã huỷ lịch khám thành công.");
         resp.sendRedirect(req.getContextPath() + "/appointments");
     }

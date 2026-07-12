@@ -9,8 +9,9 @@ import com.petclinic.model.Appointment;
 import com.petclinic.model.Customer;
 import com.petclinic.model.Invoice;
 import com.petclinic.service.BookingService;
-import com.petclinic.service.EmailService;
 import com.petclinic.service.PaymentService;
+import com.petclinic.service.AssignmentService;
+import com.petclinic.service.NotificationService;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -29,12 +30,13 @@ public class PaymentWebhookServlet extends HttpServlet {
 
     private static final Logger LOG = Logger.getLogger(PaymentWebhookServlet.class.getName());
 
-    private final PaymentService  paymentSvc     = new PaymentService();
-    private final EmailService    emailSvc       = new EmailService();
-    private final AppointmentDAO  appointmentDAO = new AppointmentDAO();
-    private final CustomerDAO     customerDAO    = new CustomerDAO();
-    private final InvoiceDAO      invoiceDAO     = new InvoiceDAO();
-    private final ServiceDAO      serviceDAO     = new ServiceDAO();
+    private final PaymentService     paymentSvc     = new PaymentService();
+    private final AssignmentService  assignmentSvc  = new AssignmentService();
+    private final NotificationService notifSvc      = new NotificationService();
+    private final AppointmentDAO     appointmentDAO = new AppointmentDAO();
+    private final CustomerDAO        customerDAO    = new CustomerDAO();
+    private final InvoiceDAO         invoiceDAO     = new InvoiceDAO();
+    private final ServiceDAO         serviceDAO     = new ServiceDAO();
 
     // ═══════════════════════════════════════════════════════════════════════════
     // POST /payment/webhook
@@ -145,11 +147,16 @@ public class PaymentWebhookServlet extends HttpServlet {
                         appointmentDAO.updateStatus(apptId, "Confirmed");
                     }
 
-                    // Gửi email xác nhận (async, không block response)
+                    // Tự động assign nhân viên phụ trách (giống PaymentService.handleWebhook)
+                    // — autoAssign() tự bỏ qua các dịch vụ đã có AssignedStaffID nên gọi
+                    // lại nhiều lần (nếu webhook thật của PayOS sau đó cũng chạy) vẫn an toàn.
+                    assignmentSvc.autoAssign(apptId);
+
+                    // Tạo thông báo trong app + gửi email xác nhận + lên lịch nhắc 48h/18h
                     Appointment freshAppt = appointmentDAO.findById(apptId);
                     Invoice     freshInv  = invoiceDAO.findById(invoiceId);
                     if (freshAppt != null && freshInv != null) {
-                        emailSvc.onPaymentConfirmed(customer, freshAppt,
+                        notifSvc.onBookingConfirmed(customer, freshAppt,
                                 freshInv.getTotalAmount(), paidAmount, full);
                     }
 
@@ -229,7 +236,7 @@ public class PaymentWebhookServlet extends HttpServlet {
             Customer customer = customerDAO.findById(appt.getCustomerID());
             if (customer == null) return;
 
-            emailSvc.onPaymentConfirmed(customer, appt,
+            notifSvc.onBookingConfirmed(customer, appt,
                     invoice.getTotalAmount(), BigDecimal.valueOf(amount), isFull);
         } catch (Exception e) {
             e.printStackTrace();
