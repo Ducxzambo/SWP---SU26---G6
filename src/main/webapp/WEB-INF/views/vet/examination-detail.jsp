@@ -300,7 +300,7 @@
             <div class="pet-strip">
                 <div class="pet-strip-item"><span class="lbl">Thú cưng</span><span class="val">🐾 <c:out value="${appointment.petName}"/></span></div>
                 <div class="pet-strip-item"><span class="lbl">Chủ nhân</span><span class="val"><c:out value="${appointment.customerName}"/></span></div>
-                <div class="pet-strip-item"><span class="lbl">Bác sĩ</span><span class="val"><c:out value="${not empty appointment.staffName ? appointment.staffName : sessionScope.staff.fullName}"/></span></div>
+                <div class="pet-strip-item"><span class="lbl">Bác sĩ</span><span class="val">/></span></div>
                 <div class="pet-strip-item"><span class="lbl">Ca</span><span class="val">Ca ${appointment.slotShift}</span></div>
                 <div class="pet-strip-item"><span class="lbl">Trạng thái</span><span class="val"><span class="badge badge-info">Đang khám</span></span></div>
             </div>

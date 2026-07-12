@@ -10,73 +10,86 @@ import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.List;
 
+/**
+ * Service layer cho BP-03 (Grooming), theo mô hình AppointmentServices N-N:
+ * mỗi dịch vụ Grooming trong 1 appointment có AssignedStaffID RIÊNG
+ * (không còn 1 cột AssignedGroomerID chung trên Appointments).
+ */
 public class GroomingService {
+
+    public static final String CATEGORY_GROOMING = GroomingRecordDAO.CATEGORY_GROOMING;
 
     private final AppointmentDAO    appointmentDAO    = new AppointmentDAO();
     private final GroomingRecordDAO groomingRecordDAO = new GroomingRecordDAO();
 
-    // ══ CHECK-IN (Receptionist) ════════════════════════════════════════════════
-    public enum CheckInResult { SUCCESS, NOT_FOUND, WRONG_STATUS, ALREADY_CHECKED_IN }
-
-    public CheckInResult checkIn(int appointmentID, Integer groomerID) throws SQLException {
-        Appointment appt = appointmentDAO.findById(appointmentID);
-        if (appt == null)                       return CheckInResult.NOT_FOUND;
-        if ("Arrived".equals(appt.getStatus())) return CheckInResult.ALREADY_CHECKED_IN;
-        if (!"Confirmed".equals(appt.getStatus())) return CheckInResult.WRONG_STATUS;
-
-        if (groomerID != null) groomingRecordDAO.assignStaffToCategory(appointmentID, "Grooming", groomerID);
-        appointmentDAO.updateStatus(appointmentID, "Arrived");
-        return CheckInResult.SUCCESS;
-    }
-
-    // ══ ACCEPT SESSION (Groomer) ═══════════════════════════════════════════════
-    public enum AcceptResult { SUCCESS, NOT_FOUND, ALREADY_TAKEN, WRONG_STATUS }
+    // ══ ACCEPT SESSION (Groomer tự nhận ca) ═══════════════════════════════════
+    public enum AcceptResult { SUCCESS, NOT_FOUND, WRONG_STATUS, ALREADY_TAKEN, NO_GROOMING_SERVICE }
 
     /**
-     * Groomer accepts an unassigned or self-assigned session.
-     * Sets AssignedGroomerID + keeps status as Arrived (not started yet).
+     * Groomer tự nhận 1 ca chưa ai phụ trách (hoặc đã gán cho chính mình).
+     * Tìm dòng dịch vụ Grooming trong appointment (có thể appointment này
+     * còn có cả dịch vụ Khám — chỉ gán vào dòng Grooming, không đụng dòng khác).
      */
     public AcceptResult acceptSession(int appointmentID, int groomerID) throws SQLException {
         Appointment appt = appointmentDAO.findById(appointmentID);
         if (appt == null) return AcceptResult.NOT_FOUND;
         if (!"Arrived".equals(appt.getStatus())) return AcceptResult.WRONG_STATUS;
 
-        // Already taken by another groomer?
-        AppointmentServiceItem groomingLine = appt.getServices().stream()
-                .filter(s -> "Grooming".equals(s.getCategoryName()))
-                .findFirst().orElse(null);
+        List<AppointmentServiceItem> groomingLines = appt.getServicesByCategory(CATEGORY_GROOMING);
+        if (groomingLines.isEmpty()) return AcceptResult.NO_GROOMING_SERVICE;
 
-        if (groomingLine == null) return AcceptResult.NOT_FOUND; // appointment không có dịch vụ grooming nào
+        // Kiểm tra xem đã có groomer khác nhận dòng Grooming nào chưa
+        for (AppointmentServiceItem line : groomingLines) {
+            Integer current = line.getAssignedStaffID();
+            if (current != null && !current.equals(groomerID)) {
+                return AcceptResult.ALREADY_TAKEN;
+            }
+        }
 
-        Integer currentStaff = groomingLine.getAssignedStaffID();
-        if (currentStaff != null && currentStaff != groomerID)
-            return AcceptResult.ALREADY_TAKEN;
-
-        appointmentDAO.assignStaffToService(groomingLine.getAppointmentServiceID(), groomerID);
+        // Gán groomerID cho MỌI dòng Grooming chưa có người (đồng bộ nếu appointment
+        // có nhiều dịch vụ grooming cùng lúc, ví dụ Tắm + Cắt móng).
+        for (AppointmentServiceItem line : groomingLines) {
+            if (line.getAssignedStaffID() == null) {
+                appointmentDAO.assignStaffToService(line.getAppointmentServiceID(), groomerID);
+            }
+        }
         return AcceptResult.SUCCESS;
     }
 
-    // ══ START SESSION (Groomer) ════════════════════════════════════════════════
-    public enum StartResult { SUCCESS, NOT_FOUND, WRONG_STATUS, NOT_ASSIGNED }
+    // ══ START SESSION ══════════════════════════════════════════════════════════
+    public enum StartResult { SUCCESS, NOT_FOUND, WRONG_STATUS, NO_GROOMING_SERVICE, ALREADY_TAKEN }
 
+    /**
+     * Bắt đầu phiên grooming. Nếu dòng dịch vụ Grooming CHƯA có ai nhận,
+     * tự động gán cho groomer đang bấm (gộp bước "nhận ca" + "bắt đầu" làm 1).
+     */
     public StartResult startSession(int appointmentID, int groomerID) throws SQLException {
         Appointment appt = appointmentDAO.findById(appointmentID);
         if (appt == null) return StartResult.NOT_FOUND;
         if (!"Arrived".equals(appt.getStatus())) return StartResult.WRONG_STATUS;
-        AppointmentServiceItem groomingLine = appt.getServices().stream()
-                .filter(s -> "Grooming".equals(s.getCategoryName()))
-                .findFirst().orElse(null);
-        if (groomingLine.getAssignedStaffID() == null || groomingLine.getAssignedStaffID() != groomerID)
-            return StartResult.NOT_ASSIGNED;
+
+        List<AppointmentServiceItem> groomingLines = appt.getServicesByCategory(CATEGORY_GROOMING);
+        if (groomingLines.isEmpty()) return StartResult.NO_GROOMING_SERVICE;
+
+        for (AppointmentServiceItem line : groomingLines) {
+            Integer current = line.getAssignedStaffID();
+            if (current != null && !current.equals(groomerID)) {
+                return StartResult.ALREADY_TAKEN;
+            }
+        }
+
+        for (AppointmentServiceItem line : groomingLines) {
+            if (line.getAssignedStaffID() == null) {
+                appointmentDAO.assignStaffToService(line.getAppointmentServiceID(), groomerID);
+            }
+        }
 
         appointmentDAO.updateStatus(appointmentID, "InProgress");
         return StartResult.SUCCESS;
     }
 
-    // ══ SAVE GROOMING RECORD (Groomer) ═════════════════════════════════════════
-    public enum SaveResult {
-        SUCCESS, NOT_FOUND, WRONG_STATUS, RECORD_ALREADY_EXISTS, DB_ERROR
-    }
+    // ══ SAVE GROOMING RECORD ═══════════════════════════════════════════════════
+    public enum SaveResult { SUCCESS, NOT_FOUND, WRONG_STATUS, RECORD_ALREADY_EXISTS, DB_ERROR }
 
     public SaveResult saveGroomingRecord(GroomingRecord record) throws SQLException {
         Appointment appt = appointmentDAO.findById(record.getAppointmentID());
@@ -85,12 +98,7 @@ public class GroomingService {
         if (groomingRecordDAO.findByAppointmentId(record.getAppointmentID()) != null)
             return SaveResult.RECORD_ALREADY_EXISTS;
 
-        try {
-            groomingRecordDAO.save(record);
-        } catch (SQLException e) {
-            throw e;
-        }
-
+        groomingRecordDAO.save(record);
         appointmentDAO.updateStatus(record.getAppointmentID(), "Done");
         return SaveResult.SUCCESS;
     }
@@ -99,6 +107,10 @@ public class GroomingService {
 
     public List<Appointment> getGroomerQueue(int groomerID, LocalDate date) throws SQLException {
         return groomingRecordDAO.findGroomerQueue(groomerID, date == null ? LocalDate.now() : date);
+    }
+
+    public List<Appointment> getGroomerCompletedToday(int groomerID, LocalDate date) throws SQLException {
+        return groomingRecordDAO.findGroomerCompletedToday(groomerID, date == null ? LocalDate.now() : date);
     }
 
     public GroomingRecord getGroomingRecord(int recordID) throws SQLException {

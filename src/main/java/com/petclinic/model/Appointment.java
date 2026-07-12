@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 
 public class Appointment {
@@ -125,10 +126,31 @@ public class Appointment {
                 || "InProgress".equals(status);
     }
 
-    /** Tên staff phụ trách các service thuộc 1 category cụ thể, nối bằng dấu phẩy nếu nhiều người. */
+    public String getServiceNamesJoined() {
+        if (services == null || services.isEmpty()) return "";
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < services.size(); i++) {
+            if (i > 0) sb.append(", ");
+            sb.append(services.get(i).getServiceName());
+        }
+        return sb.toString();
+    }
+
+    /** Tổng tiền dịch vụ (chưa gồm thuốc) — cộng UnitPrice mọi dòng AppointmentServices. */
+    public java.math.BigDecimal getServicesTotalPrice() {
+        java.math.BigDecimal total = java.math.BigDecimal.ZERO;
+        if (services != null) {
+            for (AppointmentServiceItem s : services) {
+                if (s.getUnitPrice() != null) total = total.add(s.getUnitPrice());
+            }
+        }
+        return total;
+    }
+
+    /** Tên nhân viên phụ trách các dịch vụ thuộc 1 category, nối dấu phẩy nếu nhiều người khác nhau. */
     public String getStaffNamesByCategory(String categoryName) {
         if (services == null) return "";
-        java.util.LinkedHashSet<String> names = new java.util.LinkedHashSet<>();
+        LinkedHashSet<String> names = new LinkedHashSet<>();
         for (AppointmentServiceItem s : services) {
             if (categoryName.equals(s.getCategoryName()) && s.getStaffName() != null) {
                 names.add(s.getStaffName());
@@ -137,11 +159,31 @@ public class Appointment {
         return String.join(", ", names);
     }
 
-    /** True nếu ÍT NHẤT 1 service (thuộc category chỉ định) CHƯA có staff phụ trách. */
+    /** True nếu ÍT NHẤT 1 dịch vụ thuộc category chỉ định CHƯA có staff phụ trách. */
     public boolean hasUnassignedServiceInCategory(String categoryName) {
         if (services == null) return false;
         for (AppointmentServiceItem s : services) {
             if (categoryName.equals(s.getCategoryName()) && s.getAssignedStaffID() == null) return true;
+        }
+        return false;
+    }
+
+    /** Danh sách dịch vụ thuộc 1 category cụ thể trong appointment này. */
+    public List<AppointmentServiceItem> getServicesByCategory(String categoryName) {
+        List<AppointmentServiceItem> result = new ArrayList<>();
+        if (services != null) {
+            for (AppointmentServiceItem s : services) {
+                if (categoryName.equals(s.getCategoryName())) result.add(s);
+            }
+        }
+        return result;
+    }
+
+    /** True nếu appointment có ít nhất 1 dịch vụ thuộc category chỉ định. */
+    public boolean hasCategory(String categoryName) {
+        if (services == null) return false;
+        for (AppointmentServiceItem s : services) {
+            if (categoryName.equals(s.getCategoryName())) return true;
         }
         return false;
     }

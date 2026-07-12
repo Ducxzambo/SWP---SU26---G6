@@ -69,7 +69,7 @@ public class AppointmentDAO {
     }
 
     // ── Check-in queries (Examination / BP-02) ────────────────────────────────
-    public List<Appointment> findConfirmedByDate(LocalDate date, Integer shift) throws SQLException {
+    public List<Appointment> findConfirmedByDate(LocalDate date, Integer shift, String categoryFilter) throws SQLException {
         StringBuilder sql = new StringBuilder(
                 "SELECT DISTINCT a.AppointmentID,a.CustomerID,a.PetID," +
                         "a.AppointmentDate,a.StartTime,a.EndTime,a.Status,a.SlotShift,a.Notes,a.CancelReason," +
@@ -78,9 +78,14 @@ public class AppointmentDAO {
                         "JOIN Customers c ON c.CustomerID=a.CustomerID " +
                         "JOIN Pets p ON p.PetID=a.PetID "
         );
-
+        if (categoryFilter != null) {
+            sql.append("JOIN AppointmentServices aps ON aps.AppointmentID=a.AppointmentID ")
+                    .append("JOIN Services s ON s.ServiceID=aps.ServiceID ")
+                    .append("JOIN ServiceCategories sc ON sc.CategoryID=s.CategoryID ");
+        }
         sql.append("WHERE a.AppointmentDate=? AND a.Status='Confirmed' ");
         if (shift != null) sql.append("AND a.SlotShift=? ");
+        if (categoryFilter != null) sql.append("AND sc.Name=? ");
         sql.append("ORDER BY a.SlotShift,a.StartTime");
 
         try (Connection conn = DBConnection.getConnection();
@@ -88,13 +93,14 @@ public class AppointmentDAO {
             int idx = 1;
             ps.setDate(idx++, Date.valueOf(date));
             if (shift != null) ps.setInt(idx++, shift);
+            if (categoryFilter != null) ps.setString(idx++, categoryFilter);
             List<Appointment> list = mapList(ps.executeQuery());
             attachServices(list);
             return list;
         }
     }
 
-    public List<Appointment> searchForCheckIn(String keyword, LocalDate date) throws SQLException {
+    public List<Appointment> searchForCheckIn(String keyword, LocalDate date, String categoryFilter) throws SQLException {
         StringBuilder sql = new StringBuilder(
                 "SELECT DISTINCT a.AppointmentID,a.CustomerID,a.PetID," +
                         "a.AppointmentDate,a.StartTime,a.EndTime,a.Status,a.SlotShift,a.Notes,a.CancelReason," +
@@ -103,8 +109,13 @@ public class AppointmentDAO {
                         "JOIN Customers c ON c.CustomerID=a.CustomerID " +
                         "JOIN Pets p ON p.PetID=a.PetID "
         );
-
+        if (categoryFilter != null) {
+            sql.append("JOIN AppointmentServices aps ON aps.AppointmentID=a.AppointmentID ")
+                    .append("JOIN Services s ON s.ServiceID=aps.ServiceID ")
+                    .append("JOIN ServiceCategories sc ON sc.CategoryID=s.CategoryID ");
+        }
         sql.append("WHERE a.AppointmentDate=? AND a.Status='Confirmed' AND (c.FullName LIKE ? OR p.Name LIKE ?) ");
+        if (categoryFilter != null) sql.append("AND sc.Name=? ");
         sql.append("ORDER BY a.SlotShift,a.StartTime");
 
         try (Connection conn = DBConnection.getConnection();
@@ -114,6 +125,7 @@ public class AppointmentDAO {
             String like = "%" + keyword.trim() + "%";
             ps.setString(idx++, like);
             ps.setString(idx++, like);
+            if (categoryFilter != null) ps.setString(idx++, categoryFilter);
             List<Appointment> list = mapList(ps.executeQuery());
             attachServices(list);
             return list;
@@ -217,7 +229,7 @@ public class AppointmentDAO {
      * Arrived/InProgress appointments có ít nhất 1 dòng service ĐANG GÁN cho staffID
      * và thuộc categoryFilter. Dùng cho hàng chờ của bác sĩ/groomer.
      */
-    public List<Appointment> findStaffQueue(int staffID, LocalDate date) throws SQLException {
+    public List<Appointment> findStaffQueue(int staffID, LocalDate date, String categoryFilter) throws SQLException {
         String sql =
                 "SELECT DISTINCT a.AppointmentID,a.CustomerID,a.PetID," +
                         "a.AppointmentDate,a.StartTime,a.EndTime,a.Status,a.SlotShift,a.Notes,a.CancelReason," +
@@ -228,13 +240,14 @@ public class AppointmentDAO {
                         "JOIN AppointmentServices aps ON aps.AppointmentID=a.AppointmentID " +
                         "JOIN Services s ON s.ServiceID=aps.ServiceID " +
                         "JOIN ServiceCategories sc ON sc.CategoryID=s.CategoryID " +
-                        "WHERE a.AppointmentDate=? AND aps.AssignedStaffID=? AND a.Status IN('Arrived','InProgress')  " +
-                        "ORDER BY CASE a.Status WHEN 'InProgress' THEN 0 ELSE 1 END, a.SlotShift, a.StartTime";
+                        "WHERE a.AppointmentDate=? AND aps.AssignedStaffID=? AND a.Status IN('Arrived','InProgress') AND sc.Name=? " +
+                        "ORDER BY a.SlotShift, a.StartTime";
 
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setDate(1, Date.valueOf(date));
             ps.setInt(2, staffID);
+            ps.setString(3, categoryFilter);
             List<Appointment> list = mapList(ps.executeQuery());
             attachServices(list);
             return list;
@@ -326,8 +339,8 @@ public class AppointmentDAO {
     }
 
     /** Các ca đã hoàn thành (Done) có dịch vụ thuộc categoryFilter, gán cho staffID, trong 1 ngày — kèm RecordID. */
-    public List<Appointment> findStaffCompletedToday(int staffID, LocalDate date
-                                                     ) throws SQLException {
+    public List<Appointment> findStaffCompletedToday(int staffID, LocalDate date, String categoryFilter,
+                                                     String recordTable) throws SQLException {
         String sql =
                 "SELECT DISTINCT a.AppointmentID,a.CustomerID,a.PetID," +
                         "a.AppointmentDate,a.StartTime,a.EndTime,a.Status,a.SlotShift,a.Notes,a.CancelReason," +
@@ -338,14 +351,15 @@ public class AppointmentDAO {
                         "JOIN AppointmentServices aps ON aps.AppointmentID=a.AppointmentID " +
                         "JOIN Services s ON s.ServiceID=aps.ServiceID " +
                         "JOIN ServiceCategories sc ON sc.CategoryID=s.CategoryID " +
-                        "LEFT JOIN rec ON rec.AppointmentID = a.AppointmentID " +
-                        "WHERE a.AppointmentDate=? AND aps.AssignedStaffID=? AND a.Status='Done' " +
+                        "LEFT JOIN " + recordTable + " rec ON rec.AppointmentID = a.AppointmentID " +
+                        "WHERE a.AppointmentDate=? AND aps.AssignedStaffID=? AND a.Status='Done' AND sc.Name=? " +
                         "ORDER BY a.SlotShift, a.StartTime";
 
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setDate(1, Date.valueOf(date));
             ps.setInt(2, staffID);
+            ps.setString(3, categoryFilter);
             List<Appointment> list = new ArrayList<>();
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {

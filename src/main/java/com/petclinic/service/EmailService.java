@@ -136,7 +136,7 @@ public class EmailService {
                 + row("Dịch vụ",    esc(appt.getServiceName()))
                 + row("Thú cưng",   esc(appt.getPetName()))
                 + row("Thời gian",  fmtAppt(appt))
-                + row("Bác sĩ",     appt.getStaffName() != null ? esc(appt.getStaffName()) : "Sẽ được phân công")
+//                + row("Bác sĩ",     appt.getStaffName() != null ? esc(appt.getStaffName()) : "Sẽ được phân công")
                 + row("Thanh toán", paymentNote)
                 + "</table></div>"
                 + "<p style='font-size:13px;color:#8c8680;'>Nếu cần thay đổi lịch, vui lòng liên hệ trước ít nhất 12 giờ.</p>"

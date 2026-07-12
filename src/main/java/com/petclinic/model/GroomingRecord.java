@@ -21,6 +21,10 @@ public class GroomingRecord {
     private String staffName;
     private String serviceName;
 
+
+
+    private String groomerName;
+
     public GroomingRecord() {}
 
     public int           getRecordID()        { return recordID; }
@@ -55,4 +59,11 @@ public class GroomingRecord {
     public void   setStaffName(String v){ staffName = v; }
     public String getServiceName() { return serviceName; }
     public void   setServiceName(String v){ serviceName = v; }
+    public String getGroomerName() {
+        return groomerName;
+    }
+
+    public void setGroomerName(String groomerName) {
+        this.groomerName = groomerName;
+    }
 }

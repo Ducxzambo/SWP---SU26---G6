@@ -12,16 +12,26 @@ import java.util.List;
 
 public class ExaminationService {
 
+    public static final String CAT_LAB_TEST  = "Chẩn đoán";
+    public static final String CAT_TREATMENT = "Phác đồ điều trị";
+    public static final String CAT_GROOMING  = "Grooming";
+
     private final AppointmentDAO   appointmentDAO   = new AppointmentDAO();
     private final MedicalRecordDAO medicalRecordDAO = new MedicalRecordDAO();
     private final MedicineDAO      medicineDAO      = new MedicineDAO();
     private final ServiceDAO       serviceDAO       = new ServiceDAO();
     private final CustomerDAO      customerDAO      = new CustomerDAO();
     private final PetDAO           petDAO           = new PetDAO();
+    private final StaffDAO         staffDAO         = new StaffDAO();
 
     // ══ CHECK-IN ══════════════════════════════════════════════════════════════
     public enum CheckInResult { SUCCESS, NOT_FOUND, WRONG_STATUS, ALREADY_CHECKED_IN }
 
+    /**
+     * Check-in đơn thuần: đổi Confirmed → Arrived. KHÔNG còn gán staff kèm theo
+     * (vì staff giờ gán riêng theo từng dòng dịch vụ — dùng assignStaffToServiceLine
+     * hoặc assignStaffToCategory sau khi check-in).
+     */
     public CheckInResult checkIn(int appointmentID) throws SQLException {
         Appointment appt = appointmentDAO.findById(appointmentID);
         if (appt == null)                       return CheckInResult.NOT_FOUND;
@@ -31,13 +41,17 @@ public class ExaminationService {
         return CheckInResult.SUCCESS;
     }
 
-    // ══ WALK-IN: LOOKUP CUSTOMER BY PHONE ════════════════════════════════════
-    public enum LookupResult { FOUND, NOT_FOUND }
+    /** Gán 1 nhân viên cho 1 dòng dịch vụ cụ thể trong appointment (dùng ở bảng check-in). */
+    public void assignStaffToServiceLine(int appointmentServiceID, int staffID) throws SQLException {
+        appointmentDAO.assignStaffToService(appointmentServiceID, staffID);
+    }
 
-    /**
-     * Step 1 of walk-in flow: look up an existing customer by phone number.
-     * If found, also loads their pets so the receptionist can pick one.
-     */
+    /** Gán 1 nhân viên cho TOÀN BỘ dịch vụ thuộc 1 category trong appointment (gán nhanh hàng loạt). */
+    public void assignStaffToCategory(int appointmentID, String categoryName, int staffID) throws SQLException {
+        appointmentDAO.assignStaffToCategory(appointmentID, categoryName, staffID);
+    }
+
+    // ══ WALK-IN: LOOKUP CUSTOMER BY PHONE ════════════════════════════════════
     public Customer findCustomerByPhone(String phone) throws SQLException {
         return customerDAO.findByPhone(phone);
     }
@@ -46,11 +60,45 @@ public class ExaminationService {
         return petDAO.findByCustomerId(customerID);
     }
 
-    // ══ WALK-IN: CREATE NEW CUSTOMER + PET (if phone not found) ══════════════
+    // ══ WALK-IN: TẠO LỊCH HẸN NHIỀU DỊCH VỤ, MỖI DỊCH VỤ 1 STAFF RIÊNG ═══════
+
     /**
-     * Step 2a (new customer): create Customer + Pet, then immediately book + check-in.
-     * Returns the created appointmentID, or -1 if the current shift is full.
+     * Walk-in cho khách/pet ĐÃ tồn tại. serviceIDs và staffIDs đi song song theo index
+     * (staffIDs[i] có thể null nếu chưa gán). Các service có thể thuộc NHIỀU category
+     * khác nhau trong cùng 1 lần gọi (VD vừa khám vừa grooming).
+     * Trả về appointmentID, hoặc -1 nếu ca hiện tại đã đầy slot.
      */
+    public int createWalkInExisting(int customerID, int petID,
+                                    List<Integer> serviceIDs, List<Integer> staffIDs) throws SQLException {
+        LocalDate today = LocalDate.now();
+        int shift = AppointmentDAO.shiftOf(LocalTime.now());
+        if (shift == -1) shift = 1;
+        if (appointmentDAO.isSlotFull(today, shift)) return -1;
+
+        List<BigDecimal> unitPrices = resolveUnitPrices(serviceIDs);
+        return appointmentDAO.createWalkIn(customerID, petID, serviceIDs, unitPrices, staffIDs);
+    }
+
+    /** Walk-in cho khách ĐÃ tồn tại nhưng thú cưng MỚI (chưa có trong hệ thống). */
+    public int createWalkInWithNewPet(int customerID, String petName, String species, String breed,
+                                      List<Integer> serviceIDs, List<Integer> staffIDs) throws SQLException {
+        LocalDate today = LocalDate.now();
+        int shift = AppointmentDAO.shiftOf(LocalTime.now());
+        if (shift == -1) shift = 1;
+        if (appointmentDAO.isSlotFull(today, shift)) return -1;
+
+        Pet pet = new Pet();
+        pet.setCustomerID(customerID);
+        pet.setName(petName);
+        pet.setSpeciesName(species);
+        pet.setBreedName(breed);
+        int petID = petDAO.insert(pet);
+
+        List<BigDecimal> unitPrices = resolveUnitPrices(serviceIDs);
+        return appointmentDAO.createWalkIn(customerID, petID, serviceIDs, unitPrices, staffIDs);
+    }
+
+    /** Walk-in cho khách HOÀN TOÀN mới (chưa có SĐT trong hệ thống). */
     public int createWalkInWithNewCustomer(String fullName, String phone,
                                            String petName, String species, String breed,
                                            List<Integer> serviceIDs, List<Integer> staffIDs) throws SQLException {
@@ -67,64 +115,19 @@ public class ExaminationService {
         pet.setSpeciesName(species);
         pet.setBreedName(breed);
         int petID = petDAO.insert(pet);
-        List<java.math.BigDecimal> unitPrices = new ArrayList<>();
-        for (int sid : serviceIDs) {
-            Service s = serviceDAO.findById(sid);   // cần thêm method findById vào ServiceDAO — xem mục 6
-            unitPrices.add(s != null ? s.getPrice() : java.math.BigDecimal.ZERO);
-        }
 
+        List<BigDecimal> unitPrices = resolveUnitPrices(serviceIDs);
         return appointmentDAO.createWalkIn(customerID, petID, serviceIDs, unitPrices, staffIDs);
     }
 
-    /**
-     * Step 2b (existing customer, new pet): customer found by phone but wants
-     * to register a NEW pet that isn't in the system yet.
-     */
-    public int createWalkInWithNewPet(int customerID, String petName, String species, String breed,
-                                      List<Integer> serviceIDs, List<Integer> staffIDs) throws SQLException {
-        LocalDate today = LocalDate.now();
-        int shift = AppointmentDAO.shiftOf(LocalTime.now());
-        if (shift == -1) shift = 1;
-        if (appointmentDAO.isSlotFull(today, shift)) return -1;
-
-        Pet pet = new Pet();
-        pet.setCustomerID(customerID);
-        pet.setName(petName);
-        pet.setSpeciesName(species);
-        pet.setBreedName(breed);
-        int petID = petDAO.insert(pet);
-
-        List<java.math.BigDecimal> unitPrices = new ArrayList<>();
+    /** Lấy giá hiện tại của từng ServiceID để snapshot vào AppointmentServices.UnitPrice. */
+    private List<BigDecimal> resolveUnitPrices(List<Integer> serviceIDs) throws SQLException {
+        List<BigDecimal> prices = new ArrayList<>();
         for (int sid : serviceIDs) {
-            Service s = serviceDAO.findById(sid);   // cần thêm method findById vào ServiceDAO — xem mục 6
-            unitPrices.add(s != null ? s.getPrice() : java.math.BigDecimal.ZERO);
+            Service s = serviceDAO.findById(sid);
+            prices.add(s != null && s.getPrice() != null ? s.getPrice() : BigDecimal.ZERO);
         }
-
-        return appointmentDAO.createWalkIn(customerID, petID, serviceIDs, unitPrices, staffIDs);
-    }
-    /** Gán 1 nhân viên cho 1 dòng dịch vụ cụ thể trong appointment (dùng ở màn check-in). */
-    public void assignStaffToServiceLine(int appointmentServiceID, int staffID) throws SQLException {
-        appointmentDAO.assignStaffToService(appointmentServiceID, staffID);
-    }
-
-    /**
-     * Step 2c (existing customer, existing pet): everything already known,
-     * just book + check-in immediately.
-     */
-    public int createWalkInExisting(int customerID, int petID,
-                                    List<Integer> serviceIDs,
-                                    List<Integer> staffIDs) throws SQLException {
-        LocalDate today = LocalDate.now();
-        int shift = AppointmentDAO.shiftOf(LocalTime.now());
-        if (shift == -1) shift = 1;
-        if (appointmentDAO.isSlotFull(today, shift)) return -1;
-
-        List<java.math.BigDecimal> unitPrices = new ArrayList<>();
-        for (int sid : serviceIDs) {
-            Service s = serviceDAO.findById(sid);   // cần thêm method findById vào ServiceDAO — xem mục 6
-            unitPrices.add(s != null ? s.getPrice() : java.math.BigDecimal.ZERO);
-        }
-        return appointmentDAO.createWalkIn(customerID, petID, serviceIDs, unitPrices, staffIDs);
+        return prices;
     }
 
     // ══ SLOT INFO ══════════════════════════════════════════════════════════════
@@ -140,7 +143,7 @@ public class ExaminationService {
         return appointmentDAO.isSlotFull(LocalDate.now(), shift);
     }
 
-    // ══ VET QUEUE ══════════════════════════════════════════════════════════════
+    // ══ VET QUEUE (category = Chẩn đoán / Phác đồ điều trị) ═══════════════════
     public enum StartExamResult { SUCCESS, NOT_FOUND, WRONG_STATUS }
 
     public StartExamResult startExamination(int appointmentID, int vetID) throws SQLException {
@@ -192,20 +195,36 @@ public class ExaminationService {
     }
 
     // ══ QUERY HELPERS ═════════════════════════════════════════════════════════
-    public List<Appointment> getConfirmedByDate(LocalDate date, Integer shift) throws SQLException {
-        return appointmentDAO.findConfirmedByDate(date == null ? LocalDate.now() : date, shift);
+    public List<Appointment> getConfirmedByDate(LocalDate date, Integer shift, String categoryFilter) throws SQLException {
+        return appointmentDAO.findConfirmedByDate(date == null ? LocalDate.now() : date, shift, categoryFilter);
     }
 
-    public List<Appointment> searchForCheckIn(String keyword, LocalDate date) throws SQLException {
-        return appointmentDAO.searchForCheckIn(keyword, date == null ? LocalDate.now() : date);
+    public List<Appointment> searchForCheckIn(String keyword, LocalDate date, String categoryFilter) throws SQLException {
+        return appointmentDAO.searchForCheckIn(keyword, date == null ? LocalDate.now() : date, categoryFilter);
     }
 
+    /** Hàng chờ bác sĩ: Arrived/InProgress có dịch vụ Chẩn đoán/Phác đồ gán cho vetID. */
     public List<Appointment> getVetQueue(int vetID, LocalDate date) throws SQLException {
-        return appointmentDAO.findStaffQueue(vetID, date);
+        List<Appointment> result = appointmentDAO.findStaffQueue(vetID, date == null ? LocalDate.now() : date, CAT_LAB_TEST);
+        List<Appointment> treatQueue = appointmentDAO.findStaffQueue(vetID, date == null ? LocalDate.now() : date, CAT_TREATMENT);
+        mergeDistinctById(result, treatQueue);
+        return result;
     }
 
+    /** Các ca khám đã hoàn thành (Done) của 1 bác sĩ trong 1 ngày — để xem lại bệnh án. */
     public List<Appointment> getVetCompletedToday(int vetID, LocalDate date) throws SQLException {
-        return appointmentDAO.findStaffCompletedToday(vetID, date == null ? LocalDate.now() : date);
+        List<Appointment> result = appointmentDAO.findStaffCompletedToday(
+                vetID, date == null ? LocalDate.now() : date, CAT_LAB_TEST, "MedicalRecords");
+        List<Appointment> treatDone = appointmentDAO.findStaffCompletedToday(
+                vetID, date == null ? LocalDate.now() : date, CAT_TREATMENT, "MedicalRecords");
+        mergeDistinctById(result, treatDone);
+        return result;
+    }
+
+    private void mergeDistinctById(List<Appointment> base, List<Appointment> extra) {
+        java.util.Set<Integer> ids = new java.util.HashSet<>();
+        for (Appointment a : base) ids.add(a.getAppointmentID());
+        for (Appointment a : extra) if (ids.add(a.getAppointmentID())) base.add(a);
     }
 
     public List<MedicalRecord> getPetMedicalHistory(int petID) throws SQLException {
@@ -232,8 +251,10 @@ public class ExaminationService {
         return serviceDAO.findTreatmentPlans();
     }
 
-    /** All active services (for walk-in service dropdown). */
+    /** Tất cả dịch vụ (mọi category) — dùng cho walk-in đầy đủ. */
     public List<Service> getAllActiveServices() throws SQLException {
         return serviceDAO.findAllActive();
     }
+
+
 }

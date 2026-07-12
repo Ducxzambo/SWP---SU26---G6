@@ -4,8 +4,8 @@ import com.petclinic.dao.AppointmentDAO;
 import com.petclinic.dao.StaffDAO;
 import com.petclinic.model.Appointment;
 import com.petclinic.model.Staff;
-import com.petclinic.service.GroomingService;
-import com.petclinic.service.GroomingService.CheckInResult;
+import com.petclinic.service.ExaminationService;
+import com.petclinic.service.ExaminationService.CheckInResult;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
@@ -19,14 +19,14 @@ import java.util.List;
 /**
  * BP-03 Step 1 — Receptionist grooming check-in.
  *
- * GET  /receptionist/grooming-checkin          → list Confirmed grooming appointments
- * POST /receptionist/grooming-checkin          → check-in (Confirmed → Arrived)
+ * GET  /receptionist/grooming-checkin → danh sách Confirmed có dịch vụ Grooming
+ * POST /receptionist/grooming-checkin → check-in (Confirmed → Arrived), gán groomer tùy chọn
  */
 @WebServlet("/receptionist/grooming-checkin")
 public class GroomingCheckInServlet extends HttpServlet {
 
-    private final GroomingService groomingService = new GroomingService();
-    private final StaffDAO        staffDAO        = new StaffDAO();
+    private final ExaminationService examinationService = new ExaminationService();
+    private final StaffDAO           staffDAO            = new StaffDAO();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
@@ -40,23 +40,22 @@ public class GroomingCheckInServlet extends HttpServlet {
         }
 
         LocalDate filterDate = parseDate(req.getParameter("date"));
-        String shiftParam    = req.getParameter("shift");
-        Integer shiftFilter  = parseShift(shiftParam);
+        Integer shiftFilter  = parseShift(req.getParameter("shift"));
 
         try {
-            // Reuse AppointmentDAO but filter by Grooming category
-            List<Appointment> appointments = loadGroomingConfirmed(filterDate, shiftFilter);
+            List<Appointment> appointments = examinationService.getConfirmedByDate(
+                    filterDate, shiftFilter, "Grooming");
             List<Staff> groomers = staffDAO.findAllGroomers();
 
             boolean isToday = filterDate.equals(LocalDate.now());
             int currentShift = AppointmentDAO.shiftOf(LocalTime.now());
 
-            req.setAttribute("appointments",       appointments);
-            req.setAttribute("filterDate",         filterDate.toString());
-            req.setAttribute("shiftFilter",        shiftFilter != null ? shiftFilter.toString() : "");
-            req.setAttribute("isToday",            isToday);
-            req.setAttribute("groomers",           groomers);
-            req.setAttribute("currentShiftLabel",  currentShift > 0
+            req.setAttribute("appointments",      appointments);
+            req.setAttribute("filterDate",        filterDate.toString());
+            req.setAttribute("shiftFilter",       shiftFilter != null ? shiftFilter.toString() : "");
+            req.setAttribute("isToday",           isToday);
+            req.setAttribute("groomers",          groomers);
+            req.setAttribute("currentShiftLabel", currentShift > 0
                     ? AppointmentDAO.shiftLabel(currentShift) : "Ngoài giờ");
 
             req.getRequestDispatcher("/WEB-INF/views/receptionist/grooming-checkin.jsp")
@@ -81,7 +80,7 @@ public class GroomingCheckInServlet extends HttpServlet {
             return;
         }
 
-        String apptIdStr   = req.getParameter("appointmentID");
+        String apptIdStr    = req.getParameter("appointmentID");
         String groomerIdStr = req.getParameter("groomerID");
 
         if (apptIdStr == null || apptIdStr.isBlank()) {
@@ -92,13 +91,17 @@ public class GroomingCheckInServlet extends HttpServlet {
 
         try {
             int appointmentID = Integer.parseInt(apptIdStr);
-            Integer groomerID = (groomerIdStr != null && !groomerIdStr.isBlank())
-                    ? Integer.parseInt(groomerIdStr) : null;
+            CheckInResult result = examinationService.checkIn(appointmentID);
 
-            CheckInResult result = groomingService.checkIn(appointmentID, groomerID);
             switch (result) {
-                case SUCCESS ->
-                        session.setAttribute("flashSuccess", "Check-in grooming thành công!");
+                case SUCCESS -> {
+                    // Nếu lễ tân đã chọn sẵn groomer, gán ngay cho dòng dịch vụ Grooming
+                    if (groomerIdStr != null && !groomerIdStr.isBlank()) {
+                        examinationService.assignStaffToCategory(
+                                appointmentID, "Grooming", Integer.parseInt(groomerIdStr));
+                    }
+                    session.setAttribute("flashSuccess", "Check-in grooming thành công!");
+                }
                 case ALREADY_CHECKED_IN ->
                         session.setAttribute("flashWarning", "Thú cưng này đã được check-in trước đó.");
                 case WRONG_STATUS ->
@@ -111,15 +114,6 @@ public class GroomingCheckInServlet extends HttpServlet {
             session.setAttribute("flashError", "Lỗi hệ thống: " + e.getMessage());
         }
         resp.sendRedirect(req.getContextPath() + "/receptionist/grooming-checkin");
-    }
-
-    // ── Helpers ───────────────────────────────────────────────────────────────
-
-    private List<Appointment> loadGroomingConfirmed(LocalDate date, Integer shift)
-            throws java.sql.SQLException {
-        // Uses AppointmentDAO with grooming-specific SQL
-        com.petclinic.dao.AppointmentDAO dao = new com.petclinic.dao.AppointmentDAO();
-        return dao.findConfirmedByDate(date, shift);
     }
 
     private LocalDate parseDate(String p) {

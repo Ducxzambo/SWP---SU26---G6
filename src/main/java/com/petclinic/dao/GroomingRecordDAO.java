@@ -1,16 +1,41 @@
 package com.petclinic.dao;
 
+import com.petclinic.model.Appointment;
 import com.petclinic.model.GroomingRecord;
+import com.petclinic.model.MedicalRecord;
 import com.petclinic.util.DBConnection;
 
 import java.sql.*;
 import java.time.LocalDate;
+import java.util.HashSet;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
+/**
+ * Data access cho GroomingRecords + hàng chờ Groomer.
+ *
+ * Theo schema AppointmentServices (N-N): Appointments KHÔNG có ServiceID hay
+ * AssignedStaffID trực tiếp — mỗi dịch vụ trong 1 appointment là 1 dòng riêng
+ * trong AppointmentServices, kèm AssignedStaffID RIÊNG cho dòng đó. Nhờ vậy
+ * 1 appointment có thể trộn dịch vụ Khám + Grooming, mỗi loại có nhân viên
+ * phụ trách khác nhau.
+ *
+ * DAO này KHÔNG tự viết lại SQL join Appointments/AppointmentServices/Services
+ * — mọi truy vấn hàng chờ đều ủy quyền cho AppointmentDAO (đã có sẵn
+ * findStaffQueue/findUnassignedArrived/findStaffCompletedToday tổng quát,
+ * dùng chung được cho cả Vet lẫn Groomer qua tham số categoryFilter).
+ * GroomingRecordDAO chỉ lo phần CRUD bảng GroomingRecords + việc gộp
+ * (merge) danh sách "đã gán cho tôi" và "chưa ai nhận" cho đúng nghiệp vụ
+ * self-assign của groomer.
+ */
 public class GroomingRecordDAO {
 
-    // ── Read ──────────────────────────────────────────────────────────────────
+    public static final String CATEGORY_GROOMING = "Grooming";
+
+    private final AppointmentDAO appointmentDAO = new AppointmentDAO();
+
+    // ── Read: GroomingRecords ───────────────────────────────────────────────────
 
     public GroomingRecord findByAppointmentId(int appointmentID) throws SQLException {
         String sql = BASE_SELECT + " WHERE gr.AppointmentID = ?";
@@ -21,21 +46,6 @@ public class GroomingRecordDAO {
                 return rs.next() ? mapRow(rs) : null;
             }
         }
-    }
-
-    public List<GroomingRecord> findByPet(int petId) throws SQLException {
-        String sql = "SELECT * "
-                + "FROM GroomingRecords "
-                + "WHERE PetID = ? order by AppointmentID desc";
-        List<GroomingRecord> list = new ArrayList<>();
-        try (Connection c = DBConnection.getConnection();
-             PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setInt(1, petId);
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) list.add(mapRow(rs));
-            }
-        }
-        return list;
     }
 
     public GroomingRecord findById(int recordID) throws SQLException {
@@ -49,7 +59,22 @@ public class GroomingRecordDAO {
         }
     }
 
-    /** Full spa history for a pet (groomer view before session). */
+    public List<GroomingRecord> findByPet(int petId) throws SQLException {
+        String sql = "SELECT mr.* "
+                + "FROM GroomingRecord gr "
+                + "WHERE gr.PetID = ? Order by gr.AppointmentID desc";
+        List<GroomingRecord> list = new ArrayList<>();
+        try (Connection c = DBConnection.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, petId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) list.add(mapRow(rs));
+            }
+        }
+        return list;
+    }
+
+    /** Lịch sử spa của 1 thú cưng — groomer xem lại trước khi bắt đầu phiên mới. */
     public List<GroomingRecord> findHistoryByPetId(int petID) throws SQLException {
         String sql = BASE_SELECT + " WHERE gr.PetID = ? ORDER BY gr.CreatedAt DESC";
         try (Connection c = DBConnection.getConnection();
@@ -63,132 +88,37 @@ public class GroomingRecordDAO {
         }
     }
 
-    // ── Groomer queue ─────────────────────────────────────────────────────────
+    // ── Hàng chờ Groomer (ủy quyền AppointmentDAO, category = Grooming) ─────────
 
     /**
-     * Sessions available for a groomer:
-     * - Assigned to this groomer (Arrived/InProgress)
-     * - OR unassigned (AssignedGroomerID IS NULL, Arrived)
-     * Both filtered to grooming services only.
+     * Hàng chờ của 1 groomer trong 1 ngày: gồm 2 nhóm gộp lại (loại trùng theo AppointmentID)
+     *  1. Appointment có ÍT NHẤT 1 dòng dịch vụ Grooming ĐANG GÁN cho groomerID (Arrived/InProgress)
+     *  2. Appointment có ÍT NHẤT 1 dòng dịch vụ Grooming CHƯA AI NHẬN (self-assign pool)
      */
-
-    public List<com.petclinic.model.Appointment> findGroomerQueue(int groomerID, LocalDate date)
-            throws SQLException {
-        String sql = """
-                SELECT a.AppointmentID, a.CustomerID, a.PetID, a.ServiceID,
-                       a.AssignedVetID, a.AssignedGroomerID,
-                       a.AppointmentDate, a.StartTime, a.EndTime, a.Status, a.SlotShift,
-                       c.FullName  AS CustomerName,
-                       p.Name      AS PetName,
-                       s.Name      AS ServiceName,
-                       st.FullName AS GroomerName
-                FROM Appointments a
-                JOIN Customers c ON c.CustomerID = a.CustomerID
-                JOIN Pets      p ON p.PetID       = a.PetID
-                JOIN Services  s ON s.ServiceID   = a.ServiceID
-                JOIN ServiceCategories sc ON sc.CategoryID = s.CategoryID
-                LEFT JOIN Staff st ON st.StaffID = a.AssignedGroomerID
-                WHERE a.AppointmentDate = ?
-                  AND sc.Name = 'Grooming'
-                  AND a.Status IN ('Arrived','InProgress')
-                  AND (a.AssignedGroomerID = ? OR a.AssignedGroomerID IS NULL)
-                ORDER BY
-                  CASE a.Status WHEN 'InProgress' THEN 0 ELSE 1 END,
-                  a.StartTime
-                """;
-        try (Connection c = DBConnection.getConnection();
-             PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setDate(1, Date.valueOf(date));
-            ps.setInt(2, groomerID);
-            List<com.petclinic.model.Appointment> list = new ArrayList<>();
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    com.petclinic.model.Appointment a = new com.petclinic.model.Appointment();
-                    a.setAppointmentID(rs.getInt("AppointmentID"));
-                    a.setCustomerID(rs.getInt("CustomerID"));
-                    a.setPetID(rs.getInt("PetID"));
-                    a.setServiceID(rs.getInt("ServiceID"));
-                    int gid = rs.getInt("AssignedGroomerID");
-                    a.setAssignedGroomerID(rs.wasNull() ? null : gid);
-                    Date d = rs.getDate("AppointmentDate"); if (d != null) a.setAppointmentDate(d.toLocalDate());
-                    Time st = rs.getTime("StartTime");      if (st != null) a.setStartTime(st.toLocalTime());
-                    Time et = rs.getTime("EndTime");        if (et != null) a.setEndTime(et.toLocalTime());
-                    a.setStatus(rs.getString("Status"));
-                    try { int sh = rs.getInt("SlotShift"); if (!rs.wasNull()) a.setSlotShift(sh); } catch (SQLException ignored){}
-                    a.setCustomerName(rs.getString("CustomerName"));
-                    a.setPetName(rs.getString("PetName"));
-                    a.setServiceName(rs.getString("ServiceName"));
-                    try { a.setGroomerName(rs.getString("GroomerName")); } catch (SQLException ignored){}
-                    list.add(a);
-                }
-            }
-            return list;
-        }
+    public List<Appointment> findGroomerQueue(int groomerID, LocalDate date) throws SQLException {
+        List<Appointment> assigned   = appointmentDAO.findStaffQueue(groomerID, date, CATEGORY_GROOMING);
+        List<Appointment> unassigned = appointmentDAO.findUnassignedArrived(date, CATEGORY_GROOMING);
+        return mergeDistinctById(assigned, unassigned);
     }
 
-    /**
-     * Các ca grooming đã hoàn thành (status = Done) của 1 groomer trong 1 ngày,
-     * kèm RecordID của GroomingRecord tương ứng — dùng để hiển thị tab
-     * "Đã hoàn thành" cho groomer bấm vào xem lại.
-     */
-    public List<com.petclinic.model.Appointment> findGroomerCompletedToday(int groomerID, LocalDate date)
-            throws SQLException {
-        String sql = """
-                SELECT a.AppointmentID, a.CustomerID, a.PetID, a.ServiceID,
-                       a.AssignedVetID, a.AssignedGroomerID,
-                       a.AppointmentDate, a.StartTime, a.EndTime, a.Status, a.SlotShift,
-                       c.FullName  AS CustomerName,
-                       p.Name      AS PetName,
-                       s.Name      AS ServiceName,
-                       st.FullName AS GroomerName,
-                       gr.RecordID AS RecordID
-                FROM Appointments a
-                JOIN Customers c ON c.CustomerID = a.CustomerID
-                JOIN Pets      p ON p.PetID       = a.PetID
-                JOIN Services  s ON s.ServiceID   = a.ServiceID
-                JOIN ServiceCategories sc ON sc.CategoryID = s.CategoryID
-                LEFT JOIN Staff st ON st.StaffID = a.AssignedGroomerID
-                LEFT JOIN GroomingRecords gr ON gr.AppointmentID = a.AppointmentID
-                WHERE a.AppointmentDate = ?
-                  AND sc.Name = 'Grooming'
-                  AND a.Status = 'Done'
-                  AND a.AssignedGroomerID = ?
-                ORDER BY a.SlotShift, a.StartTime
-                """;
-        try (Connection c = DBConnection.getConnection();
-             PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setDate(1, Date.valueOf(date));
-            ps.setInt(2, groomerID);
-            List<com.petclinic.model.Appointment> list = new ArrayList<>();
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    com.petclinic.model.Appointment a = new com.petclinic.model.Appointment();
-                    a.setAppointmentID(rs.getInt("AppointmentID"));
-                    a.setCustomerID(rs.getInt("CustomerID"));
-                    a.setPetID(rs.getInt("PetID"));
-                    a.setServiceID(rs.getInt("ServiceID"));
-                    int gid = rs.getInt("AssignedGroomerID");
-                    a.setAssignedGroomerID(rs.wasNull() ? null : gid);
-                    Date d = rs.getDate("AppointmentDate"); if (d != null) a.setAppointmentDate(d.toLocalDate());
-                    Time st = rs.getTime("StartTime");      if (st != null) a.setStartTime(st.toLocalTime());
-                    Time et = rs.getTime("EndTime");        if (et != null) a.setEndTime(et.toLocalTime());
-                    a.setStatus(rs.getString("Status"));
-                    try { int sh = rs.getInt("SlotShift"); if (!rs.wasNull()) a.setSlotShift(sh); } catch (SQLException ignored){}
-                    a.setCustomerName(rs.getString("CustomerName"));
-                    a.setPetName(rs.getString("PetName"));
-                    a.setServiceName(rs.getString("ServiceName"));
-                    try { a.setGroomerName(rs.getString("GroomerName")); } catch (SQLException ignored){}
-                    int recId = rs.getInt("RecordID");
-                    a.setRecordID(rs.wasNull() ? null : recId);
-                    list.add(a);
-                }
-            }
-            return list;
-        }
+    /** Các ca grooming đã hoàn thành (Done) của 1 groomer trong 1 ngày, kèm RecordID để xem lại. */
+    public List<Appointment> findGroomerCompletedToday(int groomerID, LocalDate date) throws SQLException {
+        return appointmentDAO.findStaffCompletedToday(groomerID, date, CATEGORY_GROOMING, "GroomingRecords");
     }
 
+    private List<Appointment> mergeDistinctById(List<Appointment> base, List<Appointment> extra) {
+        Set<Integer> ids = new HashSet<>();
+        List<Appointment> result = new ArrayList<>();
+        for (Appointment a : base) {
+            if (ids.add(a.getAppointmentID())) result.add(a);
+        }
+        for (Appointment a : extra) {
+            if (ids.add(a.getAppointmentID())) result.add(a);
+        }
+        return result;
+    }
 
-    // ── Write ─────────────────────────────────────────────────────────────────
+    // ── Write: GroomingRecords ───────────────────────────────────────────────────
 
     public int save(GroomingRecord rec) throws SQLException {
         String sql = """
@@ -216,35 +146,30 @@ public class GroomingRecordDAO {
         throw new SQLException("Failed to save GroomingRecord.");
     }
 
-    // ── Assign groomer ────────────────────────────────────────────────────────
-
-    public void assignStaffToCategory(int appointmentID, String categoryName, int staffID) throws SQLException {
-        String sql = "UPDATE aps SET aps.AssignedStaffID = ? " +
-                "FROM AppointmentServices aps " +
-                "JOIN Services s ON s.ServiceID = aps.ServiceID " +
-                "JOIN ServiceCategories sc ON sc.CategoryID = s.CategoryID " +
-                "WHERE aps.AppointmentID = ? AND sc.Name = ?";
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setInt(1, staffID); ps.setInt(2, appointmentID); ps.setString(3, categoryName);
-            ps.executeUpdate();
-        }
-    }
-
     // ── Helpers ───────────────────────────────────────────────────────────────
 
+    /**
+     * BASE_SELECT lấy ServiceName qua AppointmentServices (N-N) thay vì
+     * Appointments.ServiceID trực tiếp — 1 appointment có thể có nhiều dịch vụ,
+     * nên lấy dịch vụ Grooming đầu tiên gắn với appointment đó để hiển thị.
+     */
     private static final String BASE_SELECT = """
             SELECT gr.*,
                    p.Name      AS PetName,
                    cu.FullName AS OwnerName,
-                   st.FullName AS StaffName,
-                   s.Name      AS ServiceName
+                   st.FullName AS GroomerName,
+                   (
+                     SELECT TOP 1 s2.Name
+                     FROM AppointmentServices aps2
+                     JOIN Services s2 ON s2.ServiceID = aps2.ServiceID
+                     JOIN ServiceCategories sc2 ON sc2.CategoryID = s2.CategoryID
+                     WHERE aps2.AppointmentID = gr.AppointmentID AND sc2.Name = 'Grooming'
+                     ORDER BY aps2.AppointmentServiceID
+                   ) AS ServiceName
             FROM GroomingRecords gr
             JOIN Pets      p  ON p.PetID       = gr.PetID
             JOIN Customers cu ON cu.CustomerID = (SELECT CustomerID FROM Pets WHERE PetID = gr.PetID)
             JOIN Staff     st ON st.StaffID    = gr.GroomerID
-            JOIN Appointments a ON a.AppointmentID = gr.AppointmentID
-            JOIN Services   s  ON s.ServiceID  = a.ServiceID
             """;
 
     private GroomingRecord mapRow(ResultSet rs) throws SQLException {
@@ -261,10 +186,10 @@ public class GroomingRecordDAO {
         r.setFlagReason(rs.getString("FlagReason"));
         Timestamp ts = rs.getTimestamp("CreatedAt");
         if (ts != null) r.setCreatedAt(ts.toLocalDateTime());
-        try { r.setPetName(rs.getString("PetName"));       } catch (SQLException ignored){}
-        try { r.setOwnerName(rs.getString("OwnerName"));   } catch (SQLException ignored){}
-        try { r.setStaffName(rs.getString("StaffName")); } catch (SQLException ignored){}
-        try { r.setServiceName(rs.getString("ServiceName")); } catch (SQLException ignored){}
+        try { r.setPetName(rs.getString("PetName"));         } catch (SQLException ignored) {}
+        try { r.setOwnerName(rs.getString("OwnerName"));     } catch (SQLException ignored) {}
+        try { r.setGroomerName(rs.getString("GroomerName")); } catch (SQLException ignored) {}
+        try { r.setServiceName(rs.getString("ServiceName")); } catch (SQLException ignored) {}
         return r;
     }
 }

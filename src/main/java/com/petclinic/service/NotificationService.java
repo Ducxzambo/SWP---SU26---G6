@@ -39,26 +39,26 @@ public class NotificationService {
     // ═══════════════════════════════════════════════════════════════════════════
 
     /** Gọi sau khi thanh toán xong → appointment Confirmed. */
-    public void onBookingConfirmed(Customer customer, Appointment appt,
-                                   BigDecimal total, BigDecimal paid, boolean isFull) {
-        String apptUrl  = "/appointments/detail?id=" + appt.getAppointmentID();
-        String timeLabel = fmtAppt(appt);
-
-        // In-app notification
-        createSafe(customer.getCustomerID(),
-                Notification.TYPE_BOOKING_CONFIRMED,
-                "Lịch khám đã được xác nhận",
-                "Dịch vụ: " + appt.getServiceName()
-                        + " | " + timeLabel
-                        + (appt.getStaffName() != null ? " | BS: " + appt.getStaffName() : ""),
-                apptUrl);
-
-        // Email
-        emailSvc.onPaymentConfirmed(customer, appt, total, paid, isFull);
-
-        // Schedule reminders
-        scheduleReminders(customer, appt);
-    }
+//    public void onBookingConfirmed(Customer customer, Appointment appt,
+//                                   BigDecimal total, BigDecimal paid, boolean isFull) {
+//        String apptUrl  = "/appointments/detail?id=" + appt.getAppointmentID();
+//        String timeLabel = fmtAppt(appt);
+//
+//        // In-app notification
+//        createSafe(customer.getCustomerID(),
+//                Notification.TYPE_BOOKING_CONFIRMED,
+//                "Lịch khám đã được xác nhận",
+//                "Dịch vụ: " + appt.getServiceName()
+//                        + " | " + timeLabel
+//                        + (appt.getStaffName() != null ? " | BS: " + appt.getStaffName() : ""),
+//                apptUrl);
+//
+//        // Email
+//        emailSvc.onPaymentConfirmed(customer, appt, total, paid, isFull);
+//
+//        // Schedule reminders
+//        scheduleReminders(customer, appt);
+//    }
 
     /** Gọi khi khách huỷ lịch. */
     public void onBookingCancelled(Customer customer, Appointment appt, String reason) {
@@ -133,13 +133,13 @@ public class NotificationService {
         // Check appointment vẫn còn Confirmed (không bị huỷ)
         // (Caller - AppointmentStatusJob - đã check trước khi gọi)
 
-        createSafe(freshCustomer.getCustomerID(),
-                type,
-                "Nhắc lịch: còn " + hoursAhead + " giờ",
-                "Dịch vụ: " + appt.getServiceName()
-                        + " | " + fmtAppt(appt)
-                        + (appt.getStaffName() != null ? " | NV: " + appt.getStaffName() : ""),
-                "/appointments/detail?id=" + appt.getAppointmentID());
+//        createSafe(freshCustomer.getCustomerID(),
+//                type,
+//                "Nhắc lịch: còn " + hoursAhead + " giờ",
+//                "Dịch vụ: " + appt.getServiceName()
+//                        + " | " + fmtAppt(appt)
+//                        + (appt.getStaffName() != null ? " | NV: " + appt.getStaffName() : ""),
+//                "/appointments/detail?id=" + appt.getAppointmentID());
 
         emailSvc.scheduleReminders(freshCustomer, appt);
     }

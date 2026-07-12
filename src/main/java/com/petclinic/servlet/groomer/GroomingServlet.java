@@ -171,7 +171,6 @@ public class GroomingServlet extends HttpServlet {
                 return;
             }
             String msg = switch (result) {
-                case NOT_ASSIGNED -> "Bạn chưa được phân công vào ca này. Hãy nhận ca trước.";
                 case WRONG_STATUS -> "Trạng thái lịch hẹn không hợp lệ.";
                 default -> "Không tìm thấy lịch hẹn.";
             };

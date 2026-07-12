@@ -209,9 +209,7 @@
                                     <form action="${pageContext.request.contextPath}/receptionist/checkin" method="post"
                                           onsubmit="return confirm('Check-in cho ${appt.petName}?')">
                                         <input type="hidden" name="appointmentID" value="${appt.appointmentID}">
-                                        <c:if test="${not empty appt.assignedStaffID}">
-                                            <input type="hidden" name="staffID" value="${appt.assignedStaffID}">
-                                        </c:if>
+
                                         <button type="submit" class="btn btn-primary btn-sm">Check-in</button>
                                     </form>
                                 </td>
