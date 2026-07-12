@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -99,6 +100,7 @@ public class CheckInServlet extends HttpServlet {
         String action = req.getParameter("action");
         if ("walkinLookup".equals(action)) { handleWalkInLookup(req, resp); return; }
         if ("walkinSubmit".equals(action)) { handleWalkInSubmit(req, resp, session); return; }
+        if ("assignStaff".equals(action))  { handleAssignStaff(req, resp, session); return; }
 
         // ── Normal check-in ───────────────────────────────────────────────────
         String appointmentIdStr = req.getParameter("appointmentID");
@@ -111,11 +113,8 @@ public class CheckInServlet extends HttpServlet {
         }
 
         try {
-            int     appointmentID = Integer.parseInt(appointmentIdStr);
-            Integer staffID = (staffIDStr != null && !staffIDStr.isBlank())
-                    ? Integer.parseInt(staffIDStr) : null;
-
-            CheckInResult result = examinationService.checkIn(appointmentID, staffID);
+            int appointmentID = Integer.parseInt(appointmentIdStr);
+            CheckInResult result = examinationService.checkIn(appointmentID);
             switch (result) {
                 case SUCCESS ->
                         session.setAttribute("flashSuccess", "Check-in thành công!");
@@ -176,17 +175,25 @@ public class CheckInServlet extends HttpServlet {
         String petName       = req.getParameter("petName");      // chỉ cần nếu pet mới
         String species       = req.getParameter("species");
         String breed          = req.getParameter("breed");
-        String serviceIdStr  = req.getParameter("serviceID");
-        String staffIDStr      = req.getParameter("staffID");
-
-        if (isBlank(serviceIdStr) || isBlank(staffIDStr)) {
-            reloadCheckinWithWalkInError(req, resp, "Vui lòng chọn Dịch vụ và Bác sĩ.", phone, null);
+        String[] serviceIdArr = req.getParameterValues("serviceID[]");   // các checkbox được tích
+        if (serviceIdArr == null || serviceIdArr.length == 0) {
+            reloadCheckinWithWalkInError(req, resp, "Vui lòng chọn ít nhất 1 dịch vụ.", phone, null);
             return;
         }
 
+        List<Integer> serviceIDs = new ArrayList<>();
+        List<Integer> staffIDs   = new ArrayList<>();
+        for (String sidStr : serviceIdArr) {
+            int sid = Integer.parseInt(sidStr);
+            serviceIDs.add(sid);
+            // Mỗi service có 1 dropdown staff riêng tên "staffFor_<serviceID>"
+            String staffStr = req.getParameter("staffFor_" + sid);
+            staffIDs.add((staffStr != null && !staffStr.isBlank()) ? Integer.parseInt(staffStr) : null);
+        }
+
+
         try {
-            int serviceID = Integer.parseInt(serviceIdStr);
-            int staffID     = Integer.parseInt(staffIDStr);
+
             int apptID;
 
             boolean hasCustomerID = !isBlank(customerIdStr);
@@ -196,7 +203,7 @@ public class CheckInServlet extends HttpServlet {
                 // Khách cũ + pet đã có sẵn
                 apptID = examinationService.createWalkInExisting(
                         Integer.parseInt(customerIdStr), Integer.parseInt(petIdStr),
-                        serviceID, staffID);
+                        serviceIDs, staffIDs);
 
             } else if (hasCustomerID && !hasPetID) {
                 // Khách cũ + pet MỚI
@@ -207,7 +214,7 @@ public class CheckInServlet extends HttpServlet {
                 apptID = examinationService.createWalkInWithNewPet(
                         Integer.parseInt(customerIdStr), petName.trim(),
                         blankToDefault(species, "Chưa rõ"), blankToDefault(breed, "Chưa rõ"),
-                        serviceID, staffID);
+                        serviceIDs, staffIDs);
 
             } else {
                 // Khách HOÀN TOÀN mới
@@ -219,7 +226,7 @@ public class CheckInServlet extends HttpServlet {
                 apptID = examinationService.createWalkInWithNewCustomer(
                         fullName.trim(), phone.trim(), petName.trim(),
                         blankToDefault(species, "Chưa rõ"), blankToDefault(breed, "Chưa rõ"),
-                        serviceID, staffID);
+                        serviceIDs, staffIDs);
             }
 
             if (apptID == -1) {
@@ -272,7 +279,8 @@ public class CheckInServlet extends HttpServlet {
             Integer shiftFilter  = parseShift(req.getParameter("shift"));
 
             List<Appointment> appointments = examinationService.getConfirmedByDate(filterDate, shiftFilter);
-            List<Staff> staffs = staffDAO.findAllVetsGroomers();
+            List<Staff> vets     = staffDAO.findAllVets();
+            List<Staff> groomers = staffDAO.findAllGroomers();
             List<com.petclinic.model.Service> services = examinationService.getAllActiveServices();
 
             boolean isToday = filterDate.equals(LocalDate.now());
@@ -281,9 +289,10 @@ public class CheckInServlet extends HttpServlet {
 
             req.setAttribute("appointments",      appointments);
             req.setAttribute("filterDate",        filterDate.toString());
-            req.setAttribute("shiftFilter",        shiftFilter != null ? shiftFilter.toString() : "");
+            req.setAttribute("shiftFilter",       shiftFilter != null ? shiftFilter.toString() : "");
             req.setAttribute("isToday",           isToday);
-            req.setAttribute("staffs",              staffs);
+            req.setAttribute("vets",              vets);
+            req.setAttribute("groomers",          groomers);
             req.setAttribute("services",          services);
             req.setAttribute("currentSlotCount",  currentSlotCount);
             req.setAttribute("currentSlotFull",   currentSlotCount >= AppointmentDAO.MAX_PER_SHIFT);
@@ -306,4 +315,26 @@ public class CheckInServlet extends HttpServlet {
 
     private boolean isBlank(String s) { return s == null || s.isBlank(); }
     private String blankToDefault(String s, String def) { return isBlank(s) ? def : s.trim(); }
+
+    /** Gán/đổi nhân viên phụ trách 1 dòng dịch vụ cụ thể (dùng ở bảng check-in, không giới hạn trạng thái Confirmed). */
+    private void handleAssignStaff(HttpServletRequest req, HttpServletResponse resp, HttpSession session)
+            throws IOException {
+        String apptServiceIdStr = req.getParameter("appointmentServiceID");
+        String staffIdStr       = req.getParameter("staffID");
+
+        if (isBlank(apptServiceIdStr) || isBlank(staffIdStr)) {
+            session.setAttribute("flashError", "Thiếu thông tin gán nhân viên.");
+            resp.sendRedirect(req.getContextPath() + "/receptionist/checkin");
+            return;
+        }
+        try {
+            examinationService.assignStaffToServiceLine(
+                    Integer.parseInt(apptServiceIdStr), Integer.parseInt(staffIdStr));
+            session.setAttribute("flashSuccess", "Đã gán nhân viên phụ trách.");
+        } catch (Exception e) {
+            e.printStackTrace();
+            session.setAttribute("flashError", "Lỗi khi gán nhân viên: " + e.getMessage());
+        }
+        resp.sendRedirect(req.getContextPath() + "/receptionist/checkin");
+    }
 }

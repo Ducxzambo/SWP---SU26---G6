@@ -7,6 +7,7 @@ import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.List;
 
 public class ExaminationService {
@@ -21,12 +22,11 @@ public class ExaminationService {
     // ══ CHECK-IN ══════════════════════════════════════════════════════════════
     public enum CheckInResult { SUCCESS, NOT_FOUND, WRONG_STATUS, ALREADY_CHECKED_IN }
 
-    public CheckInResult checkIn(int appointmentID, Integer vetID) throws SQLException {
+    public CheckInResult checkIn(int appointmentID) throws SQLException {
         Appointment appt = appointmentDAO.findById(appointmentID);
         if (appt == null)                       return CheckInResult.NOT_FOUND;
         if ("Arrived".equals(appt.getStatus())) return CheckInResult.ALREADY_CHECKED_IN;
         if (!"Confirmed".equals(appt.getStatus())) return CheckInResult.WRONG_STATUS;
-        if (vetID != null) appointmentDAO.assignVet(appointmentID, vetID);
         appointmentDAO.updateStatus(appointmentID, "Arrived");
         return CheckInResult.SUCCESS;
     }
@@ -53,7 +53,7 @@ public class ExaminationService {
      */
     public int createWalkInWithNewCustomer(String fullName, String phone,
                                            String petName, String species, String breed,
-                                           int serviceID, int vetID) throws SQLException {
+                                           List<Integer> serviceIDs, List<Integer> staffIDs) throws SQLException {
         LocalDate today = LocalDate.now();
         int shift = AppointmentDAO.shiftOf(LocalTime.now());
         if (shift == -1) shift = 1;
@@ -67,8 +67,13 @@ public class ExaminationService {
         pet.setSpeciesName(species);
         pet.setBreedName(breed);
         int petID = petDAO.insert(pet);
+        List<java.math.BigDecimal> unitPrices = new ArrayList<>();
+        for (int sid : serviceIDs) {
+            Service s = serviceDAO.findById(sid);   // cần thêm method findById vào ServiceDAO — xem mục 6
+            unitPrices.add(s != null ? s.getPrice() : java.math.BigDecimal.ZERO);
+        }
 
-        return appointmentDAO.createWalkIn(customerID, petID, serviceID, vetID);
+        return appointmentDAO.createWalkIn(customerID, petID, serviceIDs, unitPrices, staffIDs);
     }
 
     /**
@@ -76,7 +81,7 @@ public class ExaminationService {
      * to register a NEW pet that isn't in the system yet.
      */
     public int createWalkInWithNewPet(int customerID, String petName, String species, String breed,
-                                      int serviceID, int vetID) throws SQLException {
+                                      List<Integer> serviceIDs, List<Integer> staffIDs) throws SQLException {
         LocalDate today = LocalDate.now();
         int shift = AppointmentDAO.shiftOf(LocalTime.now());
         if (shift == -1) shift = 1;
@@ -89,7 +94,17 @@ public class ExaminationService {
         pet.setBreedName(breed);
         int petID = petDAO.insert(pet);
 
-        return appointmentDAO.createWalkIn(customerID, petID, serviceID, vetID);
+        List<java.math.BigDecimal> unitPrices = new ArrayList<>();
+        for (int sid : serviceIDs) {
+            Service s = serviceDAO.findById(sid);   // cần thêm method findById vào ServiceDAO — xem mục 6
+            unitPrices.add(s != null ? s.getPrice() : java.math.BigDecimal.ZERO);
+        }
+
+        return appointmentDAO.createWalkIn(customerID, petID, serviceIDs, unitPrices, staffIDs);
+    }
+    /** Gán 1 nhân viên cho 1 dòng dịch vụ cụ thể trong appointment (dùng ở màn check-in). */
+    public void assignStaffToServiceLine(int appointmentServiceID, int staffID) throws SQLException {
+        appointmentDAO.assignStaffToService(appointmentServiceID, staffID);
     }
 
     /**
@@ -97,12 +112,19 @@ public class ExaminationService {
      * just book + check-in immediately.
      */
     public int createWalkInExisting(int customerID, int petID,
-                                    int serviceID, int vetID) throws SQLException {
+                                    List<Integer> serviceIDs,
+                                    List<Integer> staffIDs) throws SQLException {
         LocalDate today = LocalDate.now();
         int shift = AppointmentDAO.shiftOf(LocalTime.now());
         if (shift == -1) shift = 1;
         if (appointmentDAO.isSlotFull(today, shift)) return -1;
-        return appointmentDAO.createWalkIn(customerID, petID, serviceID, vetID);
+
+        List<java.math.BigDecimal> unitPrices = new ArrayList<>();
+        for (int sid : serviceIDs) {
+            Service s = serviceDAO.findById(sid);   // cần thêm method findById vào ServiceDAO — xem mục 6
+            unitPrices.add(s != null ? s.getPrice() : java.math.BigDecimal.ZERO);
+        }
+        return appointmentDAO.createWalkIn(customerID, petID, serviceIDs, unitPrices, staffIDs);
     }
 
     // ══ SLOT INFO ══════════════════════════════════════════════════════════════
@@ -179,11 +201,11 @@ public class ExaminationService {
     }
 
     public List<Appointment> getVetQueue(int vetID, LocalDate date) throws SQLException {
-        return appointmentDAO.findVetQueue(vetID, date == null ? LocalDate.now() : date);
+        return appointmentDAO.findStaffQueue(vetID, date);
     }
 
     public List<Appointment> getVetCompletedToday(int vetID, LocalDate date) throws SQLException {
-        return appointmentDAO.findVetCompletedToday(vetID, date == null ? LocalDate.now() : date);
+        return appointmentDAO.findStaffCompletedToday(vetID, date == null ? LocalDate.now() : date);
     }
 
     public List<MedicalRecord> getPetMedicalHistory(int petID) throws SQLException {

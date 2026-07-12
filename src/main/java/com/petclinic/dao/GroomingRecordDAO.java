@@ -71,26 +71,27 @@ public class GroomingRecordDAO {
      * - OR unassigned (AssignedGroomerID IS NULL, Arrived)
      * Both filtered to grooming services only.
      */
+
     public List<com.petclinic.model.Appointment> findGroomerQueue(int groomerID, LocalDate date)
             throws SQLException {
         String sql = """
                 SELECT a.AppointmentID, a.CustomerID, a.PetID, a.ServiceID,
-                       a.AssignedStaffID, 
+                       a.AssignedVetID, a.AssignedGroomerID,
                        a.AppointmentDate, a.StartTime, a.EndTime, a.Status, a.SlotShift,
                        c.FullName  AS CustomerName,
                        p.Name      AS PetName,
                        s.Name      AS ServiceName,
-                       st.FullName AS StaffName
+                       st.FullName AS GroomerName
                 FROM Appointments a
                 JOIN Customers c ON c.CustomerID = a.CustomerID
                 JOIN Pets      p ON p.PetID       = a.PetID
                 JOIN Services  s ON s.ServiceID   = a.ServiceID
                 JOIN ServiceCategories sc ON sc.CategoryID = s.CategoryID
-                LEFT JOIN Staff st ON st.StaffID = a.AssignedStaffID
+                LEFT JOIN Staff st ON st.StaffID = a.AssignedGroomerID
                 WHERE a.AppointmentDate = ?
-                  AND sc.CategoryID = 3
+                  AND sc.Name = 'Grooming'
                   AND a.Status IN ('Arrived','InProgress')
-                  AND (a.AssignedStaffID = ? OR a.AssignedStaffID IS NULL)
+                  AND (a.AssignedGroomerID = ? OR a.AssignedGroomerID IS NULL)
                 ORDER BY
                   CASE a.Status WHEN 'InProgress' THEN 0 ELSE 1 END,
                   a.StartTime
@@ -107,8 +108,8 @@ public class GroomingRecordDAO {
                     a.setCustomerID(rs.getInt("CustomerID"));
                     a.setPetID(rs.getInt("PetID"));
                     a.setServiceID(rs.getInt("ServiceID"));
-                    int gid = rs.getInt("AssignedStaffID");
-                    a.setAssignedStaffID(rs.wasNull() ? null : gid);
+                    int gid = rs.getInt("AssignedGroomerID");
+                    a.setAssignedGroomerID(rs.wasNull() ? null : gid);
                     Date d = rs.getDate("AppointmentDate"); if (d != null) a.setAppointmentDate(d.toLocalDate());
                     Time st = rs.getTime("StartTime");      if (st != null) a.setStartTime(st.toLocalTime());
                     Time et = rs.getTime("EndTime");        if (et != null) a.setEndTime(et.toLocalTime());
@@ -117,13 +118,75 @@ public class GroomingRecordDAO {
                     a.setCustomerName(rs.getString("CustomerName"));
                     a.setPetName(rs.getString("PetName"));
                     a.setServiceName(rs.getString("ServiceName"));
-                    try { a.setStaffName(rs.getString("StaffName")); } catch (SQLException ignored){}
+                    try { a.setGroomerName(rs.getString("GroomerName")); } catch (SQLException ignored){}
                     list.add(a);
                 }
             }
             return list;
         }
     }
+
+    /**
+     * Các ca grooming đã hoàn thành (status = Done) của 1 groomer trong 1 ngày,
+     * kèm RecordID của GroomingRecord tương ứng — dùng để hiển thị tab
+     * "Đã hoàn thành" cho groomer bấm vào xem lại.
+     */
+    public List<com.petclinic.model.Appointment> findGroomerCompletedToday(int groomerID, LocalDate date)
+            throws SQLException {
+        String sql = """
+                SELECT a.AppointmentID, a.CustomerID, a.PetID, a.ServiceID,
+                       a.AssignedVetID, a.AssignedGroomerID,
+                       a.AppointmentDate, a.StartTime, a.EndTime, a.Status, a.SlotShift,
+                       c.FullName  AS CustomerName,
+                       p.Name      AS PetName,
+                       s.Name      AS ServiceName,
+                       st.FullName AS GroomerName,
+                       gr.RecordID AS RecordID
+                FROM Appointments a
+                JOIN Customers c ON c.CustomerID = a.CustomerID
+                JOIN Pets      p ON p.PetID       = a.PetID
+                JOIN Services  s ON s.ServiceID   = a.ServiceID
+                JOIN ServiceCategories sc ON sc.CategoryID = s.CategoryID
+                LEFT JOIN Staff st ON st.StaffID = a.AssignedGroomerID
+                LEFT JOIN GroomingRecords gr ON gr.AppointmentID = a.AppointmentID
+                WHERE a.AppointmentDate = ?
+                  AND sc.Name = 'Grooming'
+                  AND a.Status = 'Done'
+                  AND a.AssignedGroomerID = ?
+                ORDER BY a.SlotShift, a.StartTime
+                """;
+        try (Connection c = DBConnection.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setDate(1, Date.valueOf(date));
+            ps.setInt(2, groomerID);
+            List<com.petclinic.model.Appointment> list = new ArrayList<>();
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    com.petclinic.model.Appointment a = new com.petclinic.model.Appointment();
+                    a.setAppointmentID(rs.getInt("AppointmentID"));
+                    a.setCustomerID(rs.getInt("CustomerID"));
+                    a.setPetID(rs.getInt("PetID"));
+                    a.setServiceID(rs.getInt("ServiceID"));
+                    int gid = rs.getInt("AssignedGroomerID");
+                    a.setAssignedGroomerID(rs.wasNull() ? null : gid);
+                    Date d = rs.getDate("AppointmentDate"); if (d != null) a.setAppointmentDate(d.toLocalDate());
+                    Time st = rs.getTime("StartTime");      if (st != null) a.setStartTime(st.toLocalTime());
+                    Time et = rs.getTime("EndTime");        if (et != null) a.setEndTime(et.toLocalTime());
+                    a.setStatus(rs.getString("Status"));
+                    try { int sh = rs.getInt("SlotShift"); if (!rs.wasNull()) a.setSlotShift(sh); } catch (SQLException ignored){}
+                    a.setCustomerName(rs.getString("CustomerName"));
+                    a.setPetName(rs.getString("PetName"));
+                    a.setServiceName(rs.getString("ServiceName"));
+                    try { a.setGroomerName(rs.getString("GroomerName")); } catch (SQLException ignored){}
+                    int recId = rs.getInt("RecordID");
+                    a.setRecordID(rs.wasNull() ? null : recId);
+                    list.add(a);
+                }
+            }
+            return list;
+        }
+    }
+
 
     // ── Write ─────────────────────────────────────────────────────────────────
 
@@ -155,11 +218,15 @@ public class GroomingRecordDAO {
 
     // ── Assign groomer ────────────────────────────────────────────────────────
 
-    public void assignGroomer(int appointmentID, int groomerID) throws SQLException {
-        String sql = "UPDATE Appointments SET AssignedStaffID = ? WHERE AppointmentID = ?";
-        try (Connection c = DBConnection.getConnection();
-             PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setInt(1, groomerID); ps.setInt(2, appointmentID);
+    public void assignStaffToCategory(int appointmentID, String categoryName, int staffID) throws SQLException {
+        String sql = "UPDATE aps SET aps.AssignedStaffID = ? " +
+                "FROM AppointmentServices aps " +
+                "JOIN Services s ON s.ServiceID = aps.ServiceID " +
+                "JOIN ServiceCategories sc ON sc.CategoryID = s.CategoryID " +
+                "WHERE aps.AppointmentID = ? AND sc.Name = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, staffID); ps.setInt(2, appointmentID); ps.setString(3, categoryName);
             ps.executeUpdate();
         }
     }

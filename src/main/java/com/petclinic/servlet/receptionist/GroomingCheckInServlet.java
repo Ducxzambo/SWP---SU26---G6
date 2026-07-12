@@ -119,7 +119,7 @@ public class GroomingCheckInServlet extends HttpServlet {
             throws java.sql.SQLException {
         // Uses AppointmentDAO with grooming-specific SQL
         com.petclinic.dao.AppointmentDAO dao = new com.petclinic.dao.AppointmentDAO();
-        return dao.findGroomingConfirmedByDate(date, shift);
+        return dao.findConfirmedByDate(date, shift);
     }
 
     private LocalDate parseDate(String p) {

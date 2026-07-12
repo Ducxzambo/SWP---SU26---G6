@@ -101,12 +101,12 @@ public class ServiceDAO {
     /** Tìm 1 Service theo ID — dùng để snapshot giá tại thời điểm khám. */
     public Service findById(int serviceID) throws SQLException {
         String sql = """
-                SELECT s.ServiceID, s.Name, s.Price, s.DurationMinutes, s.IsActive,
-                       sc.Name AS CategoryName, sc.CategoryID AS CategoryID
-                FROM Services s
-                JOIN ServiceCategories sc ON sc.CategoryID = s.CategoryID
-                WHERE s.ServiceID = ?
-                """;
+            SELECT s.ServiceID, s.Name, s.Price, s.DurationMinutes, s.IsActive,
+                   sc.Name AS CategoryName
+            FROM Services s
+            JOIN ServiceCategories sc ON sc.CategoryID = s.CategoryID
+            WHERE s.ServiceID = ?
+            """;
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, serviceID);

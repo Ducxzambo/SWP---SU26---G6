@@ -3,13 +3,14 @@ package com.petclinic.model;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.List;
 
 public class Appointment {
     private int appointmentID;
     private int customerID;
     private int petID;
     private int serviceID;
-    private Integer assignedStaffID;
     private LocalDate appointmentDate;
     private LocalTime startTime;
     private LocalTime endTime;
@@ -23,7 +24,6 @@ public class Appointment {
     private String petName;
     private String serviceName;
     private String    categoryName;
-    private String    staffName;
     private Integer recordID; // RecordID của MedicalRecord/GroomingRecord nếu status = Done (nullable)
 
     public Appointment() {}
@@ -36,8 +36,6 @@ public class Appointment {
     public void      setPetID(int v)              { petID = v; }
     public int       getServiceID()              { return serviceID; }
     public void      setServiceID(int v)          { serviceID = v; }
-    public Integer   getAssignedStaffID()          { return assignedStaffID; }
-    public void      setAssignedStaffID(Integer v)  { assignedStaffID = v; }
     public LocalDate getAppointmentDate()        { return appointmentDate; }
     public void      setAppointmentDate(LocalDate v) { appointmentDate = v; }
     public LocalTime getStartTime()              { return startTime; }
@@ -64,8 +62,16 @@ public class Appointment {
     public void    setRecordID(Integer v)        { recordID = v; }
     public String    getCategoryName()          { return categoryName; }
     public void      setCategoryName(String v)  { categoryName = v; }
-    public String    getStaffName()               { return staffName; }
-    public void      setStaffName(String v)       { staffName = v; }
+
+    public List<AppointmentServiceItem> getServices() {
+        return services;
+    }
+
+    public void setServices(List<AppointmentServiceItem> services) {
+        this.services = services;
+    }
+
+    private List<AppointmentServiceItem> services = new ArrayList<>();
 
     /**
      * Deadline chung cho cả đổi lịch (reschedule) và huỷ lịch (cancel):
@@ -117,5 +123,26 @@ public class Appointment {
     public boolean isActive() {
         return "Pending".equals(status) || "Confirmed".equals(status)
                 || "InProgress".equals(status);
+    }
+
+    /** Tên staff phụ trách các service thuộc 1 category cụ thể, nối bằng dấu phẩy nếu nhiều người. */
+    public String getStaffNamesByCategory(String categoryName) {
+        if (services == null) return "";
+        java.util.LinkedHashSet<String> names = new java.util.LinkedHashSet<>();
+        for (AppointmentServiceItem s : services) {
+            if (categoryName.equals(s.getCategoryName()) && s.getStaffName() != null) {
+                names.add(s.getStaffName());
+            }
+        }
+        return String.join(", ", names);
+    }
+
+    /** True nếu ÍT NHẤT 1 service (thuộc category chỉ định) CHƯA có staff phụ trách. */
+    public boolean hasUnassignedServiceInCategory(String categoryName) {
+        if (services == null) return false;
+        for (AppointmentServiceItem s : services) {
+            if (categoryName.equals(s.getCategoryName()) && s.getAssignedStaffID() == null) return true;
+        }
+        return false;
     }
 }

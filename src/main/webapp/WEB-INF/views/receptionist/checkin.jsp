@@ -175,10 +175,35 @@
                                 <td><c:out value="${appt.petName}"/></td>
                                 <td><c:out value="${appt.serviceName}"/></td>
                                 <td>
-                                    <c:choose>
-                                        <c:when test="${not empty appt.staffName}"><c:out value="${appt.staffName}"/></c:when>
-                                        <c:otherwise><span class="badge badge-warning">Chưa phân công</span></c:otherwise>
-                                    </c:choose>
+                                    <c:forEach items="${appt.services}" var="svc">
+                                        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;font-size:12.5px;">
+                                            <span><c:out value="${svc.serviceName}"/>:</span>
+                                            <c:choose>
+                                                <c:when test="${not empty svc.staffName}">
+                                                    <span class="badge badge-teal"><c:out value="${svc.staffName}"/></span>
+                                                </c:when>
+                                                <c:otherwise>
+                                                    <form action="${pageContext.request.contextPath}/receptionist/checkin" method="post" style="display:inline-flex;gap:4px;">
+                                                        <input type="hidden" name="action" value="assignStaff">
+                                                        <input type="hidden" name="appointmentServiceID" value="${svc.appointmentServiceID}">
+                                                        <select name="staffID" style="font-size:11px;padding:2px 4px;" onchange="this.form.submit()">
+                                                            <option value="">— Gán —</option>
+                                                            <c:if test="${svc.categoryName == 'Chẩn đoán' || svc.categoryName == 'Phác đồ điều trị'}">
+                                                                <c:forEach items="${vets}" var="v">
+                                                                    <option value="${v.staffID}"><c:out value="${v.fullName}"/></option>
+                                                                </c:forEach>
+                                                            </c:if>
+                                                            <c:if test="${svc.categoryName == 'Grooming'}">
+                                                                <c:forEach items="${groomers}" var="g">
+                                                                    <option value="${g.staffID}"><c:out value="${g.fullName}"/></option>
+                                                                </c:forEach>
+                                                            </c:if>
+                                                        </select>
+                                                    </form>
+                                                </c:otherwise>
+                                            </c:choose>
+                                        </div>
+                                    </c:forEach>
                                 </td>
                                 <td>
                                     <form action="${pageContext.request.contextPath}/receptionist/checkin" method="post"
@@ -323,28 +348,36 @@
 
                     <%-- ═══ Chung cho cả 2 trường hợp: Dịch vụ + Bác sĩ ═══ --%>
                 <div class="form-group">
-                    <label class="form-label">Dịch vụ <span class="required">*</span></label>
-                    <select name="serviceID" class="form-control" required>
-                        <option value="">— Chọn dịch vụ —</option>
+                    <label class="form-label">Chọn dịch vụ &amp; nhân viên phụ trách <span class="required">*</span></label>
+                    <div style="border:1px solid var(--border);border-radius:8px;padding:10px;max-height:280px;overflow-y:auto;">
                         <c:forEach items="${services}" var="svc">
-                            <option value="${svc.serviceID}">
-                                <c:out value="${svc.name}"/>
-                                <c:if test="${svc.price > 0}"> — <fmt:formatNumber value="${svc.price}" type="number" groupingUsed="true"/>đ</c:if>
-                            </option>
+                            <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f0f0f0;">
+                                <input type="checkbox" name="serviceID[]" value="${svc.serviceID}"
+                                       id="wsvc_${svc.serviceID}"
+                                       onchange="document.getElementById('staffSel_${svc.serviceID}').disabled = !this.checked;">
+                                <label for="wsvc_${svc.serviceID}" style="flex:1;font-size:13.5px;">
+                                    <c:out value="${svc.name}"/>
+                                    <c:if test="${svc.price > 0}"> — <fmt:formatNumber value="${svc.price}" type="number" groupingUsed="true"/>đ</c:if>
+                                </label>
+                                <select name="staffFor_${svc.serviceID}" id="staffSel_${svc.serviceID}"
+                                        style="width:150px;font-size:12.5px;" disabled>
+                                    <option value="">— Chưa gán —</option>
+                                    <c:if test="${svc.categoryName == 'Chẩn đoán' || svc.categoryName == 'Phác đồ điều trị'}">
+                                        <c:forEach items="${vets}" var="v">
+                                            <option value="${v.staffID}"><c:out value="${v.fullName}"/></option>
+                                        </c:forEach>
+                                    </c:if>
+                                    <c:if test="${svc.categoryName == 'Grooming'}">
+                                        <c:forEach items="${groomers}" var="g">
+                                            <option value="${g.staffID}"><c:out value="${g.fullName}"/></option>
+                                        </c:forEach>
+                                    </c:if>
+                                </select>
+                            </div>
                         </c:forEach>
-                    </select>
+                    </div>
+                    <div class="form-hint">Có thể chọn nhiều dịch vụ thuộc các loại khác nhau trong cùng 1 lượt walk-in. Nhân viên phụ trách có thể để trống và gán sau.</div>
                 </div>
-
-                <div class="form-group">
-                    <label class="form-label">Phân công bác sĩ <span class="required">*</span></label>
-                    <select name="staffID" class="form-control" required>
-                        <option value="">— Chọn bác sĩ —</option>
-                        <c:forEach items="${staffs}" var="staff">
-                            <option value="${staff.staffID}"><c:out value="${staff.fullName}"/></option>
-                        </c:forEach>
-                    </select>
-                </div>
-
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline" onclick="closeWalkIn()">Hủy</button>
                     <button type="button" class="btn btn-outline" onclick="backToStep1()">← Đổi SĐT</button>

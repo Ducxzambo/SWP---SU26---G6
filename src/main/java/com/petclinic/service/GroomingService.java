@@ -3,6 +3,7 @@ package com.petclinic.service;
 import com.petclinic.dao.AppointmentDAO;
 import com.petclinic.dao.GroomingRecordDAO;
 import com.petclinic.model.Appointment;
+import com.petclinic.model.AppointmentServiceItem;
 import com.petclinic.model.GroomingRecord;
 
 import java.sql.SQLException;
@@ -23,7 +24,7 @@ public class GroomingService {
         if ("Arrived".equals(appt.getStatus())) return CheckInResult.ALREADY_CHECKED_IN;
         if (!"Confirmed".equals(appt.getStatus())) return CheckInResult.WRONG_STATUS;
 
-        if (groomerID != null) groomingRecordDAO.assignGroomer(appointmentID, groomerID);
+        if (groomerID != null) groomingRecordDAO.assignStaffToCategory(appointmentID, "Grooming", groomerID);
         appointmentDAO.updateStatus(appointmentID, "Arrived");
         return CheckInResult.SUCCESS;
     }
@@ -41,10 +42,17 @@ public class GroomingService {
         if (!"Arrived".equals(appt.getStatus())) return AcceptResult.WRONG_STATUS;
 
         // Already taken by another groomer?
-        if (appt.getAssignedStaffID() != null && appt.getAssignedStaffID() != groomerID)
+        AppointmentServiceItem groomingLine = appt.getServices().stream()
+                .filter(s -> "Grooming".equals(s.getCategoryName()))
+                .findFirst().orElse(null);
+
+        if (groomingLine == null) return AcceptResult.NOT_FOUND; // appointment không có dịch vụ grooming nào
+
+        Integer currentStaff = groomingLine.getAssignedStaffID();
+        if (currentStaff != null && currentStaff != groomerID)
             return AcceptResult.ALREADY_TAKEN;
 
-        groomingRecordDAO.assignGroomer(appointmentID, groomerID);
+        appointmentDAO.assignStaffToService(groomingLine.getAppointmentServiceID(), groomerID);
         return AcceptResult.SUCCESS;
     }
 
@@ -55,7 +63,10 @@ public class GroomingService {
         Appointment appt = appointmentDAO.findById(appointmentID);
         if (appt == null) return StartResult.NOT_FOUND;
         if (!"Arrived".equals(appt.getStatus())) return StartResult.WRONG_STATUS;
-        if (appt.getAssignedStaffID() == null || appt.getAssignedStaffID() != groomerID)
+        AppointmentServiceItem groomingLine = appt.getServices().stream()
+                .filter(s -> "Grooming".equals(s.getCategoryName()))
+                .findFirst().orElse(null);
+        if (groomingLine.getAssignedStaffID() == null || groomingLine.getAssignedStaffID() != groomerID)
             return StartResult.NOT_ASSIGNED;
 
         appointmentDAO.updateStatus(appointmentID, "InProgress");

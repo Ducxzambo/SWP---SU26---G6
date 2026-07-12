@@ -1,13 +1,14 @@
 package com.petclinic.dao;
 
 import com.petclinic.model.Appointment;
+import com.petclinic.model.AppointmentServiceItem;
 import com.petclinic.util.DBConnection;
 
 import java.sql.*;
+import java.sql.Date;
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 public class AppointmentDAO {
 
@@ -69,138 +70,173 @@ public class AppointmentDAO {
 
     // ── Check-in queries (Examination / BP-02) ────────────────────────────────
     public List<Appointment> findConfirmedByDate(LocalDate date, Integer shift) throws SQLException {
-        String extra = (shift != null) ? "AND a.SlotShift = ? " : "";
-        String sql = "SELECT a.AppointmentID,a.CustomerID,a.PetID,a.ServiceID,a.AssignedStaffID," +
-                "a.AppointmentDate,a.StartTime,a.EndTime,a.Status,a.SlotShift," +
-                "c.FullName AS CustomerName,p.Name AS PetName,s.Name AS ServiceName," +
-                "st.FullName AS StaffName " +
-                "FROM Appointments a " +
-                "JOIN Customers c ON c.CustomerID=a.CustomerID " +
-                "JOIN Pets p ON p.PetID=a.PetID " +
-                "JOIN Services s ON s.ServiceID=a.ServiceID " +
-                "LEFT JOIN Staff st  ON st.StaffID=a.AssignedStaffID " +
-                "WHERE a.AppointmentDate=? AND a.Status='Confirmed' " + extra +
-                "ORDER BY a.SlotShift,a.StartTime";
+        StringBuilder sql = new StringBuilder(
+                "SELECT DISTINCT a.AppointmentID,a.CustomerID,a.PetID," +
+                        "a.AppointmentDate,a.StartTime,a.EndTime,a.Status,a.SlotShift,a.Notes,a.CancelReason," +
+                        "c.FullName AS CustomerName,p.Name AS PetName " +
+                        "FROM Appointments a " +
+                        "JOIN Customers c ON c.CustomerID=a.CustomerID " +
+                        "JOIN Pets p ON p.PetID=a.PetID "
+        );
+
+        sql.append("WHERE a.AppointmentDate=? AND a.Status='Confirmed' ");
+        if (shift != null) sql.append("AND a.SlotShift=? ");
+        sql.append("ORDER BY a.SlotShift,a.StartTime");
+
         try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setDate(1, Date.valueOf(date));
-            if (shift != null) ps.setInt(2, shift);
-            return mapList(ps.executeQuery());
+             PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+            int idx = 1;
+            ps.setDate(idx++, Date.valueOf(date));
+            if (shift != null) ps.setInt(idx++, shift);
+            List<Appointment> list = mapList(ps.executeQuery());
+            attachServices(list);
+            return list;
         }
     }
 
     public List<Appointment> searchForCheckIn(String keyword, LocalDate date) throws SQLException {
-        String sql = "SELECT a.AppointmentID,a.CustomerID,a.PetID,a.ServiceID,a.AssignedStaffID," +
-                "a.AppointmentDate,a.StartTime,a.EndTime,a.Status,a.SlotShift," +
-                "c.FullName AS CustomerName,p.Name AS PetName,s.Name AS ServiceName," +
-                "st.FullName AS StaffName " +
-                "FROM Appointments a " +
-                "JOIN Customers c ON c.CustomerID=a.CustomerID " +
-                "JOIN Pets p ON p.PetID=a.PetID " +
-                "JOIN Services s ON s.ServiceID=a.ServiceID " +
-                "LEFT JOIN Staff st  ON st.StaffID=a.AssignedStaffID " +
-                "WHERE a.AppointmentDate=? AND a.Status='Confirmed' AND (c.FullName LIKE ? OR p.Name LIKE ?) " +
-                "ORDER BY a.SlotShift,a.StartTime";
+        StringBuilder sql = new StringBuilder(
+                "SELECT DISTINCT a.AppointmentID,a.CustomerID,a.PetID," +
+                        "a.AppointmentDate,a.StartTime,a.EndTime,a.Status,a.SlotShift,a.Notes,a.CancelReason," +
+                        "c.FullName AS CustomerName,p.Name AS PetName " +
+                        "FROM Appointments a " +
+                        "JOIN Customers c ON c.CustomerID=a.CustomerID " +
+                        "JOIN Pets p ON p.PetID=a.PetID "
+        );
+
+        sql.append("WHERE a.AppointmentDate=? AND a.Status='Confirmed' AND (c.FullName LIKE ? OR p.Name LIKE ?) ");
+        sql.append("ORDER BY a.SlotShift,a.StartTime");
+
         try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setDate(1, Date.valueOf(date));
+             PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+            int idx = 1;
+            ps.setDate(idx++, Date.valueOf(date));
             String like = "%" + keyword.trim() + "%";
-            ps.setString(2, like); ps.setString(3, like);
-            return mapList(ps.executeQuery());
+            ps.setString(idx++, like);
+            ps.setString(idx++, like);
+            List<Appointment> list = mapList(ps.executeQuery());
+            attachServices(list);
+            return list;
         }
     }
 
-    // ── Check-in queries (Grooming / BP-03) ────────────────────────────────────
-
-    /**
-     * Confirmed grooming appointments for a date, optionally filtered by shift.
-     * Only includes appointments whose Service belongs to the 'Grooming' category.
-     */
-    public List<Appointment> findGroomingConfirmedByDate(LocalDate date, Integer shift) throws SQLException {
-        String extra = (shift != null) ? "AND a.SlotShift = ? " : "";
-        String sql = "SELECT a.AppointmentID,a.CustomerID,a.PetID,a.ServiceID,a.AssignedStaffID," +
-                "a.AppointmentDate,a.StartTime,a.EndTime,a.Status,a.SlotShift," +
-                "c.FullName AS CustomerName,p.Name AS PetName,s.Name AS ServiceName," +
-                "st.FullName AS StaffName " +
-                "FROM Appointments a " +
-                "JOIN Customers c ON c.CustomerID=a.CustomerID " +
-                "JOIN Pets p ON p.PetID=a.PetID " +
-                "JOIN Services s ON s.ServiceID=a.ServiceID " +
-                "JOIN ServiceCategories sc ON sc.CategoryID=s.CategoryID " +
-                "LEFT JOIN Staff st  ON st.StaffID=a.AssignedStaffID " +
-                "WHERE a.AppointmentDate=? AND a.Status='Confirmed' AND sc.Name='Grooming' " + extra +
-                "ORDER BY a.SlotShift,a.StartTime";
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setDate(1, Date.valueOf(date));
-            if (shift != null) ps.setInt(2, shift);
-            return mapList(ps.executeQuery());
-        }
-    }
 
     // ── Walk-in ───────────────────────────────────────────────────────────────
-    public int createWalkIn(int customerID, int petID, int serviceID, int vetID) throws SQLException {
+    public int createWalkIn(int customerID, int petID, List<Integer> serviceIDs,
+                            List<java.math.BigDecimal> unitPrices,
+                            List<Integer> staffIDs) throws SQLException {
         LocalDate today = LocalDate.now();
         LocalTime now   = LocalTime.now();
         int shift = shiftOf(now); if (shift == -1) shift = 1;
         LocalTime end = now.plusMinutes(30);
-        String sql = "INSERT INTO Appointments(CustomerID,PetID,ServiceID,AssignedStaffID,AppointmentDate,StartTime,EndTime,SlotShift,Status) VALUES(?,?,?,?,?,?,?,?,'Arrived')";
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            ps.setInt(1,customerID); ps.setInt(2,petID); ps.setInt(3,serviceID); ps.setInt(4,vetID);
-            ps.setDate(5,Date.valueOf(today)); ps.setTime(6,Time.valueOf(now)); ps.setTime(7,Time.valueOf(end));
-            ps.setInt(8,shift);
-            ps.executeUpdate();
-            try (ResultSet keys = ps.getGeneratedKeys()) { if (keys.next()) return keys.getInt(1); }
+
+        Connection conn = DBConnection.getConnection();
+        try {
+            conn.setAutoCommit(false);
+
+            int appointmentID;
+            String sql = "INSERT INTO Appointments(CustomerID,PetID,AppointmentDate,StartTime,EndTime,SlotShift,Status) " +
+                    "VALUES(?,?,?,?,?,?,'Arrived')";
+            try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+                ps.setInt(1, customerID); ps.setInt(2, petID);
+                ps.setDate(3, Date.valueOf(today)); ps.setTime(4, Time.valueOf(now)); ps.setTime(5, Time.valueOf(end));
+                ps.setInt(6, shift);
+                ps.executeUpdate();
+                try (ResultSet keys = ps.getGeneratedKeys()) {
+                    if (!keys.next()) throw new SQLException("Failed to create walk-in appointment.");
+                    appointmentID = keys.getInt(1);
+                }
+            }
+
+            String svcSql = "INSERT INTO AppointmentServices(AppointmentID, ServiceID, UnitPrice, AssignedStaffID) VALUES (?,?,?,?)";
+            try (PreparedStatement ps = conn.prepareStatement(svcSql)) {
+                for (int i = 0; i < serviceIDs.size(); i++) {
+                    ps.setInt(1, appointmentID);
+                    ps.setInt(2, serviceIDs.get(i));
+                    ps.setBigDecimal(3, unitPrices.get(i));
+                    Integer sid = staffIDs.get(i);
+                    if (sid != null) ps.setInt(4, sid); else ps.setNull(4, Types.INTEGER);
+                    ps.addBatch();
+                }
+                ps.executeBatch();
+            }
+
+            conn.commit();
+            return appointmentID;
+
+        } catch (SQLException e) {
+            conn.rollback();
+            throw e;
+        } finally {
+            conn.setAutoCommit(true);
+            conn.close();
         }
-        throw new SQLException("Failed to create walk-in.");
+    }
+
+    /** Thêm 1 dịch vụ vào appointment đã tồn tại, kèm staff phụ trách tùy chọn. */
+    public void addServiceToAppointment(int appointmentID, int serviceID,
+                                        java.math.BigDecimal unitPrice, Integer staffID) throws SQLException {
+        String sql = "INSERT INTO AppointmentServices(AppointmentID, ServiceID, UnitPrice, AssignedStaffID) VALUES (?,?,?,?)";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, appointmentID); ps.setInt(2, serviceID); ps.setBigDecimal(3, unitPrice);
+            if (staffID != null) ps.setInt(4, staffID); else ps.setNull(4, Types.INTEGER);
+            ps.executeUpdate();
+        }
+    }
+
+    // ── Gán nhân viên phụ trách theo TỪNG DÒNG dịch vụ ──────────────────────────
+
+    /** Gán 1 nhân viên cho 1 dòng dịch vụ cụ thể (AppointmentServiceID). */
+    public void assignStaffToService(int appointmentServiceID, int staffID) throws SQLException {
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                     "UPDATE AppointmentServices SET AssignedStaffID=? WHERE AppointmentServiceID=?")) {
+            ps.setInt(1, staffID); ps.setInt(2, appointmentServiceID); ps.executeUpdate();
+        }
+    }
+
+    /** Gán 1 nhân viên cho MỌI dịch vụ thuộc 1 category trong 1 appointment (gán hàng loạt lúc check-in). */
+    public void assignStaffToCategory(int appointmentID, String categoryName, int staffID) throws SQLException {
+        String sql = "UPDATE aps SET aps.AssignedStaffID = ? " +
+                "FROM AppointmentServices aps " +
+                "JOIN Services s ON s.ServiceID = aps.ServiceID " +
+                "JOIN ServiceCategories sc ON sc.CategoryID = s.CategoryID " +
+                "WHERE aps.AppointmentID = ? AND sc.Name = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, staffID); ps.setInt(2, appointmentID); ps.setString(3, categoryName);
+            ps.executeUpdate();
+        }
     }
 
     // ── Vet queue (BP-02) ───────────────────────────────────────────────────────
-    public List<Appointment> findVetQueue(int vetID, LocalDate date) throws SQLException {
-        String sql = "SELECT a.AppointmentID,a.CustomerID,a.PetID,a.ServiceID,a.AssignedStaffID," +
-                "a.AppointmentDate,a.StartTime,a.EndTime,a.Status,a.SlotShift," +
-                "c.FullName AS CustomerName,p.Name AS PetName,s.Name AS ServiceName," +
-                "st.FullName AS StaffName " +
-                "FROM Appointments a " +
-                "JOIN Customers c ON c.CustomerID=a.CustomerID " +
-                "JOIN Pets p ON p.PetID=a.PetID " +
-                "JOIN Services s ON s.ServiceID=a.ServiceID " +
-                "LEFT JOIN Staff st  ON st.StaffID=a.AssignedStaffID " +
-                "WHERE a.AppointmentDate=? AND a.AssignedStaffID=? AND a.Status IN('Arrived','InProgress') " +
-                "ORDER BY CASE a.Status WHEN 'InProgress' THEN 0 ELSE 1 END,a.SlotShift,a.StartTime";
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setDate(1, Date.valueOf(date)); ps.setInt(2, vetID);
-            return mapList(ps.executeQuery());
-        }
-    }
 
-    public List<Appointment> findVetCompletedToday(int vetID, LocalDate date) throws SQLException {
-        String sql = "SELECT a.AppointmentID,a.CustomerID,a.PetID,a.ServiceID,a.AssignedStaffID," +
-                "a.AppointmentDate,a.StartTime,a.EndTime,a.Status,a.SlotShift," +
-                "c.FullName AS CustomerName,p.Name AS PetName,s.Name AS ServiceName," +
-                "st.FullName AS StaffName, mr.RecordID AS RecordID " +
-                "FROM Appointments a " +
-                "JOIN Customers c ON c.CustomerID=a.CustomerID " +
-                "JOIN Pets p ON p.PetID=a.PetID " +
-                "JOIN Services s ON s.ServiceID=a.ServiceID " +
-                "LEFT JOIN Staff st  ON st.StaffID=a.AssignedStaffID " +
-                "LEFT JOIN MedicalRecords mr ON mr.AppointmentID = a.AppointmentID " +
-                "WHERE a.AppointmentDate=? AND a.AssignedStaffID=? AND a.Status='Done' " +
-                "ORDER BY a.SlotShift, a.StartTime";
+
+    /**
+     * Arrived/InProgress appointments có ít nhất 1 dòng service ĐANG GÁN cho staffID
+     * và thuộc categoryFilter. Dùng cho hàng chờ của bác sĩ/groomer.
+     */
+    public List<Appointment> findStaffQueue(int staffID, LocalDate date) throws SQLException {
+        String sql =
+                "SELECT DISTINCT a.AppointmentID,a.CustomerID,a.PetID," +
+                        "a.AppointmentDate,a.StartTime,a.EndTime,a.Status,a.SlotShift,a.Notes,a.CancelReason," +
+                        "c.FullName AS CustomerName,p.Name AS PetName " +
+                        "FROM Appointments a " +
+                        "JOIN Customers c ON c.CustomerID=a.CustomerID " +
+                        "JOIN Pets p ON p.PetID=a.PetID " +
+                        "JOIN AppointmentServices aps ON aps.AppointmentID=a.AppointmentID " +
+                        "JOIN Services s ON s.ServiceID=aps.ServiceID " +
+                        "JOIN ServiceCategories sc ON sc.CategoryID=s.CategoryID " +
+                        "WHERE a.AppointmentDate=? AND aps.AssignedStaffID=? AND a.Status IN('Arrived','InProgress')  " +
+                        "ORDER BY CASE a.Status WHEN 'InProgress' THEN 0 ELSE 1 END, a.SlotShift, a.StartTime";
+
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setDate(1, Date.valueOf(date)); ps.setInt(2, vetID);
-            List<Appointment> list = new ArrayList<>();
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    Appointment a = mapRow(rs);
-                    int recId = rs.getInt("RecordID");
-                    a.setRecordID(rs.wasNull() ? null : recId);
-                    list.add(a);
-                }
-            }
+            ps.setDate(1, Date.valueOf(date));
+            ps.setInt(2, staffID);
+            List<Appointment> list = mapList(ps.executeQuery());
+            attachServices(list);
             return list;
         }
     }
@@ -262,22 +298,86 @@ public class AppointmentDAO {
         }
     }
 
+    /**
+     * Arrived appointments có ÍT NHẤT 1 dòng service thuộc categoryFilter CHƯA gán staff
+     * (AssignedStaffID IS NULL) — dùng cho self-assign (groomer tự nhận ca).
+     */
+    public List<Appointment> findUnassignedArrived(LocalDate date, String categoryFilter) throws SQLException {
+        String sql =
+                "SELECT DISTINCT a.AppointmentID,a.CustomerID,a.PetID," +
+                        "a.AppointmentDate,a.StartTime,a.EndTime,a.Status,a.SlotShift,a.Notes,a.CancelReason," +
+                        "c.FullName AS CustomerName,p.Name AS PetName " +
+                        "FROM Appointments a " +
+                        "JOIN Customers c ON c.CustomerID=a.CustomerID " +
+                        "JOIN Pets p ON p.PetID=a.PetID " +
+                        "JOIN AppointmentServices aps ON aps.AppointmentID=a.AppointmentID " +
+                        "JOIN Services s ON s.ServiceID=aps.ServiceID " +
+                        "JOIN ServiceCategories sc ON sc.CategoryID=s.CategoryID " +
+                        "WHERE a.AppointmentDate=? AND aps.AssignedStaffID IS NULL AND a.Status='Arrived' AND sc.Name=? " +
+                        "ORDER BY a.SlotShift, a.StartTime";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setDate(1, Date.valueOf(date));
+            ps.setString(2, categoryFilter);
+            List<Appointment> list = mapList(ps.executeQuery());
+            attachServices(list);
+            return list;
+        }
+    }
+
+    /** Các ca đã hoàn thành (Done) có dịch vụ thuộc categoryFilter, gán cho staffID, trong 1 ngày — kèm RecordID. */
+    public List<Appointment> findStaffCompletedToday(int staffID, LocalDate date
+                                                     ) throws SQLException {
+        String sql =
+                "SELECT DISTINCT a.AppointmentID,a.CustomerID,a.PetID," +
+                        "a.AppointmentDate,a.StartTime,a.EndTime,a.Status,a.SlotShift,a.Notes,a.CancelReason," +
+                        "c.FullName AS CustomerName,p.Name AS PetName, rec.RecordID AS RecordID " +
+                        "FROM Appointments a " +
+                        "JOIN Customers c ON c.CustomerID=a.CustomerID " +
+                        "JOIN Pets p ON p.PetID=a.PetID " +
+                        "JOIN AppointmentServices aps ON aps.AppointmentID=a.AppointmentID " +
+                        "JOIN Services s ON s.ServiceID=aps.ServiceID " +
+                        "JOIN ServiceCategories sc ON sc.CategoryID=s.CategoryID " +
+                        "LEFT JOIN rec ON rec.AppointmentID = a.AppointmentID " +
+                        "WHERE a.AppointmentDate=? AND aps.AssignedStaffID=? AND a.Status='Done' " +
+                        "ORDER BY a.SlotShift, a.StartTime";
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setDate(1, Date.valueOf(date));
+            ps.setInt(2, staffID);
+            List<Appointment> list = new ArrayList<>();
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Appointment a = mapRow(rs);
+                    int recId = rs.getInt("RecordID");
+                    a.setRecordID(rs.wasNull() ? null : recId);
+                    list.add(a);
+                }
+            }
+            attachServices(list);
+            return list;
+        }
+    }
+
     // ── Queries ───────────────────────────────────────────────────────────────
 
-    public Appointment findById(int appointmentId) throws SQLException {
-        String sql = "SELECT a.*, p.Name AS PetName, s.Name AS ServiceName, "
-                + "sc.Name AS CategoryName, st.FullName AS staffName "
-                + "FROM Appointments a "
-                + "JOIN Pets p  ON a.PetID     = p.PetID "
-                + "JOIN Services s ON a.ServiceID = s.ServiceID "
-                + "JOIN ServiceCategories sc ON s.CategoryID = sc.CategoryID "
-                + "LEFT JOIN Staff st ON a.AssignedStaffID = st.StaffID "
-                + "WHERE a.AppointmentID = ?";
-        try (Connection c = DBConnection.getConnection();
-             PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setInt(1, appointmentId);
+    public Appointment findById(int appointmentID) throws SQLException {
+        String sql = "SELECT a.AppointmentID,a.CustomerID,a.PetID," +
+                "a.AppointmentDate,a.StartTime,a.EndTime,a.Status,a.SlotShift,a.Notes,a.CancelReason," +
+                "c.FullName AS CustomerName,p.Name AS PetName " +
+                "FROM Appointments a " +
+                "JOIN Customers c ON c.CustomerID=a.CustomerID " +
+                "JOIN Pets p ON p.PetID=a.PetID " +
+                "WHERE a.AppointmentID=?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, appointmentID);
             try (ResultSet rs = ps.executeQuery()) {
-                return rs.next() ? mapRow(rs) : null;
+                if (!rs.next()) return null;
+                Appointment a = mapRow(rs);
+                a.setServices(loadServicesFor(conn, appointmentID));
+                return a;
             }
         }
     }
@@ -490,6 +590,26 @@ public class AppointmentDAO {
         }
     }
 
+
+
+    private List<AppointmentServiceItem> loadServicesFor(Connection conn, int appointmentID) throws SQLException {
+        String sql = "SELECT aps.AppointmentServiceID, aps.AppointmentID, aps.ServiceID, aps.UnitPrice, aps.AssignedStaffID, " +
+                "s.Name AS ServiceName, sc.Name AS CategoryName, st.FullName AS StaffName " +
+                "FROM AppointmentServices aps " +
+                "JOIN Services s ON s.ServiceID = aps.ServiceID " +
+                "JOIN ServiceCategories sc ON sc.CategoryID = s.CategoryID " +
+                "LEFT JOIN Staff st ON st.StaffID = aps.AssignedStaffID " +
+                "WHERE aps.AppointmentID = ? ORDER BY aps.AppointmentServiceID";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, appointmentID);
+            List<AppointmentServiceItem> list = new ArrayList<>();
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) list.add(mapServiceItem(rs));
+            }
+            return list;
+        }
+    }
+
     // ── Mapping ───────────────────────────────────────────────────────────────
 
     private Appointment mapRow(ResultSet rs) throws SQLException {
@@ -497,18 +617,15 @@ public class AppointmentDAO {
         a.setAppointmentID(rs.getInt("AppointmentID"));
         a.setCustomerID(rs.getInt("CustomerID"));
         a.setPetID(rs.getInt("PetID"));
-        a.setServiceID(rs.getInt("ServiceID"));
-        int vetID = rs.getInt("AssignedStaffID");
-        a.setAssignedStaffID(rs.wasNull() ? null : vetID);
         Date d = rs.getDate("AppointmentDate"); if (d != null) a.setAppointmentDate(d.toLocalDate());
         Time st = rs.getTime("StartTime");       if (st != null) a.setStartTime(st.toLocalTime());
         Time et = rs.getTime("EndTime");         if (et != null) a.setEndTime(et.toLocalTime());
         a.setStatus(rs.getString("Status"));
         try { int sh = rs.getInt("SlotShift"); if (!rs.wasNull()) a.setSlotShift(sh); } catch (SQLException ignored) {}
+        try { a.setNotes(rs.getString("Notes")); } catch (SQLException ignored) {}
+        try { a.setCancelReason(rs.getString("CancelReason")); } catch (SQLException ignored) {}
         try { a.setCustomerName(rs.getString("CustomerName")); } catch (SQLException ignored) {}
         try { a.setPetName(rs.getString("PetName"));           } catch (SQLException ignored) {}
-        try { a.setServiceName(rs.getString("ServiceName"));   } catch (SQLException ignored) {}
-        try { a.setStaffName(rs.getString("StaffName"));           } catch (SQLException ignored) {}
         return a;
     }
 
@@ -518,7 +635,7 @@ public class AppointmentDAO {
         a.setCustomerID(rs.getInt("CustomerID"));
         a.setPetID(rs.getInt("PetID"));
         a.setServiceID(rs.getInt("ServiceID"));
-        int vid = rs.getInt("AssignedStaffID"); if (!rs.wasNull()) a.setAssignedStaffID(vid);
+        int vid = rs.getInt("AssignedStaffID");
         a.setAppointmentDate(rs.getDate("AppointmentDate").toLocalDate());
         a.setStartTime(rs.getTime("StartTime").toLocalTime());
         a.setEndTime(rs.getTime("EndTime").toLocalTime());
@@ -528,4 +645,50 @@ public class AppointmentDAO {
         int shift = rs.getInt("SlotShift"); if (!rs.wasNull()) a.setSlotShift(shift);
         return a;
     }
+
+    private void attachServices(List<Appointment> appointments) throws SQLException {
+        if (appointments.isEmpty()) return;
+
+        Map<Integer, Appointment> byId = new HashMap<>();
+        for (Appointment a : appointments) byId.put(a.getAppointmentID(), a);
+
+        String placeholders = String.join(",", Collections.nCopies(appointments.size(), "?"));
+        String sql = "SELECT aps.AppointmentServiceID, aps.AppointmentID, aps.ServiceID, aps.UnitPrice, aps.AssignedStaffID, " +
+                "s.Name AS ServiceName, sc.Name AS CategoryName, st.FullName AS StaffName " +
+                "FROM AppointmentServices aps " +
+                "JOIN Services s ON s.ServiceID = aps.ServiceID " +
+                "JOIN ServiceCategories sc ON sc.CategoryID = s.CategoryID " +
+                "LEFT JOIN Staff st ON st.StaffID = aps.AssignedStaffID " +
+                "WHERE aps.AppointmentID IN (" + placeholders + ") " +
+                "ORDER BY aps.AppointmentID, aps.AppointmentServiceID";
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            int idx = 1;
+            for (Appointment a : appointments) ps.setInt(idx++, a.getAppointmentID());
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    int apptId = rs.getInt("AppointmentID");
+                    Appointment a = byId.get(apptId);
+                    if (a != null) a.getServices().add(mapServiceItem(rs));
+                }
+            }
+        }
+    }
+
+    private AppointmentServiceItem mapServiceItem(ResultSet rs) throws SQLException {
+        AppointmentServiceItem item = new AppointmentServiceItem();
+        item.setAppointmentServiceID(rs.getInt("AppointmentServiceID"));
+        item.setAppointmentID(rs.getInt("AppointmentID"));
+        item.setServiceID(rs.getInt("ServiceID"));
+        item.setUnitPrice(rs.getBigDecimal("UnitPrice"));
+        int staffID = rs.getInt("AssignedStaffID");
+        item.setAssignedStaffID(rs.wasNull() ? null : staffID);
+        item.setServiceName(rs.getString("ServiceName"));
+        item.setCategoryName(rs.getString("CategoryName"));
+        item.setStaffName(rs.getString("StaffName"));
+        return item;
+    }
+
+
 }

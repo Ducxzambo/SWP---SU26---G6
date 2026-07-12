@@ -4,6 +4,7 @@ import com.petclinic.dao.AppointmentDAO;
 import com.petclinic.dao.ServiceDAO;
 import com.petclinic.dao.StaffDAO;
 import com.petclinic.model.Appointment;
+import com.petclinic.model.AppointmentServiceItem;
 import com.petclinic.model.Service;
 import com.petclinic.model.Staff;
 
@@ -34,8 +35,12 @@ public class AssignmentService {
     public void autoAssign(int appointmentId) {
         try {
             Appointment appt = appointmentDAO.findById(appointmentId);
+            AppointmentServiceItem groomingLine = appt.getServices().stream()
+                    .filter(s -> "Grooming".equals(s.getCategoryName()))
+                    .findFirst().orElse(null);
+
             if (appt == null) return;
-            if (appt.getAssignedStaffID() != null) return; // đã có người gán rồi thì bỏ qua
+            if (groomingLine.getAssignedStaffID() != null) return; // đã có người gán rồi thì bỏ qua
 
             Service svc = serviceDAO.findById(appt.getServiceID());
             if (svc == null) return;
