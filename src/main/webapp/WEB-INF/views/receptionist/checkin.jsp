@@ -70,7 +70,7 @@
             <a href="${pageContext.request.contextPath}/receptionist/checkin" class="nav-item active">Check-in</a>
         </nav>
         <div class="sidebar-user">
-            👤 ${sessionScope.staff.fullName}
+             ${sessionScope.staff.fullName}
             <a href="${pageContext.request.contextPath}/auth/logout" class="logout-link">Đăng xuất</a>
         </div>
     </aside>
@@ -138,7 +138,14 @@
         <div class="shift-tabs">
             <a href="${pageContext.request.contextPath}/receptionist/checkin?date=${filterDate}<c:if test='${not empty keyword}'>&q=${keyword}</c:if>"
                class="shift-tab ${empty shiftFilter ? 'active' : ''}">Tất cả ca</a>
-
+            <a href="${pageContext.request.contextPath}/receptionist/checkin?date=${filterDate}&shift=1<c:if test='${not empty keyword}'>&q=${keyword}</c:if>"
+               class="shift-tab ${shiftFilter == '1' ? 'active' : ''}">Ca 1 <span class="count">08:00–10:00</span></a>
+            <a href="${pageContext.request.contextPath}/receptionist/checkin?date=${filterDate}&shift=2<c:if test='${not empty keyword}'>&q=${keyword}</c:if>"
+               class="shift-tab ${shiftFilter == '2' ? 'active' : ''}">Ca 2 <span class="count">10:00–12:00</span></a>
+            <a href="${pageContext.request.contextPath}/receptionist/checkin?date=${filterDate}&shift=3<c:if test='${not empty keyword}'>&q=${keyword}</c:if>"
+               class="shift-tab ${shiftFilter == '3' ? 'active' : ''}">Ca 3 <span class="count">13:30–15:30</span></a>
+            <a href="${pageContext.request.contextPath}/receptionist/checkin?date=${filterDate}&shift=4<c:if test='${not empty keyword}'>&q=${keyword}</c:if>"
+               class="shift-tab ${shiftFilter == '4' ? 'active' : ''}">Ca 4 <span class="count">15:30–17:30</span></a>
         </div>
 
         <%-- Slot status bar --%>
@@ -173,7 +180,6 @@
                                 <td>${appt.startTime}</td>
                                 <td><strong><c:out value="${appt.customerName}"/></strong></td>
                                 <td><c:out value="${appt.petName}"/></td>
-                                <td><c:out value="${appt.serviceName}"/></td>
                                 <td>
                                     <c:forEach items="${appt.services}" var="svc">
                                         <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;font-size:12.5px;">

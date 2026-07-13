@@ -22,8 +22,8 @@
     <aside class="sidebar">
         <div class="sidebar-logo">🐾 PetClinic</div>
         <nav>
-            <a href="${pageContext.request.contextPath}/receptionist/checkin" class="nav-item">✅ Check-in Khám</a>
-            <a href="${pageContext.request.contextPath}/receptionist/grooming-checkin" class="nav-item active">✂️ Check-in Grooming</a>
+            <a href="${pageContext.request.contextPath}/receptionist/checkin" class="nav-item">Check-in Khám</a>
+            <a href="${pageContext.request.contextPath}/receptionist/grooming-checkin" class="nav-item active">Check-in Grooming</a>
         </nav>
         <div class="sidebar-user">
             👤 ${sessionScope.staff.fullName}
@@ -33,7 +33,7 @@
     <main class="main-content">
 
         <div class="page-header">
-            <h1>✂️ Check-in Grooming</h1>
+            <h1>Check-in Grooming</h1>
             <p class="page-sub">Xác nhận thú cưng đến làm đẹp</p>
         </div>
 
@@ -53,7 +53,6 @@
             <div class="alert alert-error"><span class="alert-icon">✕</span> ${error}</div>
         </c:if>
 
-        <%-- Toolbar --%>
         <div class="toolbar">
             <form method="get" action="${pageContext.request.contextPath}/receptionist/grooming-checkin"
                   style="display:flex;gap:8px;align-items:flex-end;">
@@ -66,7 +65,6 @@
             </form>
         </div>
 
-        <%-- Shift tabs --%>
         <div class="shift-tabs">
             <a href="${pageContext.request.contextPath}/receptionist/grooming-checkin?date=${filterDate}"
                class="shift-tab ${empty shiftFilter ? 'active' : ''}">Tất cả ca</a>
@@ -83,14 +81,14 @@
         <div class="card">
             <c:choose>
                 <c:when test="${empty appointments}">
-                    <div class="empty-state"><div class="empty-icon">✂️</div>
+                    <div class="empty-state"><div class="empty-icon"></div>
                         <p>Không có lịch grooming nào cần check-in.</p></div>
                 </c:when>
                 <c:otherwise>
                     <table class="data-table">
                         <thead>
                         <tr><th>#</th><th>Ca</th><th>Giờ hẹn</th><th>Tên chủ</th>
-                            <th>Thú cưng</th><th>Dịch vụ</th><th>Groomer</th><th>Thao tác</th></tr>
+                            <th>Thú cưng</th><th>Dịch vụ</th><th>Groomer hiện tại</th><th>Thao tác</th></tr>
                         </thead>
                         <tbody>
                         <c:forEach items="${appointments}" var="appt" varStatus="loop">
@@ -100,10 +98,11 @@
                                 <td>${appt.startTime}</td>
                                 <td><strong><c:out value="${appt.customerName}"/></strong></td>
                                 <td><c:out value="${appt.petName}"/></td>
-                                <td><c:out value="${appt.serviceName}"/></td>
+                                <td><c:out value="${appt.serviceNamesJoined}"/></td>
                                 <td>
+                                    <c:set var="groomNames" value="${appt.getStaffNamesByCategory('Grooming')}"/>
                                     <c:choose>
-                                        <c:when test="${not empty appt.staffName}"><c:out value="${appt.staffName}"/></c:when>
+                                        <c:when test="${not empty groomNames}"><c:out value="${groomNames}"/></c:when>
                                         <c:otherwise><span class="badge badge-warning">Chưa phân công</span></c:otherwise>
                                     </c:choose>
                                 </td>
@@ -111,17 +110,15 @@
                                     <form action="${pageContext.request.contextPath}/receptionist/grooming-checkin"
                                           method="post" style="display:flex;gap:6px;align-items:center;">
                                         <input type="hidden" name="appointmentID" value="${appt.appointmentID}">
-                                        <select name="staffID" class="form-control" style="width:160px;padding:5px 8px;font-size:13px;">
+                                        <select name="groomerID" class="form-control" style="width:160px;padding:5px 8px;font-size:13px;">
                                             <option value="">— Groomer (tùy chọn) —</option>
-                                            <c:forEach items="${staffs}" var="g">
-                                                <option value="${g.staffID}" ${appt.assignedStaffID == g.staffID ? 'selected' : ''}>
-                                                    <c:out value="${g.fullName}"/>
-                                                </option>
+                                            <c:forEach items="${groomers}" var="g">
+                                                <option value="${g.staffID}"><c:out value="${g.fullName}"/></option>
                                             </c:forEach>
                                         </select>
                                         <button type="submit" class="btn btn-primary btn-sm"
                                                 onclick="return confirm('Check-in grooming cho ${appt.petName}?')">
-                                            ✅ Check-in
+                                            Check-in
                                         </button>
                                     </form>
                                 </td>

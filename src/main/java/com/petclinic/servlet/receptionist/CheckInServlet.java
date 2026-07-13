@@ -235,7 +235,7 @@ public class CheckInServlet extends HttpServlet {
 
             if (apptID == -1) {
                 session.setAttribute("flashError",
-                        "Ca hiện tại đã đủ 10 thú cưng, không thể nhận thêm khách vãng lai.");
+                        "Ca hiện tại đã đủ 10 thú cưng, không thể nhận thêm khách.");
             } else {
                 session.setAttribute("flashSuccess",
                         "Walk-in thành công! Lịch khám #" + apptID + " đã tạo.");

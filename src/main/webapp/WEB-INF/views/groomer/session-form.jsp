@@ -45,7 +45,7 @@
 <div class="layout">
   <aside class="sidebar">
     <div class="sidebar-logo">🐾 PetClinic</div>
-    <nav><a href="${pageContext.request.contextPath}/groomer/session" class="nav-item active"> Hàng chờ</a></nav>
+    <nav><a href="${pageContext.request.contextPath}/groomer/session" class="nav-item active">✂️ Hàng chờ</a></nav>
     <div class="sidebar-user">
       👤 ${sessionScope.staff.fullName}
       <a href="${pageContext.request.contextPath}/auth/logout" class="logout-link">Đăng xuất</a>
@@ -67,7 +67,7 @@
       </div>
 
       <div class="card" style="margin-bottom:16px;">
-        <div class="card-header"><span class="card-title"> Kết quả grooming</span></div>
+        <div class="card-header"><span class="card-title">🛁 Kết quả grooming</span></div>
         <div class="card-body">
           <div class="record-field"><span class="record-field-label">Tình trạng lông</span>
             <span class="record-field-value">${not empty record.coatCondition ? record.coatCondition : '—'}</span></div>
@@ -82,7 +82,7 @@
 
       <c:if test="${record.flagForVet}">
         <div class="alert alert-warning">
-          <span class="alert-icon"></span>
+          <span class="alert-icon">🚩</span>
           <span><strong>Đã gắn cờ cho bác sĩ:</strong> <c:out value="${record.flagReason}"/></span>
         </div>
       </c:if>
@@ -93,7 +93,7 @@
     <c:if test="${not empty appointment}">
       <div class="page-header">
         <h1>✂️ Grooming Session</h1>
-        <p class="page-sub"><c:out value="${appointment.petName}"/> — <c:out value="${appointment.customerName}"/> — <c:out value="${appointment.serviceName}"/></p>
+        <p class="page-sub"><c:out value="${appointment.petName}"/> — <c:out value="${appointment.customerName}"/> — <c:out value="${appointment.serviceNamesJoined}"/></p>
       </div>
       <a href="${pageContext.request.contextPath}/groomer/session" class="btn btn-outline btn-sm" style="margin-bottom:18px;">← Quay lại hàng chờ</a>
 
@@ -102,16 +102,15 @@
       <div class="pet-strip">
         <div class="pet-strip-item"><span class="lbl">Thú cưng</span><span class="val">🐾 <c:out value="${appointment.petName}"/></span></div>
         <div class="pet-strip-item"><span class="lbl">Chủ nhân</span><span class="val"><c:out value="${appointment.customerName}"/></span></div>
-        <div class="pet-strip-item"><span class="lbl">Dịch vụ</span><span class="val"><c:out value="${appointment.serviceName}"/></span></div>
+        <div class="pet-strip-item"><span class="lbl">Dịch vụ</span><span class="val"><c:out value="${appointment.serviceNamesJoined}"/></span></div>
         <div class="pet-strip-item"><span class="lbl">Ca</span><span class="val">Ca ${appointment.slotShift}</span></div>
         <div class="pet-strip-item"><span class="lbl">Trạng thái</span><span class="val"><span class="badge badge-info">✂️ Đang grooming</span></span></div>
       </div>
 
-      <%-- Spa history (read-only, NO medical record access) --%>
       <c:if test="${not empty history}">
         <div class="card" style="margin-bottom:16px;">
           <div class="card-header">
-            <span class="card-title">Lịch sử Spa (${history.size()} lần)</span>
+            <span class="card-title">📂 Lịch sử Spa (${history.size()} lần)</span>
             <button type="button" class="btn btn-outline btn-sm" onclick="toggleHist()">Hiện / Ẩn</button>
           </div>
           <div id="histSection" style="display:none;padding:14px 20px;">
@@ -138,9 +137,8 @@
       <form action="${pageContext.request.contextPath}/groomer/session" method="post" id="groomForm" novalidate>
         <input type="hidden" name="appointmentID" value="${appointment.appointmentID}">
 
-          <%-- Coat condition --%>
         <div class="card" style="margin-bottom:16px;">
-          <div class="card-header"><span class="card-title">Tình trạng lông</span></div>
+          <div class="card-header"><span class="card-title">🐾 Tình trạng lông</span></div>
           <div class="card-body">
             <div class="opt-grid" id="coatGrid">
               <label class="opt-pill"><input type="radio" name="coatCondition" value="Good" onchange="selectPill(this,'coatGrid')"> Tốt</label>
@@ -151,9 +149,8 @@
           </div>
         </div>
 
-          <%-- Behavior --%>
         <div class="card" style="margin-bottom:16px;">
-          <div class="card-header"><span class="card-title">Hành vi thú cưng</span></div>
+          <div class="card-header"><span class="card-title">😺 Hành vi thú cưng</span></div>
           <div class="card-body">
             <div class="opt-grid" id="behaviorGrid">
               <label class="opt-pill"><input type="radio" name="behavior" value="Calm" onchange="selectPill(this,'behaviorGrid')"> Bình tĩnh</label>
@@ -164,27 +161,24 @@
           </div>
         </div>
 
-          <%-- Products used --%>
         <div class="card" style="margin-bottom:16px;">
-          <div class="card-header"><span class="card-title">Sản phẩm sử dụng</span></div>
+          <div class="card-header"><span class="card-title">🧴 Sản phẩm sử dụng</span></div>
           <div class="card-body">
             <input type="text" name="productsUsed" class="form-control no-icon"
                    placeholder="VD: Sữa tắm Hartz, dầu xả dưỡng lông, phấn thơm...">
-            <div class="form-hint">Liệt kê sản phẩm đã dùng.</div>
+            <div class="form-hint">Liệt kê sản phẩm đã dùng. Groomer không có quyền truy cập kho thuốc y tế.</div>
           </div>
         </div>
 
-          <%-- Notes --%>
         <div class="card" style="margin-bottom:16px;">
-          <div class="card-header"><span class="card-title">Ghi chú thêm</span></div>
+          <div class="card-header"><span class="card-title">📝 Ghi chú thêm</span></div>
           <div class="card-body">
             <textarea name="notes" class="form-control" rows="3" placeholder="Ghi chú khác về phiên grooming..."></textarea>
           </div>
         </div>
 
-          <%-- Flag for vet --%>
         <div class="card" style="margin-bottom:16px;">
-          <div class="card-header"><span class="card-title">Phát hiện bất thường?</span></div>
+          <div class="card-header"><span class="card-title">🚩 Phát hiện bất thường?</span></div>
           <div class="card-body">
             <div class="flag-box" id="flagBox">
               <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
@@ -201,13 +195,13 @@
 
         <div style="display:flex;gap:12px;justify-content:flex-end;padding-bottom:40px;">
           <a href="${pageContext.request.contextPath}/groomer/session" class="btn btn-outline btn-lg">Hủy</a>
-          <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">Hoàn thành Grooming</button>
+          <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">✅ Hoàn thành Grooming</button>
         </div>
       </form>
     </c:if>
 
     <c:if test="${empty record && empty appointment}">
-      <div class="page-header"><h1> Grooming</h1></div>
+      <div class="page-header"><h1>✂️ Grooming</h1></div>
       <div class="card"><div class="empty-state"><div class="empty-icon">⚠️</div>
         <p>Không tìm thấy dữ liệu. <a href="${pageContext.request.contextPath}/groomer/session">Quay lại hàng chờ</a></p></div></div>
     </c:if>

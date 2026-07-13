@@ -287,7 +287,7 @@
              ═══════════════════════════════════════════════════════════════════════════ --%>
         <c:if test="${not empty appointment}">
             <div class="page-header">
-                <h1>🩺 Khám Bệnh</h1>
+                <h1> Khám Bệnh</h1>
                 <p class="page-sub"><c:out value="${appointment.petName}"/> — <c:out value="${appointment.customerName}"/> — <c:out value="${appointment.serviceName}"/></p>
             </div>
             <a href="${pageContext.request.contextPath}/vet/examination" class="btn btn-outline btn-sm" style="margin-bottom:18px;">← Quay lại hàng chờ</a>
@@ -300,7 +300,18 @@
             <div class="pet-strip">
                 <div class="pet-strip-item"><span class="lbl">Thú cưng</span><span class="val">🐾 <c:out value="${appointment.petName}"/></span></div>
                 <div class="pet-strip-item"><span class="lbl">Chủ nhân</span><span class="val"><c:out value="${appointment.customerName}"/></span></div>
-                <div class="pet-strip-item"><span class="lbl">Bác sĩ</span><span class="val">/></span></div>
+                <div class="pet-strip-item">
+                    <span class="lbl">Bác sĩ phụ trách</span>
+                    <c:set var="examStaff" value="${appointment.getStaffNamesByCategory('Chẩn đoán')}"/>
+                    <c:set var="treatStaff" value="${appointment.getStaffNamesByCategory('Phác đồ điều trị')}"/>
+                    <span class="val">
+        <c:choose>
+            <c:when test="${not empty examStaff}"><c:out value="${examStaff}"/></c:when>
+            <c:when test="${not empty treatStaff}"><c:out value="${treatStaff}"/></c:when>
+            <c:otherwise><c:out value="${sessionScope.staff.fullName}"/></c:otherwise>
+        </c:choose>
+      </span>
+                </div>
                 <div class="pet-strip-item"><span class="lbl">Ca</span><span class="val">Ca ${appointment.slotShift}</span></div>
                 <div class="pet-strip-item"><span class="lbl">Trạng thái</span><span class="val"><span class="badge badge-info">Đang khám</span></span></div>
             </div>

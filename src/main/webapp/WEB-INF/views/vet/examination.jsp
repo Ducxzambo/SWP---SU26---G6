@@ -104,6 +104,19 @@
             </c:if>
         </div>
 
+        <div class="shift-tabs">
+            <a href="${pageContext.request.contextPath}/vet/examination?date=${filterDate}"
+               class="shift-tab ${empty shiftFilter ? 'active' : ''}">Tất cả ca</a>
+            <a href="${pageContext.request.contextPath}/vet/examination?date=${filterDate}&shift=1"
+               class="shift-tab ${shiftFilter == '1' ? 'active' : ''}">Ca 1 <span class="count">08:00–10:00</span></a>
+            <a href="${pageContext.request.contextPath}/vet/examination?date=${filterDate}&shift=2"
+               class="shift-tab ${shiftFilter == '2' ? 'active' : ''}">Ca 2 <span class="count">10:00–12:00</span></a>
+            <a href="${pageContext.request.contextPath}/vet/examination?date=${filterDate}&shift=3"
+               class="shift-tab ${shiftFilter == '3' ? 'active' : ''}">Ca 3 <span class="count">13:30–15:30</span></a>
+            <a href="${pageContext.request.contextPath}/vet/examination?date=${filterDate}&shift=4"
+               class="shift-tab ${shiftFilter == '4' ? 'active' : ''}">Ca 4 <span class="count">15:30–17:30</span></a>
+        </div>
+
         <div class="card">
             <c:choose>
                 <c:when test="${empty queue}">
