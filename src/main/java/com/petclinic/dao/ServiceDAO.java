@@ -23,7 +23,7 @@ public class ServiceDAO {
         return list;
     }
 
-    /** Load tất cả category có service con */
+    /** Load all categories each with their active services populated. */
     public List<ServiceCategory> findAllCategoriesWithServices() throws SQLException {
         List<ServiceCategory> cats = findAllCategories();
         for (ServiceCategory cat : cats) {
@@ -32,21 +32,8 @@ public class ServiceDAO {
         return cats;
     }
 
-    public ServiceCategory findCategoryById(int id) throws SQLException {
-        String sql = "SELECT * FROM ServiceCategories WHERE CategoryID = ?";
-        try (Connection c = DBConnection.getConnection();
-             PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setInt(1, id);
-            try (ResultSet rs = ps.executeQuery()) {
-                return rs.next() ? mapCategory(rs) : null;
-            }
-        }
-    }
-
     /**
      * Tên các nhóm dịch vụ KHÔNG được phép chọn qua booking wizard của khách
-     * (chỉ dùng nội bộ khi khám — vd bác sĩ chỉ định điều trị/chẩn đoán trực
-     * tiếp, không phải thứ khách tự chọn trước khi đến)
      */
     private static final java.util.Set<String> BOOKING_EXCLUDED_CATEGORY_NAMES =
             java.util.Set.of("Điều trị", "Chẩn đoán");
@@ -64,7 +51,7 @@ public class ServiceDAO {
     /**
      * Service "đại diện" đầu tiên đang active của 1 category — dùng cho các
      * category chỉ cần MỘT dòng AppointmentServices duy nhất để đánh dấu
-     * (Vaccine, Dịch vụ nội trú). Trả về null nếu category chưa có service active nào.
+     * (Vaccine, Dịch vụ nội trú)
      */
     public Service findFirstActiveByCategory(int categoryId) throws SQLException {
         List<Service> list = findByCategory(categoryId);
@@ -132,42 +119,18 @@ public class ServiceDAO {
 
     // ── Staff capacity helpers ────────────────────────────────────────────────
 
-    /** RoleID rule: Groomer (4) - ServiceCategoryID=3; Vet (3) - everything else. */
+    /** RoleID rule: Groomer (4) handles ServiceCategoryID=3; Vet (3) handles everything else. */
     public static int roleIdForCategory(int categoryId) {
         return categoryId == 3 ? 4 : 3;
     }
 
-    /** Count active staff cho mỗi category dựa trên quy tắc RoleID */
-    public int countStaffByCategoryId(int categoryId) throws SQLException {
-        int roleId = roleIdForCategory(categoryId);
+    public int countStaffByRoleId(int roleId) throws SQLException {
         String sql = "SELECT COUNT(*) FROM Staff WHERE RoleID = ? AND IsActive = 1";
         try (Connection c = DBConnection.getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, roleId);
             try (ResultSet rs = ps.executeQuery()) {
-                // Trả về số lượng thực tế (có thể là 0 nếu không có ai)
-                return rs.next() ? rs.getInt(1) : 0;
-            }
-        }
-    }
-
-    /** Count staff for a specific service bằng cách tái sử dụng hàm tìm CategoryID */
-    public int countStaffForService(int serviceId) throws SQLException {
-        int categoryId = findCategoryIdByServiceId(serviceId);
-        if (categoryId == -1) {
-            return 0;
-        }
-        return countStaffByCategoryId(categoryId);
-    }
-
-    /** Tìm category cho 1 service. Returns -1 nêếu không có */
-    public int findCategoryIdByServiceId(int serviceId) throws SQLException {
-        String sql = "SELECT CategoryID FROM Services WHERE ServiceID = ?";
-        try (Connection c = DBConnection.getConnection();
-             PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setInt(1, serviceId);
-            try (ResultSet rs = ps.executeQuery()) {
-                return rs.next() ? rs.getInt("CategoryID") : -1;
+                return rs.next() ? Math.max(1, rs.getInt(1)) : 1;
             }
         }
     }

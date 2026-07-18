@@ -93,17 +93,31 @@
   border-color: var(--border);
   color: var(--text-mid);
 }
-.confirm-subtotal {
+
+/* Danh sách dịch vụ/vaccine dạng hoá đơn: tên bên trái, giá bên phải, mỗi
+   dòng 1 mục — thay cho confirm-chip-row (chỉ có tên, không giá) trước đây. */
+.confirm-item-list {
+  display: flex;
+  flex-direction: column;
+}
+.confirm-item-row {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
-  border-top: 1px dashed var(--border);
-  margin-top: 12px;
-  padding-top: 10px;
-  font-size: 13px;
-  color: var(--warm-gray);
+  align-items: baseline;
+  gap: 16px;
+  padding: 7px 0;
+  font-size: 13.5px;
+  color: var(--text-mid);
 }
-.confirm-subtotal strong { color: var(--green-700); }
+.confirm-item-row + .confirm-item-row {
+  border-top: 1px dashed var(--border);
+}
+.confirm-item-name { flex: 1; }
+.confirm-item-price {
+  font-weight: 600;
+  color: var(--green-700);
+  white-space: nowrap;
+}
 
 /* ── Capacity bar (per service group) ───────────────────────────────────── */
 .cap-bar-wrap  { margin-top: 10px; }

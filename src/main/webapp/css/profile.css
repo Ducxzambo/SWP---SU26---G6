@@ -1,0 +1,240 @@
+/* ============================================================
+   PROFILE / ACCOUNT SETTINGS PAGE
+   (relies on :root variables already defined in main.css)
+   ============================================================ */
+
+.account-wrap {
+  max-width: 760px;
+  margin: 36px auto;
+  padding: 0 24px 60px;
+}
+
+.account-head { margin-bottom: 24px; }
+.account-head h1 {
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--green-900);
+  margin: 0 0 6px;
+}
+.account-head p { color: var(--warm-gray); font-size: 14.5px; margin: 0; }
+
+/* ── Incomplete-info banner ─────────────────────────────────── */
+.account-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: #FFF7E8;
+  border: 1px solid #F0D6A0;
+  color: #8A5A00;
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  font-size: 14px;
+  margin-bottom: 24px;
+}
+.account-alert .icon { font-size: 18px; line-height: 1; }
+
+/* ── Cards ───────────────────────────────────────────────────── */
+.account-card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+.account-card-head {
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.account-card-head h2 {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--green-900);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.account-card-body { padding: 20px 22px; }
+
+.account-badge {
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.account-badge-missing { background: #FDEBEA; color: var(--red-err); }
+.account-badge-ok      { background: #E8F5E9; color: #2E7D32; }
+
+/* ── Form elements (self-contained, mirrors pets.css look) ──── */
+.form-group { margin-bottom: 16px; }
+.form-group:last-child { margin-bottom: 0; }
+.form-group label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-mid);
+  margin-bottom: 6px;
+}
+.form-control {
+  width: 100%;
+  padding: 11px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 14.5px;
+  font-family: inherit;
+  color: var(--text-dark);
+  background: #fff;
+  transition: var(--transition);
+}
+.form-control:focus {
+  outline: none;
+  border-color: var(--green-700);
+  box-shadow: 0 0 0 3px rgba(60,110,60,0.12);
+}
+.form-control[readonly], .form-control[disabled] {
+  background: var(--cream);
+  color: var(--warm-gray);
+  cursor: not-allowed;
+}
+.form-control.field-missing { border-color: #E0A94A; background: #FFFBF2; }
+.form-hint { font-size: 12px; color: var(--warm-gray); margin-top: 6px; }
+
+.form-actions { display: flex; justify-content: flex-end; margin-top: 4px; }
+
+/* ── Password field with show/hide toggle ─────────────────────────────── */
+.input-wrap { position: relative; }
+.form-control.has-toggle { padding-right: 42px; }
+.toggle-pwd {
+  position: absolute;
+  right: 12px; top: 50%;
+  transform: translateY(-50%);
+  background: none; border: none; cursor: pointer;
+  color: var(--warm-gray); font-size: 16px; padding: 4px;
+  transition: var(--transition);
+}
+.toggle-pwd:hover { color: var(--green-500); }
+
+/* ── Password strength bar ──────────────────────────────────────────────── */
+.pwd-strength { margin-top: 8px; }
+.pwd-strength-bar { height: 4px; border-radius: 2px; background: var(--border); overflow: hidden; margin-bottom: 5px; }
+.pwd-strength-fill { height: 100%; border-radius: 2px; transition: width .4s ease, background .4s ease; width: 0%; }
+.pwd-strength-label { font-size: 12px; color: var(--warm-gray); }
+
+.pwd-requirements {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 12px;
+}
+.pwd-requirements li { font-size: 12px; color: var(--warm-gray); display: flex; align-items: center; gap: 5px; }
+.pwd-requirements li::before { content: '○'; font-size: 10px; }
+.pwd-requirements li.met { color: var(--green-500); }
+.pwd-requirements li.met::before { content: '✓'; }
+
+.btn-save {
+  padding: 10px 22px;
+  background: var(--green-700);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.btn-save:hover { background: var(--green-900); }
+
+.account-alert-inline {
+  background: #FDEBEA;
+  color: var(--red-err);
+  border: 1px solid #F4C6C2;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13.5px;
+  margin-bottom: 14px;
+}
+
+/* ── Email card: current value + change sub-form ─────────────── */
+.account-current-value {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--cream);
+  color: var(--text-dark);
+  font-size: 14.5px;
+  margin-bottom: 16px;
+}
+.account-current-value .empty { color: var(--warm-gray); font-style: italic; }
+
+.account-subform {
+  border-top: 1px dashed var(--border);
+  padding-top: 16px;
+  margin-top: 4px;
+}
+.account-subform-label {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--warm-gray);
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  margin-bottom: 10px;
+}
+
+/* ── OTP verify sub-page (email change) ───────────────────────── */
+.otp-input-group { display: flex; gap: 10px; justify-content: center; margin: 18px 0 8px; }
+.otp-digit {
+  width: 46px; height: 54px;
+  text-align: center;
+  font-size: 22px;
+  font-weight: 700;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  color: var(--text-dark);
+  transition: var(--transition);
+}
+.otp-digit:focus {
+  outline: none;
+  border-color: var(--green-700);
+  box-shadow: 0 0 0 3px rgba(60,110,60,0.12);
+}
+
+.account-info-box {
+  background: var(--cream);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 13px;
+  color: var(--text-mid);
+  text-align: center;
+  margin-top: 6px;
+}
+
+.resend-wrap { text-align: center; font-size: 13px; color: var(--warm-gray); margin-top: 14px; }
+.resend-wrap a { color: var(--green-700); font-weight: 700; cursor: pointer; text-decoration: none; }
+.resend-wrap a:hover { text-decoration: underline; }
+
+.account-back-link {
+  display: inline-block;
+  margin-top: 18px;
+  font-size: 13.5px;
+  color: var(--warm-gray);
+  text-decoration: none;
+}
+.account-back-link:hover { color: var(--green-700); }
+
+@media (max-width: 640px) {
+  .account-wrap { padding: 0 16px 48px; margin-top: 24px; }
+  .account-card-head { flex-direction: column; align-items: flex-start; gap: 6px; }
+  .otp-digit { width: 38px; height: 48px; font-size: 19px; }
+}

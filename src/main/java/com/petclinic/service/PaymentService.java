@@ -36,12 +36,10 @@ public class PaymentService {
         return true;
     }
 
-    // Các hàm Invoice giữ nguyên (hoặc bạn có thể chuyển hẳn sang InvoiceService)
     /**
      * Invoice luôn được tạo ở trạng thái 'Unpaid' — được tạo NGAY SAU khi
      * tạo appointment, TRƯỚC khi khách thanh toán. Sẽ tự chuyển 'PrePaid'
-     * ngay khi thanh toán 100% được xác nhận (xem
-     * InvoiceDAO.confirmPaymentInTransaction/insertPayment).
+     * ngay khi thanh toán 100% được xác nhận
      */
     public int createInvoice(int customerId, int appointmentId, BigDecimal totalAmount) throws Exception {
         return invoiceDAO.createInvoice(customerId, appointmentId, totalAmount, "Unpaid");

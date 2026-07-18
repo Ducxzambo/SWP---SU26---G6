@@ -5,12 +5,10 @@ import com.petclinic.model.AppointmentService;
 import com.petclinic.util.DBConnection;
 
 import java.sql.*;
+import java.sql.Date;
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class AppointmentDAO {
@@ -18,6 +16,10 @@ public class AppointmentDAO {
     private final AppointmentServiceDAO appointmentServiceDAO = new AppointmentServiceDAO();
 
     // ── Insert ────────────────────────────────────────────────────────────────
+
+    /**
+     * Tao 1 dong Appointments
+     */
     public int insert(Appointment a) throws SQLException {
         String sql = "INSERT INTO Appointments "
                 + "(CustomerID, PetID, AppointmentDate, StartTime, EndTime, Status, SlotShift) "
@@ -102,40 +104,11 @@ public class AppointmentDAO {
         return list;
     }
 
-    /** Tất cả booked appointment cho 1 date. */
-    public List<Appointment> findByDate(LocalDate date) throws SQLException {
-        String sql = "SELECT * FROM Appointments "
-                + "WHERE AppointmentDate = ? AND Status NOT IN ('Cancelled','NoShow')";
-        List<Appointment> list = new ArrayList<>();
-        try (Connection c = DBConnection.getConnection();
-             PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setDate(1, Date.valueOf(date));
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) list.add(mapRowSimple(rs));
-            }
-        }
-        return list;
-    }
 
-    /** Tất cả booked appoint cho 1 date, ngoại trừ 1 appointment cụ thể (dùng ở reschedule) */
-    public List<Appointment> findByDateExcluding(LocalDate date, int excludeId) throws SQLException {
-        String sql = "SELECT * FROM Appointments "
-                + "WHERE AppointmentDate = ? AND Status NOT IN ('Cancelled','NoShow') "
-                + "AND AppointmentID <> ?";
-        List<Appointment> list = new ArrayList<>();
-        try (Connection c = DBConnection.getConnection();
-             PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setDate(1, Date.valueOf(date));
-            ps.setInt(2, excludeId);
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) list.add(mapRowSimple(rs));
-            }
-        }
-        return list;
-    }
-
-
-    /** Đếm slot đã confirmed, theo cả groomer và vet */
+    /**
+     * Count confirmed appointments for ALL services in the same role-group
+     * (Groomer or Vet) trong CUNG 1 ca (SlotShift) cua ngay do.
+     */
     public int countConfirmedInSlotByRoleGroup(LocalDate date, int slotShift, int roleId)
             throws SQLException {
         // roleId: 4 = Groomer, 3 = Vet (khop com.petclinic.dao.ServiceDAO.roleIdForCategory)
@@ -164,7 +137,10 @@ public class AppointmentDAO {
         }
     }
 
-    /** Tất cả booked appointment đã quá hạn (đã qua end time) nhưng vẫn còn Pending/Confirmed */
+    /**
+     * Find active appointments (Pending/Confirmed) whose appointment date/time
+     * has already passed — used by the overdue scheduler.
+     */
     public List<Appointment> findOverdueActive() throws SQLException {
         String sql = "SELECT a.*, p.Name AS PetName "
                 + "FROM Appointments a "
@@ -182,7 +158,7 @@ public class AppointmentDAO {
         return list;
     }
 
-    /** Mark NoShow */
+    /** Mark appointment as NoShow (Absent). */
     public void markNoShow(int appointmentId) throws SQLException {
         String sql = "UPDATE Appointments SET Status = 'NoShow' WHERE AppointmentID = ?";
         try (Connection c = DBConnection.getConnection();
@@ -192,7 +168,7 @@ public class AppointmentDAO {
         }
     }
 
-    /** Tìm customer quá hẹn 24h, dùng đánh dấu mốc gửi email */
+    /** Find all customers with overdue appointments (for email join). */
     public List<Appointment> findOverdueOlderThan24h() throws SQLException {
         String sql = "SELECT a.*, p.Name AS PetName "
                 + "FROM Appointments a "
@@ -211,17 +187,7 @@ public class AppointmentDAO {
     }
 
 
-    /** Update Notes */
-    public void updateNotes(int appointmentId, String notes) throws SQLException {
-        String sql = "UPDATE Appointments SET Notes=? WHERE AppointmentID=?";
-        try (Connection c = DBConnection.getConnection();
-             PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setString(1, notes);
-            ps.setInt(2, appointmentId);
-            ps.executeUpdate();
-        }
-    }
-
+    /** Cap nhat slot moi + SlotShift tuong ung, GIU NGUYEN status hien tai (khong reset ve Pending). */
     public void updateSlot(int appointmentId, LocalDate date, LocalTime start, LocalTime end)
             throws SQLException {
         String sql = "UPDATE Appointments SET AppointmentDate=?, StartTime=?, EndTime=?, SlotShift=? "
@@ -238,7 +204,7 @@ public class AppointmentDAO {
         }
     }
 
-    /** Cancel: cập nhật status và lưu CancelReason. */
+    /** Cancel: cap nhat status va luu ly do huy vao CancelReason (KHONG dung Notes goc cua khach). */
     public void cancel(int appointmentId, String reason) throws SQLException {
         String sql = "UPDATE Appointments SET Status='Cancelled', CancelReason=? "
                 + "WHERE AppointmentID=?";
@@ -252,7 +218,10 @@ public class AppointmentDAO {
 
     // ── Attach helper ─────────────────────────────────────────────────────────
 
-    /** Nạp danh sách AppointmentServices cho 1 nhóm appointment */
+    /**
+     * Nap danh sach AppointmentServices cho 1 nhom appointment CUNG LUC
+     * (1 query thay vi N+1), roi gan vao tung Appointment tuong ung.
+     */
     private void attachServicesAndVaccines(List<Appointment> list) throws SQLException {
         if (list == null || list.isEmpty()) return;
         List<Integer> ids = list.stream().map(Appointment::getAppointmentID).collect(Collectors.toList());

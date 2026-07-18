@@ -59,12 +59,15 @@ public class OtpUtil {
         switch (purpose) {
             case "register":       return "[PetClinic] Email Verification Code";
             case "forgot":         return "[PetClinic] Password Reset Code";
+            case "change-email":   return "[PetClinic] New Email Verification Code";
             default:               return "[PetClinic] Verification Code";
         }
     }
 
     private static String buildEmailBody(String otp, String purpose) {
-        String action = purpose.equals("forgot") ? "reset your password" : "verify your email";
+        String action = purpose.equals("forgot") ? "reset your password"
+                       : purpose.equals("change-email") ? "verify your new email address"
+                       : "verify your email";
         return "<div style='font-family:sans-serif;max-width:480px;margin:auto;padding:32px;'>"
              + "<h2 style='color:#2d7a4f;'>🐾 PetClinic</h2>"
              + "<p>Your verification code to <strong>" + action + "</strong>:</p>"

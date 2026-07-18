@@ -84,7 +84,7 @@ public class MedicalRecordDAO {
         mr.setTreatmentPlan(rs.getString("TreatmentPlan"));
         Timestamp ts = rs.getTimestamp("CreatedAt");
         if (ts != null) mr.setCreatedAt(ts.toLocalDateTime());
-//        mr.setStaffName(rs.getString("StaffName"));
+        mr.setStaffName(rs.getString("StaffName"));
         return mr;
     }
 }

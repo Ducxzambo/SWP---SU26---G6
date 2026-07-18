@@ -25,6 +25,24 @@ function closeNotifOutside(e) {
   }
 }
 
+// ─── Profile dropdown ───────────────────────────────────────────────────────
+function toggleProfileMenu() {
+  const panel = document.getElementById('navProfilePanel');
+  if (!panel) return;
+  const isOpen = panel.classList.toggle('open');
+  if (isOpen) {
+    setTimeout(() => document.addEventListener('click', closeProfileMenuOutside, { once: true }), 10);
+  }
+}
+
+function closeProfileMenuOutside(e) {
+  const panel = document.getElementById('navProfilePanel');
+  const btn   = document.getElementById('navProfileBtn');
+  if (panel && !panel.contains(e.target) && btn && !btn.contains(e.target)) {
+    panel.classList.remove('open');
+  }
+}
+
 function loadNotifications() {
   fetch(CTX + '/notifications/api?limit=20')
     .then(r => r.json())

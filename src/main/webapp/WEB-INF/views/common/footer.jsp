@@ -25,10 +25,10 @@
     <div class="footer-col">
       <h4>Thông tin</h4>
       <ul>
-        <li><a href="${ctx}/about#intro">Giới thiệu</a></li>
-        <li><a href="${ctx}/about#team">Đội ngũ</a></li>
-        <li><a href="${ctx}/news">Tin tức</a></li>
-        <li><a href="${ctx}/knowledge/care-tips">Lưu ý chăm sóc</a></li>
+        <li><a href="${ctx}/#intro">Giới thiệu</a></li>
+        <li><a href="${ctx}/#facility">Cơ sở vật chất</a></li>
+        <li><a href="${ctx}/#team">Đội ngũ</a></li>
+        <li><a href="${ctx}/contact">Liên hệ</a></li>
       </ul>
     </div>
 

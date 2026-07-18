@@ -15,7 +15,7 @@ import java.io.IOException;
  *   GET  /auth/register/verify → show OTP verification form
  *   POST /auth/register/verify → verify email OTP + create account
  *
- * Phone: format-only validation (10 digits, starts with 0). No SMS sent.
+ * Phone: bắt buộc. Format-only validation (10 digits, starts with 0). No SMS sent.
  */
 @WebServlet(urlPatterns = {"/auth/register", "/auth/register/verify"})
 public class RegisterServlet extends HttpServlet {
@@ -70,13 +70,19 @@ public class RegisterServlet extends HttpServlet {
         String confirm  = req.getParameter("confirmPassword");
 
         // Required fields
-        if (isEmpty(fullName) || isEmpty(email) || isEmpty(password)) {
+        if (isEmpty(fullName) || isEmpty(email) || isEmpty(phone) || isEmpty(password)) {
             forwardRegisterWithError(req, resp, "Vui lòng nhập đầy đủ thông tin bắt buộc.");
             return;
         }
         // Email format
         if (!EMAIL_RE.matcher(email.trim()).matches()) {
             forwardRegisterWithError(req, resp, "Email không đúng định dạng.");
+            return;
+        }
+        // Phone format
+        if (!PHONE_RE.matcher(phone.trim()).matches()) {
+            forwardRegisterWithError(req, resp,
+                    "Số điện thoại không hợp lệ. Vui lòng nhập đúng 10 chữ số, bắt đầu bằng 0.");
             return;
         }
         // Password match
@@ -90,16 +96,10 @@ public class RegisterServlet extends HttpServlet {
                     "Mật khẩu phải có ít nhất 6 ký tự, bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt.");
             return;
         }
-        // Phone format (optional field – only validate if provided)
-        if (!isEmpty(phone) && !PHONE_RE.matcher(phone.trim()).matches()) {
-            forwardRegisterWithError(req, resp,
-                    "Số điện thoại không hợp lệ. Vui lòng nhập đúng 10 chữ số, bắt đầu bằng 0.");
-            return;
-        }
 
         try {
             SendOtpResult result = authService.initiateRegistration(
-                    fullName, email.trim(), isEmpty(phone) ? null : phone.trim(), password);
+                    fullName, email.trim(), phone.trim(), password);
             switch (result) {
                 case EMAIL_TAKEN:
                     forwardRegisterWithError(req, resp, "Email này đã được đăng ký."); return;
@@ -123,7 +123,7 @@ public class RegisterServlet extends HttpServlet {
         session.setAttribute("pendingReg",          "true");
         session.setAttribute("pendingReg_fullName", fullName);
         session.setAttribute("pendingReg_email",    email.trim());
-        session.setAttribute("pendingReg_phone",    isEmpty(phone) ? null : phone.trim());
+        session.setAttribute("pendingReg_phone",    phone.trim());
         session.setAttribute("pendingReg_password", password);
         session.setMaxInactiveInterval(60 * 15); // 15 min OTP window
 

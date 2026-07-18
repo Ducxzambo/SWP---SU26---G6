@@ -1,5 +1,7 @@
 package com.petclinic.servlet.booking;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import com.petclinic.dao.*;
 import com.petclinic.dto.PetBookingRequest;
 import com.petclinic.model.*;
@@ -13,8 +15,6 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -23,8 +23,7 @@ import java.util.stream.Collectors;
  * POST /booking/new → Validate → Step 2 confirm
  * GET /booking/confirm → Step 2 confirm page (from session)
  * POST /booking/confirm → Create Pending appointments → Step 3 payment
- * GET /booking/payment → Step 3 payment page (chỉ còn "Thanh toán toàn bộ"
- *      cho booking thường; Nội trú giữ nguyên đặt cọc cố định)
+ * GET /booking/payment → Step 3 payment page
  * POST /booking/payment → Call PayOS, redirect to QR checkout
  *
  * LƯU Ý KIẾN TRÚC: toàn bộ dữ liệu JSON (categories/vaccines/slots) cho
@@ -36,12 +35,8 @@ import java.util.stream.Collectors;
  * Quy trình: chọn loại lịch (thường/nội trú) → chọn pet → chọn (nhiều)
  * category dịch vụ (trừ "Điều trị"/"Chẩn đoán" — lọc sẵn ở SlotsApiServlet)
  * → chọn (nhiều) dịch vụ/vaccine trong các category đã chọn → chọn 1 khung
- * giờ. bookingPayload vẫn dùng cấu trúc JSON cũ để tái dùng UI hiện có,
- * nhưng nay serviceIds/vaccineIds có thể chứa NHIỀU phần tử:
+ * giờ.
  * [{"petId":1,"serviceIds":[11,12],"vaccineIds":[3,5]}]
- *
- * Nội trú GIỮ NGUYÊN logic cũ (ngày + buổi sáng/chiều, không qua slotKey),
- * chỉ siết lại đúng 1 thú cưng / lượt đặt.
  */
 @WebServlet(urlPatterns = {"/booking/new"})
 public class NewServlet extends HttpServlet {
@@ -72,12 +67,51 @@ public class NewServlet extends HttpServlet {
             req.setAttribute("today", LocalDate.now().toString());
             req.setAttribute("prefillPet", prefillPet != null ? prefillPet : "");
             req.setAttribute("prefillCat", prefillCat != null ? prefillCat : "");
+            req.setAttribute("resumeData", buildResumeJson(req));
 
             req.getRequestDispatcher("/WEB-INF/views/booking/new.jsp").forward(req, resp);
         } catch (Exception e) {
             e.printStackTrace();
             throw new ServletException(e);
         }
+    }
+
+    /**
+     * Nếu session đang giữ dữ liệu 1 lượt đặt lịch đã nhập dở (vd khách bấm
+     * "Quay lại chỉnh sửa" từ trang confirm, hoặc quay lại giữa chừng), đóng
+     * gói lại thành JSON để JS khôi phục ĐÚNG trạng thái đã chọn trước đó
+     * (thú cưng/category/dịch vụ/vaccine/khung giờ/ghi chú), thay vì bắt đầu
+     * lại từ đầu. Trả về null nếu không có gì để khôi phục.
+     */
+    private String buildResumeJson(HttpServletRequest req) {
+        HttpSession sess = req.getSession(false);
+        if (sess == null || sess.getAttribute("bk_isInpatient") == null) return null;
+
+        boolean isInpatient = Boolean.TRUE.equals(sess.getAttribute("bk_isInpatient"));
+
+        JsonObject o = new JsonObject();
+        o.addProperty("isInpatient", isInpatient);
+        o.addProperty("notes", (String) sess.getAttribute("bk_notes"));
+
+        if (isInpatient) {
+            String[] petIds = (String[]) sess.getAttribute("bk_petIds");
+            JsonArray idsArr = new JsonArray();
+            if (petIds != null) {
+                for (String id : petIds) {
+                    try { idsArr.add(Integer.parseInt(id)); } catch (Exception ignored) {}
+                }
+            }
+            o.add("petIds", idsArr);
+            o.addProperty("inpatientDate", (String) sess.getAttribute("bk_iDate"));
+            o.addProperty("inpatientPeriod", (String) sess.getAttribute("bk_iPeriod"));
+        } else {
+            // bookingPayload la 1 chuoi JSON co san (xem PetBookingRequest) —
+            // gui thang cho client, JS se tu parse lai (khong can dich 2 lan).
+            o.addProperty("payload", (String) sess.getAttribute("bk_payload"));
+            o.addProperty("slotKey", (String) sess.getAttribute("bk_slotKey"));
+        }
+
+        return o.toString();
     }
 
     // ── POST ──────────────────────────────────────────────────────────────────
@@ -157,11 +191,7 @@ public class NewServlet extends HttpServlet {
     }
 
     /**
-     * Khám/Spa/Vaccine — ĐÚNG 1 thú cưng / lượt đặt lịch, nhưng nay cho phép
-     * chọn NHIỀU dịch vụ và/hoặc NHIỀU vaccine (tối thiểu 1 mục). Không còn
-     * đặt cọc 50.000đ — khách thanh toán 100% tổng chi phí ngay khi đặt lịch
-     * (xem bookingSvc.computeDeposit(false) == 0, payment.jsp chỉ còn 1 lựa
-     * chọn "Thanh toán toàn bộ").
+     * Khám/Spa/Vaccine.
      */
     private void handleStep1PostNormal(HttpServletRequest req, HttpServletResponse resp, Customer customer) throws Exception {
         String bookingPayload = req.getParameter("bookingPayload");
@@ -177,7 +207,7 @@ public class NewServlet extends HttpServlet {
             return;
         }
 
-        List<PetBookingRequest> petBookings = parseBookingPayload(bookingPayload);
+        List<PetBookingRequest> petBookings = PetBookingRequest.parseList(bookingPayload);
         if (petBookings.size() != 1) {
             forwardStep1Error(req, resp, customer, "Vui lòng chọn đúng 1 thú cưng cho mỗi lượt đặt lịch.");
             return;
@@ -229,8 +259,7 @@ public class NewServlet extends HttpServlet {
             petBreakdown.add(row);
         }
 
-        // Booking thường KHÔNG còn đặt cọc — computeDeposit(false) luôn = 0.
-        // Khách thanh toán 100% "total" ngay (xem PaymentServlet/payment.jsp).
+        // Khách thanh toán 100% "total".
         long depositAmount = bookingSvc.computeDeposit(false);
 
         HttpSession sess = req.getSession(true);
@@ -268,72 +297,4 @@ public class NewServlet extends HttpServlet {
         return c;
     }
 
-    // ── bookingPayload parser ────────────────────────────────────────────────
-    // Parser tối giản, KHÔNG dùng thư viện JSON ngoài (đồng bộ style với
-    // PaymentService.extractJsonField) — cấu trúc cố định:
-    // [{"petId":N,"serviceIds":[..],"vaccineIds":[..]}, ...]
-    // (serviceIds/vaccineIds nay có thể chứa NHIỀU phần tử — không đổi so
-    // với parser, vì đây vốn đã là mảng.)
-
-    private static final Pattern PET_ID_RE = Pattern.compile("\"petId\"\\s*:\\s*(-?\\d+)");
-
-    private List<PetBookingRequest> parseBookingPayload(String json) {
-        List<PetBookingRequest> result = new ArrayList<>();
-        if (json == null || json.isBlank()) return result;
-
-        for (String obj : splitTopLevelObjects(json)) {
-            Matcher m = PET_ID_RE.matcher(obj);
-            if (!m.find()) continue;
-
-            int petId = Integer.parseInt(m.group(1));
-            List<Integer> serviceIds = extractIntArray(obj, "serviceIds");
-            List<Integer> vaccineIds = extractIntArray(obj, "vaccineIds");
-
-            result.add(new PetBookingRequest(petId, serviceIds, vaccineIds));
-        }
-        return result;
-    }
-
-    private List<String> splitTopLevelObjects(String json) {
-        List<String> out = new ArrayList<>();
-        int start = json.indexOf('[');
-        int end = json.lastIndexOf(']');
-
-        if (start < 0 || end < 0 || end <= start) return out;
-
-        String inner = json.substring(start + 1, end);
-        int depth = 0, objStart = -1;
-
-        for (int i = 0; i < inner.length(); i++) {
-            char c = inner.charAt(i);
-            if (c == '{') {
-                if (depth == 0) objStart = i;
-                depth++;
-            } else if (c == '}') {
-                depth--;
-                if (depth == 0 && objStart >= 0) {
-                    out.add(inner.substring(objStart, i + 1));
-                    objStart = -1;
-                }
-            }
-        }
-        return out;
-    }
-
-    private List<Integer> extractIntArray(String obj, String key) {
-        List<Integer> out = new ArrayList<>();
-        Matcher m = Pattern.compile("\"" + key + "\"\\s*:\\s*\\[([^\\]]*)\\]").matcher(obj);
-
-        if (m.find()) {
-            String inside = m.group(1).trim();
-            if (!inside.isEmpty()) {
-                for (String part : inside.split(",")) {
-                    try {
-                        out.add(Integer.parseInt(part.trim()));
-                    } catch (Exception ignored) {}
-                }
-            }
-        }
-        return out;
-    }
 }

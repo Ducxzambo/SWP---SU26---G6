@@ -12,8 +12,6 @@ import jakarta.servlet.http.*;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @WebServlet(urlPatterns = {"/booking/confirm"})
@@ -61,7 +59,7 @@ public class ConfirmServlet extends HttpServlet {
                 // petBreakdown gom TẤT CẢ dịch vụ + vaccine đã chọn cho 1 pet
                 // (danh sách, không giới hạn 1 mục) — hiển thị đầy đủ ở confirm.jsp.
                 String bookingPayload = (String) sess.getAttribute("bk_payload");
-                List<PetBookingRequest> petBookings = parseBookingPayload(bookingPayload);
+                List<PetBookingRequest> petBookings = PetBookingRequest.parseList(bookingPayload);
 
                 Map<Integer, Pet> petById = petDAO.findByCustomer(customer.getCustomerID()).stream()
                         .collect(Collectors.toMap(Pet::getPetID, p -> p));
@@ -137,10 +135,6 @@ public class ConfirmServlet extends HttpServlet {
             List<Integer> apptIds;
             int invoiceId;
 
-            // Invoice được tạo NGAY SAU khi tạo appointment - khách CHƯA thanh
-            // toán ở bước này -> luôn tạo ở trạng thái 'Unpaid'. Sẽ tự chuyển
-            // 'PrePaid' ngay khi thanh toán 100% được xác nhận (xem
-            // InvoiceDAO.confirmPaymentInTransaction).
 
             if (isInpatient) {
                 String[] petIds = (String[]) sess.getAttribute("bk_petIds");
@@ -151,10 +145,14 @@ public class ConfirmServlet extends HttpServlet {
                         .map(Integer::parseInt)
                         .collect(Collectors.toList());
 
-                // Chỉ insert DUY NHẤT 1 dòng AppointmentServices đại diện cho
-                // category "Dịch vụ nội trú" (đúng quy tắc chung với Vaccine —
-                // xem BookingService.createAppointmentsForPets).
                 int inpatientServiceId = firstServiceIdOfCategory(BookingService.INPATIENT_CATEGORY_ID);
+                if (inpatientServiceId <= 0) {
+                    sess.setAttribute("flashError",
+                            "Hệ thống chưa cấu hình dịch vụ đại diện cho nhóm \"Dịch vụ nội trú\". "
+                                    + "Vui lòng liên hệ quản trị viên để thêm ít nhất 1 dịch vụ (IsActive=1) cho nhóm này.");
+                    resp.sendRedirect(req.getContextPath() + "/booking/new");
+                    return;
+                }
                 apptIds = bookingSvc.createAppointments(customer.getCustomerID(), petIdList, Collections.singletonList(inpatientServiceId), null, true, iDate, iPeriod);
 
                 if (apptIds.isEmpty()) {
@@ -163,15 +161,13 @@ public class ConfirmServlet extends HttpServlet {
                     return;
                 }
 
-                // Nội trú: totalAmount của invoice = tiền cọc (tổng chi phí nội
-                // trú thực tế chỉ biết được khi xuất viện — ngoài phạm vi codebase này).
                 invoiceId = paymentSvc.createInvoice(customer.getCustomerID(), apptIds.get(0),
                         BigDecimal.valueOf(deposit));
                 paymentSvc.addInvoiceItem(invoiceId, "Other", "Đặt cọc nội trú", BigDecimal.ONE, BigDecimal.valueOf(deposit));
             } else {
                 String bookingPayload = (String) sess.getAttribute("bk_payload");
                 String slotKey = (String) sess.getAttribute("bk_slotKey");
-                List<PetBookingRequest> petBookings = parseBookingPayload(bookingPayload);
+                List<PetBookingRequest> petBookings = PetBookingRequest.parseList(bookingPayload);
 
                 // 1 appointment cho 1 pet + NHIỀU dịch vụ/vaccine đã chọn.
                 // AppointmentServices được ghi bên trong createAppointmentsForPets
@@ -193,10 +189,6 @@ public class ConfirmServlet extends HttpServlet {
                         .findFirst().orElse(null);
                 String petName = pet != null ? pet.getName() : ("Pet " + pb.getPetId());
 
-                // InvoiceItems ghi CHI TIẾT từng dịch vụ VÀ từng vaccine đã chọn
-                // (ItemType phân biệt 'Service'/'Vaccine') — đây là nơi lưu đầy
-                // đủ danh sách vaccine cụ thể, vì AppointmentServices chỉ có 1
-                // dòng đại diện chung cho cả category Vaccine.
                 if (!pb.getServiceIds().isEmpty()) {
                     List<Service> svcs = serviceDAO.findByIds(pb.getServiceIds());
                     for (Service svc : svcs) {
@@ -251,67 +243,4 @@ public class ConfirmServlet extends HttpServlet {
         return c;
     }
 
-    // ── bookingPayload parser ────────────────────────────────────────────────
-
-    private static final Pattern PET_ID_RE = Pattern.compile("\"petId\"\\s*:\\s*(-?\\d+)");
-
-    private List<PetBookingRequest> parseBookingPayload(String json) {
-        List<PetBookingRequest> result = new ArrayList<>();
-        if (json == null || json.isBlank()) return result;
-
-        for (String obj : splitTopLevelObjects(json)) {
-            Matcher m = PET_ID_RE.matcher(obj);
-            if (!m.find()) continue;
-
-            int petId = Integer.parseInt(m.group(1));
-            List<Integer> serviceIds = extractIntArray(obj, "serviceIds");
-            List<Integer> vaccineIds = extractIntArray(obj, "vaccineIds");
-
-            result.add(new PetBookingRequest(petId, serviceIds, vaccineIds));
-        }
-        return result;
-    }
-
-    private List<String> splitTopLevelObjects(String json) {
-        List<String> out = new ArrayList<>();
-        int start = json.indexOf('[');
-        int end = json.lastIndexOf(']');
-
-        if (start < 0 || end < 0 || end <= start) return out;
-
-        String inner = json.substring(start + 1, end);
-        int depth = 0, objStart = -1;
-
-        for (int i = 0; i < inner.length(); i++) {
-            char c = inner.charAt(i);
-            if (c == '{') {
-                if (depth == 0) objStart = i;
-                depth++;
-            } else if (c == '}') {
-                depth--;
-                if (depth == 0 && objStart >= 0) {
-                    out.add(inner.substring(objStart, i + 1));
-                    objStart = -1;
-                }
-            }
-        }
-        return out;
-    }
-
-    private List<Integer> extractIntArray(String obj, String key) {
-        List<Integer> out = new ArrayList<>();
-        Matcher m = Pattern.compile("\"" + key + "\"\\s*:\\s*\\[([^\\]]*)\\]").matcher(obj);
-
-        if (m.find()) {
-            String inside = m.group(1).trim();
-            if (!inside.isEmpty()) {
-                for (String part : inside.split(",")) {
-                    try {
-                        out.add(Integer.parseInt(part.trim()));
-                    } catch (Exception ignored) {}
-                }
-            }
-        }
-        return out;
-    }
 }

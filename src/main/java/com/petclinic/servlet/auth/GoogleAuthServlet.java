@@ -91,7 +91,20 @@ public class GoogleAuthServlet extends HttpServlet {
             session.setAttribute("customer", customer);
             session.setMaxInactiveInterval(60 * 60 * 8);
 
-            resp.sendRedirect(req.getContextPath() + "/");
+            // Google chỉ cung cấp email, không có số điện thoại. Nếu tài khoản
+            // (mới tạo hoặc đã có từ trước) còn thiếu email/phone, bắt buộc
+            // hoàn thiện thông tin tại trang profile trước khi vào hệ thống.
+            if (isEmpty(customer.getEmail()) || isEmpty(customer.getPhone())) {
+                resp.sendRedirect(req.getContextPath() + "/profile");
+            } else {
+                String redirectUrl = (String) session.getAttribute("redirectAfterLogin");
+                if (redirectUrl != null) {
+                    session.removeAttribute("redirectAfterLogin");
+                    resp.sendRedirect(redirectUrl);
+                } else {
+                    resp.sendRedirect(req.getContextPath() + "/home");
+                }
+            }
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -137,4 +150,6 @@ public class GoogleAuthServlet extends HttpServlet {
             return sb.toString();
         }
     }
+
+    private boolean isEmpty(String s) { return s == null || s.isBlank(); }
 }

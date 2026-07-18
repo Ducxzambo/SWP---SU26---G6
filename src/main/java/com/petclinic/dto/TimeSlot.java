@@ -6,7 +6,6 @@ import java.time.format.DateTimeFormatter;
 
 /**
  * Represents a 120-minute bookable slot.
- * maxCapacity = floor( sum(serviceDuration) / 120 ) / staffCount
  * A slot is greyed-out only when currentLoad >= maxCapacity (i.e. == 1.0 as per spec).
  */
 public class TimeSlot {
@@ -16,7 +15,7 @@ public class TimeSlot {
     private boolean   available;
     private double    maxCapacity;
     private int       currentLoad;
-    private boolean    inpatient;
+    private boolean    placeholder;
 
     // Per-role-group breakdown (populated by BookingService)
     private int groomLoad;
@@ -49,8 +48,8 @@ public class TimeSlot {
     public void      setMaxCapacity(double v){ maxCapacity = v; }
     public int       getCurrentLoad()    { return currentLoad; }
     public void      setCurrentLoad(int v){ currentLoad = v; }
-    public boolean   isInpatient()       { return inpatient; }
-    public void      setInpatient(boolean v){ inpatient = v; }
+    public boolean   isPlaceholder()      { return placeholder; }
+    public void      setPlaceholder(boolean v){ placeholder = v; }
     public int       getGroomLoad()      { return groomLoad; }
     public void      setGroomLoad(int v) { groomLoad = v; }
     public int       getGroomCap()       { return groomCap; }
@@ -63,17 +62,10 @@ public class TimeSlot {
     /** "yyyy-MM-dd|HH:mm" — used as HTML value. */
     public String getSlotKey()     { return date.format(DF) + "|" + startTime.format(TF); }
     public String getDisplayTime() { return startTime.format(TF) + " – " + endTime.format(TF); }
-    public String getDisplayDate() { return date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")); }
 
     /** Percentage fill for progress bar display (capped at 100). */
     public int getFillPercent() {
         if (maxCapacity <= 0) return 0;
         return Math.min(100, (int) Math.round(currentLoad / maxCapacity * 100));
-    }
-
-    /** Human-readable label: "Sáng" / "Chiều" for inpatient slots. */
-    public String getPeriodLabel() {
-        if (startTime.isBefore(LocalTime.NOON)) return "Sáng";
-        return "Chiều";
     }
 }
