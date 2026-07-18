@@ -64,18 +64,19 @@
                 <span>${row.pet.speciesName}</span>
               </div>
 
-              <div class="confirm-chip-row">
+              <div class="confirm-item-list">
                 <c:forEach var="svc" items="${row.services}">
-                  <span class="confirm-chip">${svc.name}</span>
+                  <div class="confirm-item-row">
+                    <span class="confirm-item-name">${svc.name}</span>
+                    <span class="confirm-item-price"><fmt:formatNumber value="${svc.price}" type="number" groupingUsed="true"/>đ</span>
+                  </div>
                 </c:forEach>
                 <c:forEach var="vac" items="${row.vaccines}">
-                  <span class="confirm-chip">${vac.name}</span>
+                  <div class="confirm-item-row">
+                    <span class="confirm-item-name">${vac.name}</span>
+                    <span class="confirm-item-price"><fmt:formatNumber value="${vac.unitPrice}" type="number" groupingUsed="true"/>đ</span>
+                  </div>
                 </c:forEach>
-              </div>
-
-              <div class="confirm-subtotal">
-                <span>Tạm tính</span>
-                <strong><fmt:formatNumber value="${row.subtotal}" type="number" groupingUsed="true"/>đ</strong>
               </div>
             </div>
           </c:forEach>
@@ -107,12 +108,6 @@
     </div>
     <table class="confirm-table">
       <c:if test="${!isInpatient}">
-        <c:forEach var="row" items="${petBreakdown}">
-          <tr>
-            <td>Tổng tiền</td>
-            <td><fmt:formatNumber value="${row.subtotal}" type="number" groupingUsed="true"/>đ</td>
-          </tr>
-        </c:forEach>
         <tr style="background:var(--green-50);">
           <td style="font-weight:600;color:var(--green-900);">Cần thanh toán (100%)</td>
           <td style="font-weight:700;color:var(--green-700);font-size:16px;">

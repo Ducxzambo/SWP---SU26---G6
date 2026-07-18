@@ -52,8 +52,8 @@
   <!-- Recent notifications preview -->
   <section class="section" style="padding-top:48px;padding-bottom:40px;">
     <div style="max-width:900px;margin:0 auto;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
-        <h2 style="font-family:'Playfair Display',serif;font-size:22px;color:var(--green-900);">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;gap:12px;flex-wrap:wrap;">
+        <h2 style="font-family:'Playfair Display',serif;font-size:22px;color:var(--green-900);min-width:0;overflow-wrap:break-word;">
           Thông báo gần đây
           <c:if test="${unreadCount > 0}">
             <span style="background:var(--green-500);color:#fff;border-radius:12px;
@@ -62,7 +62,7 @@
           </c:if>
         </h2>
         <a href="${ctx}/notifications"
-           style="font-size:13.5px;color:var(--green-500);font-weight:500;">
+           style="font-size:13.5px;color:var(--green-500);font-weight:500;flex-shrink:0;">
           Xem tất cả →
         </a>
       </div>
@@ -82,14 +82,21 @@
     <div class="card-grid">
       <c:forEach var="cat" items="${navCategories}">
         <div class="feature-card" style="text-align:left;">
-          <div class="icon">🩺</div>
+          <div class="icon-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4.5 3v6.5a4.5 4.5 0 0 0 9 0V3"/>
+              <path d="M13.5 12v2.5a5.5 5.5 0 0 1-11 0V12"/>
+              <circle cx="18.5" cy="15.5" r="2.5"/>
+              <path d="M16.3 15.5a2.5 2.5 0 0 1-2.8-2.5"/>
+            </svg>
+          </div>
           <h3>${cat.name}</h3>
           <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;">
             <c:forEach var="svc" items="${cat.services}">
               <a href="${ctx}/booking/new?prefillCategory=${cat.categoryID}&prefillService=${svc.serviceID}"
                  style="padding:5px 12px;background:var(--green-50);border:1px solid var(--green-100);
                         border-radius:20px;font-size:12.5px;color:var(--green-700);font-weight:500;
-                        transition:var(--transition);"
+                        transition:var(--transition);overflow-wrap:break-word;max-width:100%;"
                  onmouseover="this.style.background='var(--green-100)'"
                  onmouseout="this.style.background='var(--green-50)'">
                 ${svc.name}
@@ -117,7 +124,7 @@ fetch('${ctx}/notifications/api?limit=5')
     }
     el.innerHTML = data.map(n => `
       <div style="background:#fff;border:1px solid var(--border);border-radius:10px;
-                  padding:14px 18px;margin-bottom:10px;${!n.isRead ? 'border-left:3px solid var(--green-500);' : ''}">
+                  padding:14px 18px;margin-bottom:10px;overflow-wrap:break-word;${!n.isRead ? 'border-left:3px solid var(--green-500);' : ''}">
         <div style="font-weight:500;font-size:14px;margin-bottom:4px;">${n.title}</div>
         <div style="font-size:13px;color:var(--warm-gray);">${n.body}</div>
       </div>`).join('');

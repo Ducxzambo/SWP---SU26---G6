@@ -24,16 +24,16 @@
       <li class="nav-item">
         <span class="nav-link">Giới thiệu <span class="chevron">▾</span></span>
         <div class="nav-dropdown">
-          <a href="${ctx}/about#intro">Lời giới thiệu</a>
-          <a href="${ctx}/about#facility">Cơ sở vật chất</a>
-          <a href="${ctx}/about#team">Nhân viên</a>
-          <a href="${ctx}/about#vision">Tầm nhìn và Phát triển</a>
+          <a href="${ctx}/#intro">Lời giới thiệu</a>
+          <a href="${ctx}/#facility">Cơ sở vật chất</a>
+          <a href="${ctx}/#team">Nhân viên</a>
+          <a href="${ctx}/#vision">Tầm nhìn và Phát triển</a>
         </div>
       </li>
 
       <!-- Dịch vụ (dynamic from DB) -->
       <li class="nav-item">
-        <span class="nav-link">Dịch vụ <span class="chevron">▾</span></span>
+        <a href="${ctx}/services" class="nav-link">Dịch vụ <span class="chevron">▾</span></a>
         <div class="nav-dropdown" style="min-width:240px;">
           <c:forEach var="cat" items="${navCategories}">
             <div class="dd-group">
@@ -58,22 +58,6 @@
             </span>
           </c:if>
         </div>
-      </li>
-
-      <!-- Kiến thức -->
-      <li class="nav-item">
-        <span class="nav-link">Kiến thức <span class="chevron">▾</span></span>
-        <div class="nav-dropdown">
-          <a href="${ctx}/knowledge/diseases">Các loại bệnh</a>
-          <a href="${ctx}/knowledge/breeds">Các giống thú cưng</a>
-          <a href="${ctx}/knowledge/cases">Ca bệnh thực tế</a>
-          <a href="${ctx}/knowledge/care-tips">Lưu ý chăm sóc thú cưng</a>
-        </div>
-      </li>
-
-      <!-- Tin tức -->
-      <li class="nav-item">
-        <a href="${ctx}/news" class="nav-link">Tin tức</a>
       </li>
 
       <!-- Cộng đồng -->
@@ -123,20 +107,23 @@
             <a href="${ctx}/booking/new" class="nav-big-btn booking">➕ Đặt lịch</a>
           </div>
 
-          <!-- Avatar + name -->
-          <div class="nav-customer">
-            <div class="nav-avatar">
-              ${customer.fullName.substring(0,1).toUpperCase()}
+          <!-- Profile dropdown -->
+          <div class="nav-profile">
+            <button class="nav-profile-btn" id="navProfileBtn" title="Tài khoản"
+                    onclick="toggleProfileMenu()">
+              <div class="nav-avatar">
+                ${customer.fullName.substring(0,1).toUpperCase()}
+              </div>
+              <span class="chevron">▾</span>
+            </button>
+            <div class="nav-profile-panel" id="navProfilePanel">
+              <a href="${ctx}/profile" class="nav-profile-item">👤 Hồ sơ của tôi</a>
+              <div class="nav-profile-divider"></div>
+              <form action="${ctx}/auth/logout" method="post" style="margin:0;">
+                <button type="submit" class="nav-profile-item nav-profile-item-danger">🚪 Đăng xuất</button>
+              </form>
             </div>
-            <span style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-              ${customer.fullName}
-            </span>
           </div>
-
-          <!-- Logout -->
-          <form action="${ctx}/auth/logout" method="post" style="margin:0;">
-            <button type="submit" class="btn-logout">Đăng xuất</button>
-          </form>
 
         </c:when>
         <c:otherwise>

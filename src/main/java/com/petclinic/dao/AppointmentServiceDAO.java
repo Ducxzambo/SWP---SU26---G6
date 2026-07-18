@@ -7,6 +7,11 @@ import java.math.BigDecimal;
 import java.sql.*;
 import java.util.*;
 
+/**
+ * DAO cho bảng join N-N AppointmentServices (1 appointment có thể có nhiều
+ * dịch vụ, mỗi dịch vụ có UnitPrice snapshot riêng và có thể được gán cho
+ * 1 nhân viên phụ trách khác nhau qua AssignedStaffID).
+ */
 public class AppointmentServiceDAO {
 
     /** Thêm 1 dịch vụ vào appointment. unitPrice được snapshot tại thời điểm đặt lịch. */
@@ -25,15 +30,10 @@ public class AppointmentServiceDAO {
         return -1;
     }
 
-    /** Danh sách dịch vụ đã chọn của 1 appointment, kèm tên dịch vụ/nhóm/nhân viên phụ trách. */
-    public List<AppointmentService> findByAppointment(int appointmentId) throws SQLException {
-        Map<Integer, List<AppointmentService>> map = findByAppointmentIds(Collections.singletonList(appointmentId));
-        return map.getOrDefault(appointmentId, new ArrayList<>());
-    }
-
     /**
-     * Tải hàng loạt cho nhiều appointment cùng lúc
-     * dùng khi AppointmentDAO trả về danh sách nhiều appointment
+     * Tải hàng loạt (tránh N+1) cho nhiều appointment cùng lúc — dùng khi
+     * AppointmentDAO trả về danh sách nhiều appointment (vd lịch sử đặt lịch
+     * của khách).
      */
     public Map<Integer, List<AppointmentService>> findByAppointmentIds(List<Integer> appointmentIds) throws SQLException {
         Map<Integer, List<AppointmentService>> result = new LinkedHashMap<>();

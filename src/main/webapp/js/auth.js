@@ -99,6 +99,7 @@ function initResendCountdown(timerId, linkId, seconds) {
   const linkEl  = document.getElementById(linkId);
   if (!timerEl || !linkEl) return;
 
+  const resendUrl = linkEl.dataset.url || '';
   linkEl.style.display = 'none';
   let remaining = seconds;
 
@@ -108,7 +109,7 @@ function initResendCountdown(timerId, linkId, seconds) {
     if (remaining <= 0) {
       clearInterval(interval);
       timerEl.closest('.resend-wrap').innerHTML =
-        '<a id="' + linkId + '" onclick="resendOtp(this)">Gửi lại mã</a>';
+        '<a id="' + linkId + '" data-url="' + resendUrl + '" onclick="resendOtp(this)">Gửi lại mã</a>';
     }
   }, 1000);
 }

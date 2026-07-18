@@ -144,7 +144,7 @@
         <div class="bk-panel" id="notesPanel" style="display:none;">
           <div class="bk-panel-head">Ghi chú (không bắt buộc)</div>
           <div class="bk-panel-body">
-            <textarea name="notes" rows="3" class="field-textarea"
+            <textarea name="notes" id="notesInput" rows="3" class="field-textarea"
                       placeholder="Mô tả triệu chứng, yêu cầu đặc biệt..."></textarea>
           </div>
         </div>
@@ -189,6 +189,10 @@
   window.BOOKING_PREFILL_PET = '${prefillPet}';
   window.BOOKING_PREFILL_CAT = '${prefillCat}';
   window.APP_CTX = '${ctx}';
+  // Neu khach vua bam "Quay lai chinh sua" tu trang confirm (hoac quay lai
+  // giua chung), du lieu da chon truoc do van con trong session - JS se
+  // dung du lieu nay de khoi phuc dung trang thai, khong bat dau lai tu dau.
+  window.BOOKING_RESUME = ${not empty resumeData ? resumeData : 'null'};
 </script>
 <script src="${ctx}/js/booking-new.js"></script>
 </body>

@@ -15,7 +15,6 @@
     slots: {},
     vaccineCategoryId: 4,
     vaccineServiceId: -1,
-    inpatientServiceId: -1,
   };
 
   let fetchTimer = null;
@@ -139,36 +138,40 @@
     wrap.innerHTML = '';
 
     Array.from(state.petConfigs.keys()).forEach(petId => {
-      const cfg = state.petConfigs.get(petId);
-      const card = document.createElement('div');
-      card.className = 'pet-config-card';
-      card.innerHTML =
-          '<div class="pet-config-title">' + escHtml(state.pets.get(petId)) + '</div>' +
-          '<div class="svc-group">' +
-          '<div class="svc-group-label">Nhóm dịch vụ <span class="chip-sub">(chọn được nhiều)</span></div>' +
-          '<div class="chip-grid pet-category-grid"></div>' +
-          '</div>' +
-          '<div class="pet-service-container"></div>';
+      try {
+        const cfg = state.petConfigs.get(petId);
+        const card = document.createElement('div');
+        card.className = 'pet-config-card';
+        card.innerHTML =
+            '<div class="pet-config-title">' + escHtml(state.pets.get(petId)) + '</div>' +
+            '<div class="svc-group">' +
+            '<div class="svc-group-label">Nhóm dịch vụ <span class="chip-sub">(chọn được nhiều)</span></div>' +
+            '<div class="chip-grid pet-category-grid"></div>' +
+            '</div>' +
+            '<div class="pet-service-container"></div>';
 
-      const categoryGrid = card.querySelector('.pet-category-grid');
-      state.categories.forEach(cat => {
-        const chip = document.createElement('div');
-        chip.className = 'chip' + (cfg.categoryIds.has(cat.id) ? ' selected' : '');
-        chip.textContent = cat.name;
-        chip.onclick = () => window.togglePetCategory(petId, cat.id);
-        categoryGrid.appendChild(chip);
-      });
+        const categoryGrid = card.querySelector('.pet-category-grid');
+        state.categories.forEach(cat => {
+          const chip = document.createElement('div');
+          chip.className = 'chip' + (cfg.categoryIds.has(cat.id) ? ' selected' : '');
+          chip.textContent = cat.name;
+          chip.onclick = () => window.togglePetCategory(petId, cat.id);
+          categoryGrid.appendChild(chip);
+        });
 
-      // Render 1 group dịch vụ/vaccine cho MỖI category đã chọn (multi-select).
-      const serviceContainer = card.querySelector('.pet-service-container');
-      state.categories
-          .filter(cat => cfg.categoryIds.has(cat.id))
-          .forEach(cat => {
-            serviceContainer.appendChild(cat.id === state.vaccineCategoryId
-                ? renderVaccineGroup(petId, cfg)
-                : renderServiceGroup(petId, cfg, cat));
-          });
-      wrap.appendChild(card);
+        // Render 1 group dịch vụ/vaccine cho MỖI category đã chọn (multi-select).
+        const serviceContainer = card.querySelector('.pet-service-container');
+        state.categories
+            .filter(cat => cfg.categoryIds.has(cat.id))
+            .forEach(cat => {
+              serviceContainer.appendChild(cat.id === state.vaccineCategoryId
+                  ? renderVaccineGroup(petId, cfg)
+                  : renderServiceGroup(petId, cfg, cat));
+            });
+        wrap.appendChild(card);
+      } catch (err) {
+        console.error('renderPetConfigs failed for petId=' + petId, err);
+      }
     });
   }
 
@@ -178,7 +181,12 @@
     group.innerHTML = '<div class="svc-divider"></div><div class="svc-group-label">' + escHtml(cat.name) +
         ' <span class="chip-sub">(chọn được nhiều)</span></div><div class="chip-grid"></div>';
     const grid = group.querySelector('.chip-grid');
-    (cat.services || []).forEach(svc => {
+    const services = cat.services || [];
+    if (services.length === 0) {
+      grid.innerHTML = '<p class="bk-panel-hint" style="margin:0;">Nhóm dịch vụ này hiện chưa có dịch vụ nào khả dụng.</p>';
+      return group;
+    }
+    services.forEach(svc => {
       const chip = document.createElement('div');
       chip.className = 'chip' + (cfg.serviceIds.has(svc.id) ? ' selected' : '');
       chip.innerHTML = escHtml(svc.name) + '<span class="chip-sub">' + formatVnd(svc.price) + 'đ</span>';
@@ -250,8 +258,25 @@
     state.slots = data.slots || {};
     state.vaccineCategoryId = data.vaccineCategoryId || state.vaccineCategoryId;
     state.vaccineServiceId = data.vaccineServiceId || state.vaccineServiceId;
-    state.inpatientServiceId = data.inpatientServiceId || state.inpatientServiceId;
     showCapacityError('');
+
+    // Neu slotKey da co san (vd khoi phuc tu luot dat lich truoc do, hoac
+    // slot vua bi nguoi khac dat mat trong luc dang xem trang), kiem tra lai
+    // no co con ton tai/kha dung trong du lieu vua tai khong - tranh submit
+    // 1 slotKey da het han ma khong hay biet.
+    const input = document.getElementById('slotKeyInput');
+    if (state.slotKey) {
+      const ds = state.slotKey.split('|')[0];
+      const daySlots = state.slots[ds] || [];
+      const stillValid = daySlots.some(s => s.key === state.slotKey && s.available);
+      if (!stillValid) {
+        state.slotKey = null;
+        if (input) input.value = '';
+        showCapacityError('Khung giờ đã chọn trước đó không còn khả dụng, vui lòng chọn lại.');
+      } else if (input) {
+        input.value = state.slotKey;
+      }
+    }
   }
 
   function renderDateTabs() {
@@ -270,9 +295,18 @@
       return;
     }
 
+    // Neu da co slotKey san (vd khoi phuc tu luot dat lich truoc do), uu
+    // tien mo dung tab ngay tuong ung thay vi luon mac dinh tab dau tien.
+    const preferredDate = state.slotKey ? state.slotKey.split('|')[0] : null;
+    let activeIndex = 0;
+    if (preferredDate) {
+      const idx = dates.indexOf(preferredDate);
+      if (idx >= 0) activeIndex = idx;
+    }
+
     dates.slice(0, 14).forEach((ds, i) => {
       const tab = document.createElement('div');
-      tab.className = 'date-tab' + (i === 0 ? ' active' : '');
+      tab.className = 'date-tab' + (i === activeIndex ? ' active' : '');
       const d = new Date(ds + 'T00:00:00');
       tab.innerHTML = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'][d.getDay()] +
           '<br><small>' + d.getDate() + '/' + (d.getMonth() + 1) + '</small>';
@@ -283,7 +317,7 @@
       };
       tabsEl.appendChild(tab);
     });
-    renderSlots(dates[0]);
+    renderSlots(dates[Math.min(activeIndex, dates.length - 1)]);
   }
 
   function renderSlots(ds) {
@@ -294,10 +328,16 @@
       const fill = Math.min(100, slot.fill || 0);
       const card = document.createElement('div');
       card.className = 'slot-card' + (!slot.available ? ' booked' : '') + (state.slotKey === slot.key ? ' selected' : '');
+      // slot.placeholder = true nghĩa là chưa chọn dịch vụ/vaccine nào — số
+      // liệu load/cap lúc này chỉ là giá trị giả để hiển thị bố cục, KHÔNG
+      // phải sức chứa thật, nên không hiển thị dạng "0/100 chỗ" gây hiểu lầm.
+      const loadText = slot.placeholder
+          ? 'Chọn dịch vụ để xem số chỗ'
+          : (slot.load + '/' + slot.cap + ' chỗ');
       card.innerHTML =
           '<div class="slot-time">' + escHtml(slot.display) + '</div>' +
-          '<div class="slot-fill-bar"><div class="slot-fill-inner" style="width:' + fill + '%"></div></div>' +
-          '<div class="slot-load">' + slot.load + '/' + slot.cap + ' chỗ</div>';
+          '<div class="slot-fill-bar"><div class="slot-fill-inner" style="width:' + (slot.placeholder ? 0 : fill) + '%"></div></div>' +
+          '<div class="slot-load">' + loadText + '</div>';
       if (slot.available) {
         card.onclick = () => {
           state.slotKey = slot.key;
@@ -436,9 +476,78 @@
         .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
   }
 
+  /**
+   * Khoi phuc lai lua chon cua luot dat lich truoc do (thu cung/category/
+   * dich vu/vaccine/khung gio/ghi chu) tu window.BOOKING_RESUME - du lieu
+   * nay do NewServlet dong goi tu session, chi co khi khach da tung nhap
+   * dang do (vd bam "Quay lai chinh sua" tu trang confirm). Tra ve true
+   * neu co gi do duoc khoi phuc.
+   */
+  function applyResumeIfAny() {
+    const resume = window.BOOKING_RESUME;
+    if (!resume) return false;
+
+    if (resume.isInpatient) {
+      selectMode('inpatient');
+      (resume.petIds || []).forEach(id => {
+        const chip = document.querySelector('#inpPetChips .chip[data-pet-id="' + id + '"]');
+        if (chip) window.toggleInpatientPet(chip, id);
+      });
+      if (resume.inpatientDate) {
+        const dateInput = document.getElementById('inpDate');
+        if (dateInput) dateInput.value = resume.inpatientDate;
+        window.onInpatientDateChange(resume.inpatientDate);
+      }
+      if (resume.inpatientPeriod) window.selectPeriod(resume.inpatientPeriod);
+    } else {
+      selectMode('normal');
+      let payload = [];
+      try { payload = JSON.parse(resume.payload || '[]'); } catch (e) { payload = []; }
+
+      payload.forEach(row => {
+        const petChip = document.querySelector('#mainPetChips .chip[data-pet-id="' + row.petId + '"]');
+        if (!petChip) return; // pet co the da bi xoa - bo qua an toan
+        const petName = petChip.dataset.petName || ('Pet #' + row.petId);
+        petChip.classList.add('selected');
+        state.pets.set(row.petId, petName);
+
+        const cfg = {
+          categoryIds: new Set(),
+          serviceIds: new Set(row.serviceIds || []),
+          vaccineIds: new Set(row.vaccineIds || []),
+        };
+        // Payload goc chi luu serviceIds/vaccineIds cu the, khong luu
+        // categoryIds da chon - suy nguoc lai category tu cac service/
+        // vaccine da chon do de hien thi dung cac nhom da mo san.
+        state.categories.forEach(cat => {
+          const hasSelectedService = (cat.services || []).some(s => cfg.serviceIds.has(s.id));
+          const isVaccineCatSelected = cat.id === state.vaccineCategoryId && cfg.vaccineIds.size > 0;
+          if (hasSelectedService || isVaccineCatSelected) cfg.categoryIds.add(cat.id);
+        });
+        state.petConfigs.set(row.petId, cfg);
+      });
+
+      state.slotKey = resume.slotKey || null;
+    }
+
+    const notesEl = document.getElementById('notesInput');
+    if (notesEl && resume.notes) notesEl.value = resume.notes;
+
+    return true;
+  }
+
   async function init() {
     selectMode('normal');
     await loadSlots([]);
+
+    const resumed = applyResumeIfAny();
+    if (resumed && state.mode === 'normal' && state.petConfigs.size > 0) {
+      document.getElementById('slotPanel').style.display = '';
+      // Tai lai slot theo dung lua chon vua khoi phuc (applySlotData se tu
+      // kiem tra state.slotKey con hop le khong va huy neu khong con).
+      await loadSlots(selectedServiceIdsForCapacity());
+    }
+
     renderPetConfigs();
     updateSummary();
   }

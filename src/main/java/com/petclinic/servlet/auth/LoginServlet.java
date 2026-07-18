@@ -21,7 +21,8 @@ public class LoginServlet extends HttpServlet {
         // Already logged in?
         if (req.getSession(false) != null &&
             req.getSession(false).getAttribute("customer") != null) {
-            resp.sendRedirect(req.getContextPath() + "/");
+            Customer c = (Customer) req.getSession(false).getAttribute("customer");
+            redirectAfterAuth(req, resp, req.getSession(false), c);
             return;
         }
 
@@ -35,7 +36,7 @@ public class LoginServlet extends HttpServlet {
                         if (customer != null) {
                             HttpSession session = req.getSession(true);
                             session.setAttribute("customer", customer);
-                            resp.sendRedirect(req.getContextPath() + "/");
+                            redirectAfterAuth(req, resp, session, customer);
                             return;
                         }
                     } catch (Exception ignored) {}
@@ -84,20 +85,36 @@ public class LoginServlet extends HttpServlet {
                 resp.addCookie(cookie);
             }
 
-            // Redirect to originally requested page or home
-            String redirectUrl = (String) session.getAttribute("redirectAfterLogin");
-            if (redirectUrl != null) {
-                session.removeAttribute("redirectAfterLogin");
-                resp.sendRedirect(redirectUrl);
-            } else {
-                resp.sendRedirect(req.getContextPath() + "/");
-            }
+            // Redirect to profile page if contact info incomplete, else to originally
+            // requested page or home
+            redirectAfterAuth(req, resp, session, customer);
 
         } catch (Exception e) {
             e.printStackTrace();
             forwardWithError(req, resp, "Đã xảy ra lỗi, vui lòng thử lại.");
         }
     }
+
+    /**
+     * Nếu tài khoản thiếu email hoặc số điện thoại, bắt buộc chuyển đến trang
+     * profile để hoàn thiện thông tin trước khi vào các trang khác.
+     */
+    private void redirectAfterAuth(HttpServletRequest req, HttpServletResponse resp,
+                                    HttpSession session, Customer customer) throws IOException {
+        if (isEmpty(customer.getEmail()) || isEmpty(customer.getPhone())) {
+            resp.sendRedirect(req.getContextPath() + "/profile");
+            return;
+        }
+        String redirectUrl = (String) session.getAttribute("redirectAfterLogin");
+        if (redirectUrl != null) {
+            session.removeAttribute("redirectAfterLogin");
+            resp.sendRedirect(redirectUrl);
+        } else {
+            resp.sendRedirect(req.getContextPath() + "/home");
+        }
+    }
+
+    private boolean isEmpty(String s) { return s == null || s.isBlank(); }
 
     private void forwardWithError(HttpServletRequest req, HttpServletResponse resp, String msg)
             throws ServletException, IOException {

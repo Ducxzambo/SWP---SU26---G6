@@ -1,5 +1,7 @@
 package com.petclinic.servlet.home;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import com.petclinic.dao.NotificationDAO;
 import com.petclinic.dao.ServiceDAO;
 import com.petclinic.model.Customer;
@@ -43,8 +45,8 @@ public class NotificationServlet extends HttpServlet {
         if ("/notifications/count".equals(path)) {
             try {
                 int count = dao.countUnread(customer.getCustomerID());
-                json(resp, "{\"unread\":" + count + "}");
-            } catch (Exception e) { json(resp, "{\"unread\":0}"); }
+                json(resp, unreadJson(count));
+            } catch (Exception e) { json(resp, unreadJson(0)); }
             return;
         }
 
@@ -127,8 +129,8 @@ public class NotificationServlet extends HttpServlet {
         if (accept != null && accept.contains("application/json")) {
             try {
                 int count = dao.countUnread(customer.getCustomerID());
-                json(resp, "{\"unread\":" + count + "}");
-            } catch (Exception e) { json(resp, "{\"unread\":0}"); }
+                json(resp, unreadJson(count));
+            } catch (Exception e) { json(resp, unreadJson(0)); }
         } else {
             String ref = req.getHeader("Referer");
             resp.sendRedirect(ref != null ? ref : req.getContextPath() + "/notifications");
@@ -156,7 +158,7 @@ public class NotificationServlet extends HttpServlet {
             // API endpoints: return 401 JSON
             String path = req.getServletPath();
             if (path.contains("/api") || path.contains("/count")) {
-                json(resp, "{\"error\":\"unauthorized\"}");
+                json(resp, errorJson("unauthorized"));
             } else {
                 resp.sendRedirect(req.getContextPath() + "/auth/login");
             }
@@ -169,31 +171,35 @@ public class NotificationServlet extends HttpServlet {
         resp.getWriter().write(body);
     }
 
-    /** Serialize notification list to JSON (manual, no Gson dependency). */
+    private String unreadJson(int count) {
+        JsonObject o = new JsonObject();
+        o.addProperty("unread", count);
+        return o.toString();
+    }
+
+    private String errorJson(String message) {
+        JsonObject o = new JsonObject();
+        o.addProperty("error", message);
+        return o.toString();
+    }
+
     private String toJson(List<Notification> list, int limit) {
-        StringBuilder sb = new StringBuilder("[");
+        JsonArray arr = new JsonArray();
         int count = 0;
         for (Notification n : list) {
             if (count >= limit) break;
-            if (count > 0) sb.append(",");
-            sb.append("{")
-                    .append("\"id\":").append(n.getNotificationID()).append(",")
-                    .append("\"title\":").append(jsonStr(n.getTitle())).append(",")
-                    .append("\"body\":").append(jsonStr(n.getBody())).append(",")
-                    .append("\"type\":").append(jsonStr(n.getType())).append(",")
-                    .append("\"actionUrl\":").append(jsonStr(n.getActionUrl())).append(",")
-                    .append("\"isRead\":").append(n.isRead()).append(",")
-                    .append("\"relativeTime\":").append(jsonStr(n.getRelativeTime())).append(",")
-                    .append("\"typeColor\":").append(jsonStr(n.getTypeColor()))
-                    .append("}");
+            JsonObject o = new JsonObject();
+            o.addProperty("id", n.getNotificationID());
+            o.addProperty("title", n.getTitle());
+            o.addProperty("body", n.getBody());
+            o.addProperty("type", n.getType());
+            o.addProperty("actionUrl", n.getActionUrl());
+            o.addProperty("isRead", n.isRead());
+            o.addProperty("relativeTime", n.getRelativeTime());
+            o.addProperty("typeColor", n.getTypeColor());
+            arr.add(o);
             count++;
         }
-        return sb.append("]").toString();
-    }
-
-    private String jsonStr(String s) {
-        if (s == null) return "null";
-        return "\"" + s.replace("\\","\\\\").replace("\"","\\\"")
-                .replace("\n","\\n").replace("\r","") + "\"";
+        return arr.toString();
     }
 }

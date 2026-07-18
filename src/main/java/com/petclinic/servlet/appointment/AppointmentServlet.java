@@ -1,10 +1,11 @@
 package com.petclinic.servlet.appointment;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import com.petclinic.dao.*;
 import com.petclinic.dto.TimeSlot;
 import com.petclinic.model.*;
 import com.petclinic.service.BookingService;
-import com.petclinic.service.NotificationService;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -40,7 +41,6 @@ public class AppointmentServlet extends HttpServlet {
     private final ReviewDAO        reviewDAO  = new ReviewDAO();
     private final NotificationDAO  notiDAO    = new  NotificationDAO();
     private final BookingService   bookingSvc = new BookingService();
-    private final NotificationService notifSvc = new NotificationService();
 
     // ── GET ───────────────────────────────────────────────────────────────────
     @Override
@@ -249,7 +249,6 @@ public class AppointmentServlet extends HttpServlet {
 
         String reason = req.getParameter("cancelReason");
         apptDAO.cancel(id, reason != null && !reason.isBlank() ? reason.trim() : null);
-        notifSvc.onBookingCancelled(customer, appt, reason);
         req.getSession().setAttribute("flashSuccess", "Đã huỷ lịch khám thành công.");
         resp.sendRedirect(req.getContextPath() + "/appointments");
     }
@@ -318,25 +317,21 @@ public class AppointmentServlet extends HttpServlet {
     }
 
     private String slotsToJson(Map<LocalDate, List<TimeSlot>> slots) {
-        StringBuilder sb = new StringBuilder("{");
-        boolean fd = true;
+        JsonObject root = new JsonObject();
         for (Map.Entry<LocalDate, List<TimeSlot>> e : slots.entrySet()) {
-            if (!fd) sb.append(","); fd = false;
-            sb.append("\"").append(e.getKey()).append("\":[");
-            boolean fs = true;
+            JsonArray dayArr = new JsonArray();
             for (TimeSlot ts : e.getValue()) {
-                if (!fs) sb.append(","); fs = false;
-                sb.append("{")
-                        .append("\"key\":\"").append(ts.getSlotKey()).append("\",")
-                        .append("\"display\":\"").append(ts.getDisplayTime()).append("\",")
-                        .append("\"available\":").append(ts.isAvailable()).append(",")
-                        .append("\"load\":").append(ts.getCurrentLoad()).append(",")
-                        .append("\"cap\":").append((int)ts.getMaxCapacity()).append(",")
-                        .append("\"fill\":").append(ts.getFillPercent())
-                        .append("}");
+                JsonObject o = new JsonObject();
+                o.addProperty("key", ts.getSlotKey());
+                o.addProperty("display", ts.getDisplayTime());
+                o.addProperty("available", ts.isAvailable());
+                o.addProperty("load", ts.getCurrentLoad());
+                o.addProperty("cap", (int) ts.getMaxCapacity());
+                o.addProperty("fill", ts.getFillPercent());
+                dayArr.add(o);
             }
-            sb.append("]");
+            root.add(e.getKey().toString(), dayArr);
         }
-        return sb.append("}").toString();
+        return root.toString();
     }
 }

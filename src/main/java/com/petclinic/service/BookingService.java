@@ -25,7 +25,7 @@ import java.util.*;
  *  chi staff tao truc tiep (ngoai pham vi codebase nay):
  *      Slot 5: 18:30 -> 07:00 sang hom sau
  *
- *  Capacity: KHONG con tinh theo sub-slot/duration. Fix cung:
+ *  Capacity: Fix cung:
  *      maxCapacity(slot, roleGroup) = (so nhan vien active cua role do) x 5
  *
  *  Role mapping (categoryId -> roleId), giu nhu cu:
@@ -36,21 +36,7 @@ import java.util.*;
  *
  * ─────────────────────────────────────────────────────────────────────────
  *  MODEL BOOKING (N-N qua AppointmentServices): 1 appointment = 1 pet +
- *  1 slot, nhung co the gom NHIEU dich vu. Khach co the chon nhieu category
- *  (tru "Dieu tri"/"Chan doan"/"Noi tru" — loc o
- *  ServiceDAO.findBookableCategoriesWithServices()), nhieu dich vu trong
- *  moi category.
- *
- *  Rieng 2 category "Vaccine" va "Dich vu noi tru": CHI insert DUY NHAT 1
- *  dong AppointmentServices dai dien (Service dau tien active cua category
- *  do) — cac lua chon CU THE (vaccine nao, so luong) duoc luu chi tiet o
- *  InvoiceItems (ItemType='Vaccine'/'Other'), khong nam trong
- *  AppointmentServices. Xem createAppointmentsForPets()/createAppointments().
- *
- *  DA BO logic dat coc 50.000d cho booking thuong: khach thanh toan 100%
- *  tong chi phi ngay khi dat lich (xem PaymentServlet/payment.jsp — chi con
- *  DUY NHAT lua chon "Thanh toan toan bo"). Coc noi tru (200.000d) van GIU
- *  NGUYEN vi day la phi tam ung nhap vien, khong phai % tren tong da biet.
+ *  1 slot, nhieu dich vu.
  * ─────────────────────────────────────────────────────────────────────────
  */
 public class BookingService {
@@ -80,7 +66,7 @@ public class BookingService {
 
     /**
      * Tien coc CO DINH — CHI con ap dung cho Noi tru. Booking thuong KHONG
-     * con coc, khach luon thanh toan 100% tong chi phi (xem computeDeposit()).
+     * con coc, khach luon thanh toan 100% tong chi phi.
      */
     public static final long DEPOSIT_INPATIENT = 200_000L;
 
@@ -88,7 +74,7 @@ public class BookingService {
     public static final int GROOMING_CATEGORY_ID  = 3;
     public static final int VACCINE_CATEGORY_ID   = 4;
     public static final int INPATIENT_CATEGORY_ID = 7; // "Dich vu noi tru"
-    private static final int VET_ROLE_ID = 3;
+    private static final int VET_ROLE_ID     = 3;
     private static final int GROOMER_ROLE_ID = 4;
 
     /** True neu thoi diem bat dau trung dung slot phu (18:30) - dung de tinh phu thu OT. */
@@ -117,17 +103,14 @@ public class BookingService {
     //  CAPACITY CALCULATION
     // ─────────────────────────────────────────────────────────────────────────
 
-    /** Fix cung: 1 nhan vien (vet/groomer) duoc nhan toi da 5 pets / slot. */
-    private int computeStaffCapacity(int categoryId) {
+    /**
+     * Fix cung: 1 nhan vien (vet/groomer) duoc nhan toi da 5 pets / slot.
+     */
+    private int computeStaffCapacityForRole(int roleId) {
         int staff = 1;
-        try { staff = Math.max(1, serviceDAO.countStaffByCategoryId(categoryId)); }
+        try { staff = Math.max(1, serviceDAO.countStaffByRoleId(roleId)); }
         catch (Exception ignored) {}
         return staff * 5;
-    }
-
-    public int computeMaxCapacity(List<Service> services, int categoryId) {
-        if (services == null || services.isEmpty()) return 5;
-        return computeStaffCapacity(categoryId);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -160,8 +143,8 @@ public class BookingService {
         boolean vetNeeded   = !vetSvcs.isEmpty();
         boolean groomNeeded = !groomSvcs.isEmpty();
 
-        int groomCap  = groomNeeded ? computeStaffCapacity(GROOMING_CATEGORY_ID) : 0;
-        int vetCap    = vetNeeded   ? computeStaffCapacity(1) : 0;
+        int groomCap  = groomNeeded ? computeStaffCapacityForRole(GROOMER_ROLE_ID) : 0;
+        int vetCap    = vetNeeded   ? computeStaffCapacityForRole(VET_ROLE_ID) : 0;
 
         // If no services selected yet, use a placeholder capacity for display
         boolean noSelectionYet = allServices.isEmpty();
@@ -186,7 +169,7 @@ public class BookingService {
 
                 int slotShift = slotShiftOf(cursor); // luon khop 1 trong FIXED_SLOTS
                 int groomLoad = groomNeeded ? appointmentDAO.countConfirmedInSlotByRoleGroup(
-                        date, slotShift, GROOMER_ROLE_ID) : 0;
+                        date, slotShift, 4) : 0;
                 int vetLoad   = vetNeeded   ? appointmentDAO.countConfirmedInSlotByRoleGroup(
                         date, slotShift, VET_ROLE_ID) : 0;
 
@@ -200,6 +183,7 @@ public class BookingService {
                 TimeSlot ts = new TimeSlot(date, cursor, slotEnd, available);
                 ts.setCurrentLoad(totalLoad);
                 ts.setMaxCapacity(noSelectionYet ? 100 : totalCap);
+                ts.setPlaceholder(noSelectionYet);
                 ts.setGroomLoad(groomLoad);  ts.setGroomCap(groomCap);
                 ts.setVetLoad(vetLoad);       ts.setVetCap(vetCap);
                 slots.add(ts);
@@ -212,15 +196,6 @@ public class BookingService {
     // ─────────────────────────────────────────────────────────────────────────
     //  APPOINTMENT CREATION — NOI TRU
     // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Luong Noi tru: tao 1 Appointment cho 1 pet, gan kem DUY NHAT 1 dong
-     * AppointmentServices tham chieu Service dai dien cua category
-     * "Dich vu noi tru" (KHONG con dung Appointments.ServiceID, cot nay da
-     * bi xoa khoi schema). UnitPrice cua dong nay = gia niem yet cua chinh
-     * Service do (xu ly giong het 1 service binh thuong) — tien coc thuc te
-     * thu duoc ghi rieng o InvoiceItems (xem ConfirmServlet).
-     */
     public List<Integer> createAppointments(int customerId, List<Integer> petIds,
                                             List<Integer> serviceIds, String slotKey,
                                             boolean isInpatient, String inpatientDate,
@@ -258,11 +233,18 @@ public class BookingService {
         a.setStatus("Pending");
         // Inpatient khong khop 1 ca co dinh nao nen de SlotShift = null
         if (!isInpatient) a.setSlotShift(slotShiftOf(start));
+
+        int serviceId = serviceIds.get(0);
+        Service svc = serviceDAO.findById(serviceId);
+        if (svc == null) {
+            throw new IllegalStateException(
+                    "Chưa cấu hình dịch vụ đại diện cho nhóm dịch vụ này (ServiceID=" + serviceId
+                            + " không tồn tại hoặc đã ngừng hoạt động). Vui lòng liên hệ quản trị viên để thêm ít nhất 1 dịch vụ (IsActive=1) cho nhóm này.");
+        }
+
         int apptId = appointmentDAO.insert(a);
         if (apptId > 0) {
-            int serviceId = serviceIds.get(0);
-            Service svc = serviceDAO.findById(serviceId);
-            BigDecimal price = (svc != null && svc.getPrice() != null) ? svc.getPrice() : BigDecimal.ZERO;
+            BigDecimal price = svc.getPrice() != null ? svc.getPrice() : BigDecimal.ZERO;
             appointmentServiceDAO.insert(apptId, serviceId, price);
             created.add(apptId);
         }
@@ -272,20 +254,6 @@ public class BookingService {
     // ─────────────────────────────────────────────────────────────────────────
     //  APPOINTMENT CREATION — 1 appointment = 1 pet + NHIEU dich vu + 1 slot
     // ─────────────────────────────────────────────────────────────────────────
-    /**
-     * Tao DUNG 1 Appointment cho 1 pet, gan kem cac dong AppointmentServices
-     * theo dung quy tac:
-     *   - Dich vu thuoc cac category BINH THUONG (khong phai Vaccine): insert
-     *     1 dong / 1 dich vu THUC SU duoc chon (r.getServiceIds()).
-     *   - Neu co chon vaccine (r.getVaccineIds() khong rong): insert DUY
-     *     NHAT 1 dong AppointmentServices dai dien cho ca category Vaccine
-     *     (Service dau tien active co CategoryID = VACCINE_CATEGORY_ID) —
-     *     KHONG insert rieng tung vaccine vao AppointmentServices.
-     * Danh sach vaccine CU THE da chon duoc luu chi tiet o InvoiceItems
-     * (ItemType='Vaccine'), xem ConfirmServlet.
-     *
-     * Van chi cho phep DUNG 1 thu cung / luot dat lich.
-     */
     public List<Integer> createAppointmentsForPets(int customerId, List<PetBookingRequest> booking,
                                                    String slotKey) throws Exception {
         if (booking == null || booking.size() != 1) {
@@ -327,11 +295,6 @@ public class BookingService {
                 appointmentServiceDAO.insert(apptId, svc.getServiceID(), price);
             }
         }
-
-        // Vaccine: KHONG insert tung vaccine rieng le vao AppointmentServices
-        // (bang nay chi lien ket voi Services, khong lien ket truc tiep voi
-        // Vaccines). Thay vao do, insert DUY NHAT 1 dong dai dien cho ca
-        // category Vaccine — danh sach vaccine cu the duoc luu o InvoiceItems.
         if (!r.getVaccineIds().isEmpty()) {
             Service vaccinePlaceholder = serviceDAO.findFirstActiveByCategory(VACCINE_CATEGORY_ID);
             if (vaccinePlaceholder != null) {
@@ -351,10 +314,8 @@ public class BookingService {
 
     /**
      * Tien coc:
-     *   - Noi tru:     DEPOSIT_INPATIENT (200.000d) — phi tam ung nhap vien,
-     *                   GIU NGUYEN (khong thuoc pham vi bo coc lan nay).
-     *   - Binh thuong: 0 (KHONG con coc — khach thanh toan 100% tong chi phi
-     *                   ngay khi dat lich, xem PaymentServlet).
+     *   - Noi tru:     DEPOSIT_INPATIENT (200.000d) — phi tam ung nhap vien.
+     *   - Binh thuong: 0 (khach thanh toan 100% tong chi phi ngay khi dat lich).
      */
     public long computeDeposit(boolean isInpatient) {
         return isInpatient ? DEPOSIT_INPATIENT : 0L;

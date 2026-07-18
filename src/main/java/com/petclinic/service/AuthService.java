@@ -70,18 +70,20 @@ public class AuthService {
 
     /**
      * Validate data, check uniqueness, send OTP to email only.
-     * Phone is validated by format only (no SMS).
+     * Phone is required (format-only validation, no SMS sent).
      */
     public SendOtpResult initiateRegistration(String fullName, String email,
                                               String phone, String rawPassword)
             throws SQLException {
 
+        if (phone == null || phone.isBlank()) {
+            throw new IllegalArgumentException("Phone number is required.");
+        }
         if (!PasswordUtil.isStrongPassword(rawPassword)) {
             throw new IllegalArgumentException("Password does not meet strength requirements.");
         }
         if (customerDAO.existsByEmail(email)) return SendOtpResult.EMAIL_TAKEN;
-        if (phone != null && !phone.isBlank() && customerDAO.existsByPhone(phone))
-            return SendOtpResult.PHONE_TAKEN;
+        if (customerDAO.existsByPhone(phone)) return SendOtpResult.PHONE_TAKEN;
 
         // Send email OTP (only channel)
         try {
@@ -109,16 +111,14 @@ public class AuthService {
 
         // Double-check uniqueness (edge case: registered while user was filling OTP)
         if (customerDAO.existsByEmail(email)) return RegisterResult.EMAIL_TAKEN;
-        if (phone != null && !phone.isBlank() && customerDAO.existsByPhone(phone))
-            return RegisterResult.PHONE_TAKEN;
+        if (customerDAO.existsByPhone(phone)) return RegisterResult.PHONE_TAKEN;
 
         // Verify email OTP
         if (!OtpStore.verify(otpKey(email, "reg-email"), emailOtp))
             return RegisterResult.WRONG_EMAIL_OTP;
 
         // Persist
-        Customer customer = new Customer(fullName, email,
-                (phone == null || phone.isBlank()) ? null : phone,
+        Customer customer = new Customer(fullName, email, phone,
                 PasswordUtil.hashPassword(rawPassword));
         customerDAO.insert(customer);
         return RegisterResult.SUCCESS;

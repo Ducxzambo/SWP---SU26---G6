@@ -62,13 +62,13 @@
       </div>
 
       <div class="form-group">
-        <label for="phone">Số điện thoại</label>
+        <label for="phone">Số điện thoại <span style="color:var(--red-err)">*</span></label>
         <div class="input-wrap">
           <span class="input-icon"></span>
           <input type="tel" id="phone" name="phone" class="form-control"
-                 placeholder="09xxxxxxxx (không bắt buộc)"
+                 placeholder="09xxxxxxxx"
                  value="<c:out value='${requestScope.phone}'/>"
-                 autocomplete="tel">
+                 autocomplete="tel" required>
         </div>
         <div id="phoneMsg" style="font-size:12px;margin-top:5px;color:var(--warm-gray);">
           Nhập đúng 10 chữ số, bắt đầu bằng 0
@@ -151,7 +151,7 @@
   const PHONE_RE   = /^0\d{9}$/;
   phoneInput.addEventListener('input', () => {
     const v = phoneInput.value.trim();
-    if (!v) { phoneMsg.textContent = 'Nhập đúng 10 chữ số, bắt đầu bằng 0'; phoneMsg.style.color = 'var(--warm-gray)'; return; }
+    if (!v) { phoneMsg.textContent = 'Bắt buộc – nhập đúng 10 chữ số, bắt đầu bằng 0'; phoneMsg.style.color = 'var(--warm-gray)'; return; }
     if (!PHONE_RE.test(v)) {
       phoneMsg.textContent = 'Phải có đúng 10 chữ số và bắt đầu bằng 0';
       phoneMsg.style.color = 'var(--red-err)';
@@ -180,13 +180,17 @@
     const confirm  = cfm.value;
     const phone    = phoneInput.value.trim();
 
-    if (!fullName || !email || !password) {
+    if (!fullName || !email || !phone || !password) {
       e.preventDefault();
       return alert('Vui lòng nhập đầy đủ các trường bắt buộc.');
     }
     if (!EMAIL_RE.test(email)) {
       e.preventDefault();
       return alert('Email không đúng định dạng.');
+    }
+    if (!PHONE_RE.test(phone)) {
+      e.preventDefault();
+      return alert('Số điện thoại phải có đúng 10 chữ số và bắt đầu bằng 0.');
     }
     if (password !== confirm) {
       e.preventDefault();
@@ -195,10 +199,6 @@
     if (!/(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{6,}/.test(password)) {
       e.preventDefault();
       return alert('Mật khẩu chưa đủ mạnh. Vui lòng kiểm tra các yêu cầu bên dưới.');
-    }
-    if (phone && !PHONE_RE.test(phone)) {
-      e.preventDefault();
-      return alert('Số điện thoại phải có đúng 10 chữ số và bắt đầu bằng 0.');
     }
   });
 </script>

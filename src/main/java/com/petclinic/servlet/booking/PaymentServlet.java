@@ -1,7 +1,6 @@
 package com.petclinic.servlet.booking;
 
 import com.petclinic.dao.*;
-import com.petclinic.dto.PetBookingRequest;
 import com.petclinic.model.*;
 import com.petclinic.service.PaymentService;
 import jakarta.servlet.ServletException;
@@ -11,8 +10,6 @@ import jakarta.servlet.http.*;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 @WebServlet(urlPatterns = {"/booking/payment"})
 public class PaymentServlet extends HttpServlet {
@@ -98,72 +95,5 @@ public class PaymentServlet extends HttpServlet {
         Customer c = sess != null ? (Customer) sess.getAttribute("customer") : null;
         if (c == null) resp.sendRedirect(req.getContextPath() + "/auth/login");
         return c;
-    }
-
-    // ── bookingPayload parser ────────────────────────────────────────────────
-    // Parser tối giản, KHÔNG dùng thư viện JSON ngoài (đồng bộ style với
-    // PaymentService.extractJsonField) — chỉ cần đủ cho đúng 1 cấu trúc cố
-    // định: [{"petId":N,"serviceIds":[..],"vaccineIds":[..]}, ...]
-
-    private static final Pattern PET_ID_RE = Pattern.compile("\"petId\"\\s*:\\s*(-?\\d+)");
-
-    private List<PetBookingRequest> parseBookingPayload(String json) {
-        List<PetBookingRequest> result = new ArrayList<>();
-        if (json == null || json.isBlank()) return result;
-
-        for (String obj : splitTopLevelObjects(json)) {
-            Matcher m = PET_ID_RE.matcher(obj);
-            if (!m.find()) continue;
-
-            int petId = Integer.parseInt(m.group(1));
-            List<Integer> serviceIds = extractIntArray(obj, "serviceIds");
-            List<Integer> vaccineIds = extractIntArray(obj, "vaccineIds");
-
-            result.add(new PetBookingRequest(petId, serviceIds, vaccineIds));
-        }
-        return result;
-    }
-
-    private List<String> splitTopLevelObjects(String json) {
-        List<String> out = new ArrayList<>();
-        int start = json.indexOf('[');
-        int end = json.lastIndexOf(']');
-
-        if (start < 0 || end < 0 || end <= start) return out;
-
-        String inner = json.substring(start + 1, end);
-        int depth = 0, objStart = -1;
-
-        for (int i = 0; i < inner.length(); i++) {
-            char c = inner.charAt(i);
-            if (c == '{') {
-                if (depth == 0) objStart = i;
-                depth++;
-            } else if (c == '}') {
-                depth--;
-                if (depth == 0 && objStart >= 0) {
-                    out.add(inner.substring(objStart, i + 1));
-                    objStart = -1;
-                }
-            }
-        }
-        return out;
-    }
-
-    private List<Integer> extractIntArray(String obj, String key) {
-        List<Integer> out = new ArrayList<>();
-        Matcher m = Pattern.compile("\"" + key + "\"\\s*:\\s*\\[([^\\]]*)\\]").matcher(obj);
-
-        if (m.find()) {
-            String inside = m.group(1).trim();
-            if (!inside.isEmpty()) {
-                for (String part : inside.split(",")) {
-                    try {
-                        out.add(Integer.parseInt(part.trim()));
-                    } catch (Exception ignored) {}
-                }
-            }
-        }
-        return out;
     }
 }

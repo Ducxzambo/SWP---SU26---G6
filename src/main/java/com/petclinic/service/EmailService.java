@@ -34,15 +34,13 @@ public class EmailService {
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("HH:mm, dd/MM/yyyy");
     private static final DateTimeFormatter DATE_ONLY = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
-    // Shared scheduler (daemon threads — won't block JVM shutdown)
+    // Shared scheduler
     private static final ScheduledExecutorService SCHEDULER =
             Executors.newScheduledThreadPool(2, r -> {
                 Thread t = new Thread(r, "petclinic-email-scheduler");
                 t.setDaemon(true);
                 return t;
             });
-
-    private final AppointmentDAO appointmentDAO = new AppointmentDAO();
 
     // ── Public API ────────────────────────────────────────────────────────────
 
@@ -92,6 +90,37 @@ public class EmailService {
                                    boolean isFullPayment) {
         sendAsync(() -> sendConfirmationEmail(customer, appt, total, paid, isFullPayment));
         scheduleReminders(customer, appt);
+    }
+
+    /**
+     * Gửi email thông báo nội bộ khi có tin nhắn liên hệ mới từ trang /contact.
+     * Đây là kênh ghi nhận DUY NHẤT cho tin nhắn liên hệ (không có bảng
+     * ContactMessages trong DB hiện tại) — best-effort: nếu SMTP lỗi/chưa
+     * cấu hình, chỉ log cảnh báo, không throw, để không chặn phản hồi cho người dùng.
+     */
+    public void sendContactNotification(String fullName, String fromEmail, String phone,
+                                        String subject, String messageBody) {
+        sendAsync(() -> {
+            final String EMAIL_FROM = System.getenv("EMAIL_FROM");
+            if (EMAIL_FROM == null || EMAIL_FROM.isBlank()) {
+                LOG.info("Tin nhắn liên hệ không được gửi email nội bộ (SMTP chưa cấu hình EMAIL_FROM).");
+                return;
+            }
+            String mailSubject = "[PetClinic] Liên hệ mới: " + subject;
+            String body = "<!DOCTYPE html><html><head><meta charset='UTF-8'></head><body>"
+                    + "<div style='font-family:sans-serif;max-width:560px;margin:auto;padding:24px;'>"
+                    + "<h2 style='color:#0f3d24;'>🐾 PetClinic – Tin nhắn liên hệ mới</h2>"
+                    + "<table style='width:100%;border-collapse:collapse;font-size:14px;'>"
+                    + row("Họ tên",   esc(fullName))
+                    + row("Email",    esc(fromEmail))
+                    + row("SĐT",      phone != null && !phone.isBlank() ? esc(phone) : "-")
+                    + row("Tiêu đề",  esc(subject))
+                    + "</table>"
+                    + "<p style='white-space:pre-line;margin-top:16px;'>" + esc(messageBody) + "</p>"
+                    + "</div></body></html>";
+            boolean ok = send(EMAIL_FROM, mailSubject, body);
+            if (!ok) LOG.warning("Không gửi được email thông báo liên hệ mới (subject: " + subject + ")");
+        });
     }
 
     /** Schedule 48h and 18h reminders. */

@@ -16,11 +16,13 @@ public class CustomerDAO {
         List<Customer> list = new ArrayList<>();
         String sql = "SELECT * FROM Customers WHERE IsActive = 1" +
                 " GROUP BY customerID, FullName, Email, Phone, PasswordHash, IsActive, CreatedAt, RememberMeToken, TokenExpiredTime" +
-                " HAVING COUNT(CustomerId)<=max";
+                " HAVING COUNT(CustomerId)<=?";
         try (Connection c = DBConnection.getConnection();
-             PreparedStatement ps = c.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) list.add(mapRow(rs));
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, max);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) list.add(mapRow(rs));
+            }
         }
         return list;
     }
@@ -76,6 +78,28 @@ public class CustomerDAO {
         }
     }
 
+    /** Same as existsByEmail, but ignores the customer's own row (for profile edits). */
+    public boolean existsByEmailExcluding(String email, int excludeCustomerId) throws SQLException {
+        String sql = "SELECT 1 FROM Customers WHERE Email = ? AND CustomerID <> ?";
+        try (Connection c = DBConnection.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setString(1, email.trim().toLowerCase());
+            ps.setInt(2, excludeCustomerId);
+            try (ResultSet rs = ps.executeQuery()) { return rs.next(); }
+        }
+    }
+
+    /** Same as existsByPhone, but ignores the customer's own row (for profile edits). */
+    public boolean existsByPhoneExcluding(String phone, int excludeCustomerId) throws SQLException {
+        String sql = "SELECT 1 FROM Customers WHERE Phone = ? AND CustomerID <> ?";
+        try (Connection c = DBConnection.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setString(1, phone.trim());
+            ps.setInt(2, excludeCustomerId);
+            try (ResultSet rs = ps.executeQuery()) { return rs.next(); }
+        }
+    }
+
     // ── Write ────────────────────────────────────────────────────────────────
 
     public int insert(Customer customer) throws SQLException {
@@ -100,6 +124,36 @@ public class CustomerDAO {
         try (Connection c = DBConnection.getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, newPasswordHash);
+            ps.setInt(2, customerId);
+            ps.executeUpdate();
+        }
+    }
+
+    public void updateFullName(int customerId, String fullName) throws SQLException {
+        String sql = "UPDATE Customers SET FullName = ? WHERE CustomerID = ?";
+        try (Connection c = DBConnection.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setString(1, fullName.trim());
+            ps.setInt(2, customerId);
+            ps.executeUpdate();
+        }
+    }
+
+    public void updatePhone(int customerId, String phone) throws SQLException {
+        String sql = "UPDATE Customers SET Phone = ? WHERE CustomerID = ?";
+        try (Connection c = DBConnection.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setString(1, phone.trim());
+            ps.setInt(2, customerId);
+            ps.executeUpdate();
+        }
+    }
+
+    public void updateEmail(int customerId, String email) throws SQLException {
+        String sql = "UPDATE Customers SET Email = ? WHERE CustomerID = ?";
+        try (Connection c = DBConnection.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setString(1, email.trim().toLowerCase());
             ps.setInt(2, customerId);
             ps.executeUpdate();
         }

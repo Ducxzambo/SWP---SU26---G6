@@ -1,5 +1,7 @@
 package com.petclinic.servlet.booking;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import com.petclinic.dao.ServiceDAO;
 import com.petclinic.dao.VaccineDAO;
 import com.petclinic.dto.TimeSlot;
@@ -54,19 +56,16 @@ public class SlotsApiServlet extends HttpServlet {
             Map<LocalDate, List<TimeSlot>> slots = bookingSvc.generateSlots(svcIds);
 
             int vaccineServiceId = firstServiceIdOfCategory(BookingService.VACCINE_CATEGORY_ID);
-            int inpatientServiceId = firstServiceIdOfCategory(BookingService.INPATIENT_CATEGORY_ID);
 
-            StringBuilder sb = new StringBuilder("{");
-            sb.append("\"categories\":").append(categoriesToJson(cats)).append(",");
-            sb.append("\"vaccines\":").append(vaccinesToJson(vaccines)).append(",");
-            sb.append("\"slots\":").append(slotsToJson(slots)).append(",");
-            sb.append("\"vaccineCategoryId\":").append(BookingService.VACCINE_CATEGORY_ID).append(",");
-            sb.append("\"vaccineServiceId\":").append(vaccineServiceId).append(",");
-            sb.append("\"inpatientServiceId\":").append(inpatientServiceId);
-            sb.append("}");
+            JsonObject root = new JsonObject();
+            root.add("categories", categoriesToJson(cats));
+            root.add("vaccines", vaccinesToJson(vaccines));
+            root.add("slots", slotsToJson(slots));
+            root.addProperty("vaccineCategoryId", BookingService.VACCINE_CATEGORY_ID);
+            root.addProperty("vaccineServiceId", vaccineServiceId);
 
             resp.setContentType("application/json;charset=UTF-8");
-            resp.getWriter().write(sb.toString());
+            resp.getWriter().write(root.toString());
 
         } catch (Exception e) {
             resp.sendError(500, e.getMessage());
@@ -81,85 +80,65 @@ public class SlotsApiServlet extends HttpServlet {
         return svcs.isEmpty() ? -1 : svcs.get(0).getServiceID();
     }
 
-    // ── JSON builders (chuyển toàn bộ về từ BookingServlet) ────────────────────
-
-    private String slotsToJson(Map<LocalDate, List<TimeSlot>> slots) {
-        StringBuilder sb = new StringBuilder("{");
-        boolean fd = true;
-
+    private JsonObject slotsToJson(Map<LocalDate, List<TimeSlot>> slots) {
+        JsonObject root = new JsonObject();
         for (Map.Entry<LocalDate, List<TimeSlot>> e : slots.entrySet()) {
-            if (!fd) sb.append(",");
-            fd = false;
-            sb.append("\"").append(e.getKey()).append("\":[");
-
-            boolean fs = true;
+            JsonArray dayArr = new JsonArray();
             for (TimeSlot ts : e.getValue()) {
-                if (!fs) sb.append(",");
-                fs = false;
-                sb.append("{")
-                        .append("\"key\":\"").append(ts.getSlotKey()).append("\",")
-                        .append("\"display\":\"").append(ts.getDisplayTime()).append("\",")
-                        .append("\"available\":").append(ts.isAvailable()).append(",")
-                        .append("\"load\":").append(ts.getCurrentLoad()).append(",")
-                        .append("\"cap\":").append((int) ts.getMaxCapacity()).append(",")
-                        .append("\"fill\":").append(ts.getFillPercent()).append(",")
-                        .append("\"groomLoad\":").append(ts.getGroomLoad()).append(",")
-                        .append("\"groomCap\":").append(ts.getGroomCap()).append(",")
-                        .append("\"vetLoad\":").append(ts.getVetLoad()).append(",")
-                        .append("\"vetCap\":").append(ts.getVetCap())
-                        .append("}");
+                JsonObject o = new JsonObject();
+                o.addProperty("key", ts.getSlotKey());
+                o.addProperty("display", ts.getDisplayTime());
+                o.addProperty("available", ts.isAvailable());
+                o.addProperty("placeholder", ts.isPlaceholder());
+                o.addProperty("load", ts.getCurrentLoad());
+                o.addProperty("cap", (int) ts.getMaxCapacity());
+                o.addProperty("fill", ts.getFillPercent());
+                o.addProperty("groomLoad", ts.getGroomLoad());
+                o.addProperty("groomCap", ts.getGroomCap());
+                o.addProperty("vetLoad", ts.getVetLoad());
+                o.addProperty("vetCap", ts.getVetCap());
+                dayArr.add(o);
             }
-            sb.append("]");
+            root.add(e.getKey().toString(), dayArr);
         }
-        return sb.append("}").toString();
+        return root;
     }
 
-    private String categoriesToJson(List<ServiceCategory> cats) {
-        StringBuilder sb = new StringBuilder("[");
+    private JsonArray categoriesToJson(List<ServiceCategory> cats) {
+        JsonArray arr = new JsonArray();
+        for (ServiceCategory cat : cats) {
+            JsonObject o = new JsonObject();
+            o.addProperty("id", cat.getCategoryID());
+            o.addProperty("name", cat.getName());
 
-        for (int i = 0; i < cats.size(); i++) {
-            ServiceCategory cat = cats.get(i);
-            if (i > 0) sb.append(",");
-
-            sb.append("{\"id\":").append(cat.getCategoryID())
-                    .append(",\"name\":\"").append(esc(cat.getName())).append("\"")
-                    .append(",\"services\":[");
-
+            JsonArray svcArr = new JsonArray();
             if (cat.getServices() != null) {
-                for (int j = 0; j < cat.getServices().size(); j++) {
-                    Service s = cat.getServices().get(j);
-                    if (j > 0) sb.append(",");
-
-                    sb.append("{\"id\":").append(s.getServiceID())
-                            .append(",\"categoryId\":").append(s.getCategoryID())
-                            .append(",\"name\":\"").append(esc(s.getName())).append("\"")
-                            .append(",\"price\":").append(s.getPrice())
-                            .append(",\"duration\":").append(s.getDurationMinutes())
-                            .append("}");
+                for (Service s : cat.getServices()) {
+                    JsonObject so = new JsonObject();
+                    so.addProperty("id", s.getServiceID());
+                    so.addProperty("categoryId", s.getCategoryID());
+                    so.addProperty("name", s.getName());
+                    so.addProperty("price", s.getPrice());
+                    so.addProperty("duration", s.getDurationMinutes());
+                    svcArr.add(so);
                 }
             }
-            sb.append("]}");
+            o.add("services", svcArr);
+            arr.add(o);
         }
-        return sb.append("]").toString();
+        return arr;
     }
 
-    private String vaccinesToJson(List<Vaccine> vaccines) {
-        StringBuilder sb = new StringBuilder("[");
-
-        for (int i = 0; i < vaccines.size(); i++) {
-            Vaccine v = vaccines.get(i);
-            if (i > 0) sb.append(",");
-
-            sb.append("{\"id\":").append(v.getVaccineID())
-                    .append(",\"name\":\"").append(esc(v.getName())).append("\"")
-                    .append(",\"price\":").append(v.getUnitPrice())
-                    .append(",\"stock\":").append(v.getStockQty())
-                    .append("}");
+    private JsonArray vaccinesToJson(List<Vaccine> vaccines) {
+        JsonArray arr = new JsonArray();
+        for (Vaccine v : vaccines) {
+            JsonObject o = new JsonObject();
+            o.addProperty("id", v.getVaccineID());
+            o.addProperty("name", v.getName());
+            o.addProperty("price", v.getUnitPrice());
+            o.addProperty("stock", v.getStockQty());
+            arr.add(o);
         }
-        return sb.append("]").toString();
-    }
-
-    private String esc(String s) {
-        return s == null ? "" : s.replace("\\", "\\\\").replace("\"", "\\\"");
+        return arr;
     }
 }
