@@ -54,7 +54,7 @@ public class GroomingRecordDAO {
         gr.setFlagReason(rs.getString("FlagReason"));
         Timestamp ts = rs.getTimestamp("CreatedAt");
         if (ts != null) gr.setCreatedAt(ts.toLocalDateTime());
-        gr.setGroomerName(rs.getString("GroomerName"));
+//        gr.setGroomerName(rs.getString("GroomerName"));
         return gr;
     }
 }
