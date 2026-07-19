@@ -26,16 +26,6 @@ import java.util.stream.Collectors;
  * GET /booking/payment → Step 3 payment page
  * POST /booking/payment → Call PayOS, redirect to QR checkout
  *
- * LƯU Ý KIẾN TRÚC: toàn bộ dữ liệu JSON (categories/vaccines/slots) cho
- * trang booking/new đã được CHUYỂN SANG SlotsApiServlet (/booking/slots).
- * Servlet này chỉ forward dữ liệu "tĩnh" (pets, today, prefill) — JS sẽ tự
- * gọi /booking/slots để lấy categories/vaccines/slots.
- *
- * Flow: 1 appointment - 1 pet - NHIỀU dịch vụ/vaccine - 1 slot - 1 invoice.
- * Quy trình: chọn loại lịch (thường/nội trú) → chọn pet → chọn (nhiều)
- * category dịch vụ (trừ "Điều trị"/"Chẩn đoán" — lọc sẵn ở SlotsApiServlet)
- * → chọn (nhiều) dịch vụ/vaccine trong các category đã chọn → chọn 1 khung
- * giờ.
  * [{"petId":1,"serviceIds":[11,12],"vaccineIds":[3,5]}]
  */
 @WebServlet(urlPatterns = {"/booking/new"})

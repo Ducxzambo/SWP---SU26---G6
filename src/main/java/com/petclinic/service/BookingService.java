@@ -171,7 +171,7 @@ public class BookingService {
 
                 int slotShift = slotShiftOf(cursor); // luon khop 1 trong FIXED_SLOTS
                 int groomLoad = groomNeeded ? appointmentDAO.countConfirmedInSlotByRoleGroup(
-                        date, slotShift, 4) : 0;
+                        date, slotShift, GROOMER_ROLE_ID) : 0;
                 int vetLoad   = vetNeeded   ? appointmentDAO.countConfirmedInSlotByRoleGroup(
                         date, slotShift, VET_ROLE_ID) : 0;
 

@@ -111,7 +111,7 @@ public class AppointmentDAO {
      */
     public int countConfirmedInSlotByRoleGroup(LocalDate date, int slotShift, int roleId)
             throws SQLException {
-        // roleId: 4 = Groomer, 3 = Vet (khop com.petclinic.dao.ServiceDAO.roleIdForCategory)
+        // roleId: 4 = Groomer, 3 = Vet
         String sql = "SELECT COUNT(*) FROM Appointments a "
                 + "WHERE a.AppointmentDate = ? "
                 + "AND a.SlotShift = ? "
