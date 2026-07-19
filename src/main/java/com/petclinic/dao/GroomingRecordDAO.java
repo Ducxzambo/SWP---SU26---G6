@@ -25,9 +25,10 @@ public class GroomingRecordDAO {
     }
 
     public List<GroomingRecord> findByPet(int petId) throws SQLException {
-        String sql = "SELECT * "
-                + "FROM GroomingRecords "
-                + "WHERE PetID = ? order by AppointmentID desc";
+        String sql = "SELECT gr.*, s.FullName AS GroomerName "
+                + "FROM GroomingRecords gr "
+                + "JOIN Staff s ON gr.GroomerID = s.StaffID "
+                + "WHERE gr.PetID = ? order by gr.AppointmentID desc";
         List<GroomingRecord> list = new ArrayList<>();
         try (Connection c = DBConnection.getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
@@ -53,7 +54,7 @@ public class GroomingRecordDAO {
         gr.setFlagReason(rs.getString("FlagReason"));
         Timestamp ts = rs.getTimestamp("CreatedAt");
         if (ts != null) gr.setCreatedAt(ts.toLocalDateTime());
-//        gr.setGroomerName(rs.getString("GroomerName"));
+        gr.setGroomerName(rs.getString("GroomerName"));
         return gr;
     }
 }

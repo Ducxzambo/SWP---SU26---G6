@@ -519,45 +519,34 @@ img { max-width: 100%; display: block; }
   color: #fff;
 }
 
-/* Customer quick access */
+/* Customer hero — compact: greeting + single booking CTA in one band.
+   (/pets and /appointments used to live here as a 3-card grid, but those
+   are already one click away via the header's nav-big-btns, so they were
+   dropped to keep this page short.) */
 .customer-hero {
   background: linear-gradient(135deg, var(--green-900), var(--green-700));
-  padding: 60px 32px 52px;
+  padding: 52px 32px 44px;
   text-align: center;
 }
 .customer-hero h1 { font-family: 'Playfair Display', serif; font-size: 34px; color: #fff; margin-bottom: 6px; overflow-wrap: break-word; }
 .customer-hero p  { color: rgba(255,255,255,.75); font-size: 15px; }
 
-.quick-access {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
-  max-width: 900px;
-  margin: 40px auto 0;
-  padding: 0 32px;
-}
-.qa-card {
-  min-width: 0;
-  background: #fff;
-  border-radius: var(--radius);
-  padding: 36px 24px;
-  text-align: center;
-  box-shadow: var(--shadow-sm);
-  border: 2px solid transparent;
+.customer-hero-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 26px;
+  padding: 14px 26px;
+  background: var(--green-400);
+  border-radius: 12px;
+  text-align: left;
   transition: var(--transition);
-  cursor: pointer;
+  max-width: 100%;
 }
-.qa-card:hover { border-color: var(--green-500); transform: translateY(-3px); box-shadow: var(--shadow-md); }
-.qa-card.booking-card {
-  background: var(--green-900);
-  color: #fff;
-  border-color: var(--green-900);
-}
-.qa-card.booking-card:hover { background: var(--green-700); }
-.qa-card .qa-icon { font-size: 44px; margin-bottom: 14px; }
-.qa-card h3 { font-size: 17px; font-weight: 600; margin-bottom: 6px; overflow-wrap: break-word; }
-.qa-card p  { font-size: 13px; color: var(--warm-gray); overflow-wrap: break-word; }
-.qa-card.booking-card p { color: rgba(255,255,255,.7); }
+.customer-hero-cta:hover { background: #4dbd7d; transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.customer-hero-cta .cta-icon { font-size: 24px; flex-shrink: 0; }
+.customer-hero-cta strong { display: block; font-size: 15.5px; color: var(--green-900); overflow-wrap: break-word; }
+.customer-hero-cta small  { display: block; font-size: 12px; font-weight: 500; color: rgba(15,61,36,.75); overflow-wrap: break-word; }
 
 /* ══════════════════════════════════════════════════════════════════════════
    TRUST / STATS STRIP  (guest home — sits over the hero's bottom edge)
@@ -1062,7 +1051,6 @@ img { max-width: 100%; display: block; }
 ══════════════════════════════════════════════════════════════════════════ */
 @media (max-width: 1024px) {
   .booking-grid { grid-template-columns: 1fr; }
-  .quick-access { grid-template-columns: 1fr 1fr; }
   .footer-grid  { grid-template-columns: 1fr 1fr; }
   .about-intro-grid { grid-template-columns: 1fr; gap: 36px; }
   .stats-strip  { grid-template-columns: repeat(2, 1fr); gap: 24px 16px; }
@@ -1070,10 +1058,12 @@ img { max-width: 100%; display: block; }
 @media (max-width: 768px) {
   .nav-links, .nav-big-btns { display: none; }
   .nav-hamburger { display: flex; }
-  .quick-access  { grid-template-columns: 1fr; padding: 0 16px; }
   .slot-grid     { grid-template-columns: repeat(3, 1fr); }
   .footer-grid   { grid-template-columns: 1fr; }
   .about-section { padding: 56px 20px; }
   .stats-strip   { margin-top: -32px; padding: 22px 14px; gap: 20px 12px; }
   .vision-quote  { font-size: 19px; }
+}
+@media (max-width: 480px) {
+  .customer-hero-cta { display: flex; text-align: left; }
 }

@@ -41,7 +41,8 @@
 
   <%-- Notice --%>
   <div class="reschedule-notice">
-    Chỉ hiển thị khung giờ còn trống và cách hiện tại ít nhất <strong>12 giờ</strong>.
+    Chỉ hiển thị những ngày còn có thể đặt — phải đổi lịch trước
+    <strong>17:30 của ngày trước</strong> lịch hẹn mới.
   </div>
 
   <%-- Error/success flash --%>
@@ -114,15 +115,6 @@
 <%@ include file="/WEB-INF/views/common/footer.jsp" %>
 
 <script>
-  /*
-    Sửa lỗi: bản gốc viết trực tiếp
-      const SLOTS_DATA = ${slotsJson};
-      const IS_INPATIENT = ${isInpatient};
-    Nếu biến EL "slotsJson" hoặc "isInpatient" không tồn tại trong scope (null/chưa
-    set), EL sẽ render ra chuỗi rỗng, biến dòng trên thành "const SLOTS_DATA = ;"
-    — lỗi cú pháp JavaScript làm toàn bộ script không chạy. Sửa lại bằng cách luôn
-    cung cấp giá trị mặc định hợp lệ (object rỗng / false) ngay trong EL.
-  */
   window.RESCHEDULE_SLOTS_DATA   = ${not empty slotsJson ? slotsJson : '{}'};
   window.RESCHEDULE_IS_INPATIENT = ${isInpatient ? 'true' : 'false'};
 </script>

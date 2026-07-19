@@ -56,7 +56,7 @@ public class VaccinationRecordDAO {
         Date nd = rs.getDate("NextDueDate");
         if (nd != null) vr.setNextDueDate(nd.toLocalDate());
         vr.setVaccineName(rs.getString("VaccineName"));
-//        vr.setStaffName(rs.getString("StaffName"));
+        vr.setStaffName(rs.getString("StaffName"));
         return vr;
     }
 }

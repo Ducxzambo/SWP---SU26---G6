@@ -39,6 +39,8 @@
           <h2>${cat.name}</h2>
         </div>
 
+        <p class="svc-category-desc">${cat.description}</p>
+
         <c:choose>
           <c:when test="${empty cat.services}">
             <div class="svc-empty" style="padding:20px;">Nhóm dịch vụ này chưa có mục nào đang hoạt động.</div>

@@ -1,17 +1,23 @@
 /* ============================================================
    PROFILE / ACCOUNT SETTINGS PAGE
    (relies on :root variables already defined in main.css)
+
+   Layout: two-column desktop layout — a sticky summary sidebar
+   on the left (.account-sidebar) and a 2-col card grid on the
+   right (.account-main), so the page makes good use of the wide
+   viewport on desktop instead of one narrow stacked column.
+   Collapses to a single column on tablet/mobile.
    ============================================================ */
 
 .account-wrap {
-  max-width: 760px;
-  margin: 36px auto;
-  padding: 0 24px 60px;
+  max-width: 1100px;
+  margin: 40px auto;
+  padding: 0 32px 64px;
 }
 
 .account-head { margin-bottom: 24px; }
 .account-head h1 {
-  font-size: 26px;
+  font-size: 27px;
   font-weight: 800;
   color: var(--green-900);
   margin: 0 0 6px;
@@ -33,17 +39,105 @@
 }
 .account-alert .icon { font-size: 18px; line-height: 1; }
 
-/* ── Cards ───────────────────────────────────────────────────── */
-.account-card {
+/* ── Two-column layout: sidebar + main ──────────────────────── */
+.account-layout {
+  display: grid;
+  grid-template-columns: 272px 1fr;
+  gap: 28px;
+  align-items: start;
+}
+
+/* ── Sidebar: avatar, name, contact checklist ───────────────── */
+.account-sidebar {
+  position: sticky;
+  top: calc(var(--nav-h) + 24px);
   background: #fff;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow-sm);
-  margin-bottom: 20px;
+  padding: 30px 22px;
+  text-align: center;
+}
+.account-avatar {
+  width: 76px; height: 76px;
+  min-width: 76px;
+  margin: 0 auto 14px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--green-700), var(--green-400));
+  color: #fff;
+  font-family: 'Playfair Display', serif;
+  font-size: 28px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.account-sidebar-name {
+  font-size: 16.5px;
+  font-weight: 700;
+  color: var(--green-900);
+  overflow-wrap: break-word;
+}
+.account-sidebar-sub {
+  font-size: 12.5px;
+  color: var(--warm-gray);
+  margin-top: 2px;
+}
+
+.account-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  text-align: left;
+  border-top: 1px dashed var(--border);
+  margin-top: 20px;
+  padding-top: 18px;
+}
+.account-checklist-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13px;
+  color: var(--text-mid);
+}
+.account-checklist-item .ci-icon {
+  width: 20px; height: 20px; min-width: 20px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+}
+.account-checklist-item.done .ci-icon    { background: #E8F5E9; color: #2E7D32; }
+.account-checklist-item.pending .ci-icon { background: #FDEBEA; color: var(--red-err); }
+
+.account-sidebar .account-back-link {
+  display: block;
+  margin: 20px 0 0;
+  padding-top: 16px;
+  border-top: 1px dashed var(--border);
+}
+
+/* ── Main column: card grid ─────────────────────────────────── */
+.account-main {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-content: start;
+}
+.account-card-full { grid-column: 1 / -1; }
+
+/* ── Cards ───────────────────────────────────────────────────── */
+.account-card {
+  min-width: 0;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
   overflow: hidden;
+  height: fit-content;
 }
 .account-card-head {
-  padding: 18px 22px;
+  padding: 16px 20px;
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
@@ -51,7 +145,7 @@
   gap: 10px;
 }
 .account-card-head h2 {
-  font-size: 16px;
+  font-size: 15.5px;
   font-weight: 700;
   color: var(--green-900);
   margin: 0;
@@ -59,7 +153,7 @@
   align-items: center;
   gap: 8px;
 }
-.account-card-body { padding: 20px 22px; }
+.account-card-body { padding: 20px; }
 
 .account-badge {
   font-size: 11.5px;
@@ -70,6 +164,7 @@
 }
 .account-badge-missing { background: #FDEBEA; color: var(--red-err); }
 .account-badge-ok      { background: #E8F5E9; color: #2E7D32; }
+.account-badge-locked  { background: var(--green-50); color: var(--green-700); }
 
 /* ── Form elements (self-contained, mirrors pets.css look) ──── */
 .form-group { margin-bottom: 16px; }
@@ -166,6 +261,7 @@
 .account-current-value {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 10px;
   padding: 11px 14px;
   border: 1px solid var(--border);
@@ -173,14 +269,13 @@
   background: var(--cream);
   color: var(--text-dark);
   font-size: 14.5px;
-  margin-bottom: 16px;
 }
 .account-current-value .empty { color: var(--warm-gray); font-style: italic; }
 
 .account-subform {
   border-top: 1px dashed var(--border);
   padding-top: 16px;
-  margin-top: 4px;
+  margin-top: 16px;
 }
 .account-subform-label {
   font-size: 12.5px;
@@ -190,6 +285,22 @@
   letter-spacing: .03em;
   margin-bottom: 10px;
 }
+
+/* Note shown in place of the change-email sub-form once email is locked */
+.account-locked-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 12px 14px;
+  background: var(--green-50);
+  border: 1px solid var(--green-100);
+  border-radius: 10px;
+  color: var(--green-900);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.account-locked-note .icon { flex-shrink: 0; font-size: 15px; line-height: 1.4; }
 
 /* ── OTP verify sub-page (email change) ───────────────────────── */
 .otp-input-group { display: flex; gap: 10px; justify-content: center; margin: 18px 0 8px; }
@@ -233,8 +344,34 @@
 }
 .account-back-link:hover { color: var(--green-700); }
 
+/* ── Responsive ──────────────────────────────────────────────── */
+@media (max-width: 980px) {
+  .account-layout { grid-template-columns: 1fr; }
+  .account-sidebar {
+    position: static;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    text-align: left;
+    padding: 20px 22px;
+  }
+  .account-avatar { margin: 0; }
+  .account-sidebar-name, .account-sidebar-sub { text-align: left; }
+  .account-checklist {
+    flex-direction: row;
+    flex-wrap: wrap;
+    border-top: none;
+    margin-top: 0;
+    padding-top: 0;
+    margin-left: auto;
+  }
+  .account-sidebar .account-back-link { display: none; }
+}
 @media (max-width: 640px) {
   .account-wrap { padding: 0 16px 48px; margin-top: 24px; }
+  .account-main { grid-template-columns: 1fr; }
+  .account-sidebar { flex-wrap: wrap; }
+  .account-checklist { margin-left: 0; }
   .account-card-head { flex-direction: column; align-items: flex-start; gap: 6px; }
   .otp-digit { width: 38px; height: 48px; font-size: 19px; }
 }

@@ -30,8 +30,9 @@ public class MedicalRecordDAO {
     }
 
     public List<MedicalRecord> findByPet(int petId) throws SQLException {
-        String sql = "SELECT mr.* "
+        String sql = "SELECT mr.*, s.FullName AS StaffName "
                 + "FROM MedicalRecords mr "
+                + "JOIN Staff s ON mr.StaffID = s.StaffID "
                 + "WHERE mr.PetID = ? Order by mr.AppointmentID desc";
         List<MedicalRecord> list = new ArrayList<>();
         try (Connection c = DBConnection.getConnection();

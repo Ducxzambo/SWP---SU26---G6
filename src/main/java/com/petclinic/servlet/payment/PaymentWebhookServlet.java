@@ -177,7 +177,6 @@ public class PaymentWebhookServlet extends HttpServlet {
         // ── 6. Cleanup session payment attrs ────────────────────────────────
         if (session != null) {
             session.removeAttribute("pay_apptId");
-            session.removeAttribute("pay_apptIds");
             session.removeAttribute("pay_invoiceId");
             session.removeAttribute("pay_total");
             session.removeAttribute("pay_deposit");

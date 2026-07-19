@@ -141,15 +141,37 @@ public class Appointment {
     // -- Business logic ----------------------------------------------------
 
     /**
+     * Gio cutoff co dinh dung de tinh deadline chinh sua (huy/doi lich):
+     * 17:30 CUA NGAY HOM TRUOC ngay hen — khong con phu thuoc StartTime cua
+     * tung appointment nhu truoc (12 gio truoc StartTime). Vi du: lich hen
+     * ngay 20/07 (bat ke slot sang/chieu) deu phai duoc huy/doi truoc
+     * 17:30 ngay 19/07.
+     */
+    public static final LocalTime MODIFY_DEADLINE_TIME = LocalTime.of(17, 30);
+
+    /**
+     * Tinh deadline 17:30 ngay hom truoc cho 1 ngay hen bat ky. Dung lai
+     * duoc cho ca appointment HIEN TAI (getModifyDeadline() ben duoi) lan
+     * ngay MOI dang duoc chon khi doi lich (xem
+     * BookingService.generateSlotsForReschedule() va
+     * AppointmentServlet.handleReschedulePost()) — 2 noi nay can dung
+     * chung 1 moc thoi gian de tranh lech logic.
+     */
+    public static LocalDateTime deadlineFor(LocalDate date) {
+        return LocalDateTime.of(date.minusDays(1), MODIFY_DEADLINE_TIME);
+    }
+
+    /**
      * Deadline chung cho ca doi lich (reschedule) va huy lich (cancel):
-     * dung 12 gio truoc StartTime cua chinh lich hen nay. Ap dung nhu nhau cho ca
-     * Pending va Confirmed. Tra ve null neu status khac (khong cho chinh
-     * sua) hoac thieu AppointmentDate/StartTime.
+     * 17:30 cua ngay hom truoc AppointmentDate (khong con tinh theo
+     * StartTime nhu truoc). Ap dung nhu nhau cho ca Pending va Confirmed.
+     * Tra ve null neu status khac (khong cho chinh sua) hoac thieu
+     * AppointmentDate/StartTime.
      */
     public LocalDateTime getModifyDeadline() {
         if (appointmentDate == null || startTime == null) return null;
         if (!"Pending".equals(status) && !"Confirmed".equals(status)) return null;
-        return LocalDateTime.of(appointmentDate, startTime).minusHours(12);
+        return deadlineFor(appointmentDate);
     }
 
     /**
@@ -162,8 +184,8 @@ public class Appointment {
     }
 
     /**
-     * Co the huy lich khong - dung chung deadline 12 gio truoc StartTime
-     * voi reschedule.
+     * Co the huy lich khong - dung chung deadline 17:30 ngay hom truoc
+     * AppointmentDate voi reschedule.
      */
     public boolean canCancel() {
         return canReschedule();

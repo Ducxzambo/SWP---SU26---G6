@@ -183,7 +183,7 @@ public class EmailService {
                 + row("Bác sĩ",     appt.getStaffName() != null ? esc(appt.getStaffName()) : "Sẽ được phân công")
                 + row("Thanh toán", paymentNote)
                 + "</table></div>"
-                + "<p style='font-size:13px;color:#8c8680;'>Nếu cần thay đổi lịch, vui lòng liên hệ trước ít nhất 12 giờ.</p>"
+                + "<p style='font-size:13px;color:#8c8680;'>Nếu cần thay đổi lịch, vui lòng liên hệ trước 17:30 của ngày liền trước ngày hẹn.</p>"
                 + "<p style='font-size:13px;color:#8c8680;'>Hotline: <strong>(028) 123 456 789</strong></p>"
                 + "<hr style='border:none;border-top:1px solid #d8d4cc;margin:20px 0;'>"
                 + "<p style='font-size:12px;color:#b8b4ae;text-align:center;'>© 2025 PetClinic. 123 Đường ABC, Q.1, TP.HCM</p>"

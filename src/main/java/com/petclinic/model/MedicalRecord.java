@@ -2,6 +2,7 @@ package com.petclinic.model;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 public class MedicalRecord {
@@ -46,4 +47,54 @@ public class MedicalRecord {
     public void          setStaffName(String v)   { staffName = v; }
     public List<PrescriptionItem> getPrescriptions()              { return prescriptions; }
     public void                   setPrescriptions(List<PrescriptionItem> v){ prescriptions = v; }
+
+    // ── Diagnosis / TreatmentPlan (checklist string) ────────────────────────
+    // Format do staff-side build (buildDiagnosis/buildTreatmentPlan):
+    //   mỗi dòng "[Tên hạng mục]: Ghi chú" (ghi chú có thể vắng), các dòng
+    //   phân tách bằng "\n". Riêng Diagnosis còn có thể là chuỗi triệu chứng
+    //   tự do (không có dấu "[") khi staff không chọn xét nghiệm nào
+    //   (fallback = req.getParameter("symptoms")) — TreatmentPlan thì luôn
+    //   là "" hoặc đúng định dạng checklist, không có fallback tự do.
+
+    /** true nếu Diagnosis ở dạng checklist có cấu trúc (hiển thị bảng được);
+     *  false nếu là văn bản triệu chứng tự do (hiển thị đoạn văn bình thường). */
+    public boolean isDiagnosisStructured() {
+        return diagnosis != null && diagnosis.trim().startsWith("[");
+    }
+
+    public List<LabTestEntry> getDiagnosisEntries() {
+        return parseEntries(diagnosis);
+    }
+
+    public List<LabTestEntry> getTreatmentEntries() {
+        return parseEntries(treatmentPlan);
+    }
+
+    private static List<LabTestEntry> parseEntries(String raw) {
+        List<LabTestEntry> out = new ArrayList<>();
+        if (raw == null || raw.isBlank()) return out;
+        for (String line : raw.split("\n")) {
+            line = line.trim();
+            if (line.isEmpty()) continue;
+            int close = line.startsWith("[") ? line.indexOf(']') : -1;
+            if (close > 0) {
+                String name = line.substring(1, close).trim();
+                String rest = line.substring(close + 1).trim();
+                if (rest.startsWith(":")) rest = rest.substring(1).trim();
+                out.add(new LabTestEntry(name, rest));
+            } else {
+                out.add(new LabTestEntry(line, ""));
+            }
+        }
+        return out;
+    }
+
+    /** 1 dòng trong bảng Diagnosis/TreatmentPlan: tên hạng mục + ghi chú. */
+    public static class LabTestEntry {
+        private final String name;
+        private final String note;
+        public LabTestEntry(String name, String note) { this.name = name; this.note = note; }
+        public String getName() { return name; }
+        public String getNote() { return note; }
+    }
 }

@@ -36,6 +36,8 @@ public class AppointmentServlet extends HttpServlet {
 
     private final AppointmentDAO   apptDAO    = new AppointmentDAO();
     private final MedicalRecordDAO mrDAO      = new MedicalRecordDAO();
+    private final GroomingRecordDAO     groomingDAO    = new GroomingRecordDAO();
+    private final VaccinationRecordDAO  vaccinationDAO = new VaccinationRecordDAO();
     private final InvoiceDAO       invoiceDAO = new InvoiceDAO();
     private final ServiceDAO       serviceDAO = new ServiceDAO();
     private final ReviewDAO        reviewDAO  = new ReviewDAO();
@@ -121,6 +123,8 @@ public class AppointmentServlet extends HttpServlet {
         }
 
         MedicalRecord mr      = mrDAO.findByAppointment(id);
+        GroomingRecord groomingRecord = groomingDAO.findByAppointment(id);
+        List<VaccinationRecord> vaccinationRecords = vaccinationDAO.findByAppointment(id);
         Invoice       invoice = invoiceDAO.findByAppointment(id);
         Review review = reviewDAO.findByAppointment(id);
         int noti = notiDAO.countUnread( customer.getCustomerID());
@@ -128,6 +132,8 @@ public class AppointmentServlet extends HttpServlet {
 
         req.setAttribute("appt",          appt);
         req.setAttribute("medicalRecord", mr);
+        req.setAttribute("groomingRecord",     groomingRecord);
+        req.setAttribute("vaccinationRecords", vaccinationRecords);
         req.setAttribute("invoice",       invoice);
         req.setAttribute("navCategories", serviceDAO.findAllCategoriesWithServices());
         req.setAttribute("review", review);
@@ -217,17 +223,18 @@ public class AppointmentServlet extends HttpServlet {
             end   = start.plusMinutes(BookingService.SLOT_MINUTES);
         }
 
-        // Validate: slot must still be > 12h away
-        if (!LocalDateTime.now().plusHours(12).isBefore(LocalDateTime.of(date, start))) {
+        // Validate: ngày hẹn mới phải còn trước deadline 17:30 của ngày hôm
+        // trước ngày đó — dùng chung logic với Appointment.getModifyDeadline().
+        if (!LocalDateTime.now().isBefore(Appointment.deadlineFor(date))) {
             req.getSession().setAttribute("flashError",
-                    "Khung giờ đã chọn phải cách hiện tại ít nhất 12 giờ.");
+                    "Khung giờ đã chọn phải được đặt trước 17:30 của ngày liền trước ngày hẹn.");
             resp.sendRedirect(req.getContextPath() + "/appointments/reschedule?id=" + id);
             return;
         }
 
         apptDAO.updateSlot(id, date, start, end);
         req.getSession().setAttribute("flashSuccess",
-                "Đổi lịch thành công! Lịch hẹn đang chờ xác nhận.");
+                "Đổi lịch thành công!");
         resp.sendRedirect(req.getContextPath() + "/appointments/detail?id=" + id);
     }
 
@@ -281,7 +288,6 @@ public class AppointmentServlet extends HttpServlet {
 
         HttpSession sess = req.getSession(true);
         sess.setAttribute("pay_apptId",    id);
-        sess.setAttribute("pay_apptIds",   Collections.singletonList(id));
         sess.setAttribute("pay_invoiceId", invoice.getInvoiceID());
         sess.setAttribute("pay_total",     payableTotal);
         sess.setAttribute("pay_deposit",   deposit);
@@ -296,7 +302,7 @@ public class AppointmentServlet extends HttpServlet {
             return "Lịch hẹn có trạng thái " + appt.getStatus()
                     + " không thể chỉnh sửa.";
         }
-        return "Không thể chỉnh sửa lịch hẹn trong vòng 12 giờ trước giờ hẹn.";
+        return "Không thể chỉnh sửa lịch hẹn sau 17:30 của ngày trước lịch hẹn.";
     }
 
     private Customer requireLogin(HttpServletRequest req, HttpServletResponse resp)

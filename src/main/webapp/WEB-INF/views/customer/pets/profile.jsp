@@ -111,23 +111,23 @@
                     <span class="status-badge status-${fn:toLowerCase(a.status)}"
                           style="padding:2px 8px;font-size:11px;">${a.status}</span>
                   </div>
-                  <%-- Medical summary if exists --%>
-                  <c:if test="${not empty medicalMap[a.appointmentID]}">
-                    <c:set var="me" value="${medicalMap[a.appointmentID]}"/>
-                    <div class="timeline-summary"><strong>Chẩn đoán:</strong> ${me.diagnosis}</div>
-                  </c:if>
+<%--                  &lt;%&ndash; Medical summary if exists &ndash;%&gt;--%>
+<%--                  <c:if test="${not empty medicalMap[a.appointmentID]}">--%>
+<%--                    <c:set var="me" value="${medicalMap[a.appointmentID]}"/>--%>
+<%--                    <div class="timeline-summary"><strong>Chẩn đoán:</strong> ${me.diagnosis}</div>--%>
+<%--                  </c:if>--%>
 
-                  <%-- Grooming summary if exists --%>
-                  <c:if test="${not empty groomingMap[a.appointmentID]}">
-                    <c:set var="gr" value="${groomingMap[a.appointmentID]}"/>
-                    <div class="timeline-summary"><strong>Tình trạng:</strong> ${gr.coatCondition}</div>
-                  </c:if>
+<%--                  &lt;%&ndash; Grooming summary if exists &ndash;%&gt;--%>
+<%--                  <c:if test="${not empty groomingMap[a.appointmentID]}">--%>
+<%--                    <c:set var="gr" value="${groomingMap[a.appointmentID]}"/>--%>
+<%--                    <div class="timeline-summary"><strong>Tình trạng:</strong> ${gr.coatCondition}</div>--%>
+<%--                  </c:if>--%>
 
-                  <%-- Vaccine summary if exists --%>
-                  <c:if test="${not empty vaccineMap[a.appointmentID]}">
-                    <c:set var="vc" value="${vaccineMap[a.appointmentID]}"/>
-                    <div class="timeline-summary"><strong>Ngày tiêm:</strong> ${vc.formattedAdministeredDate}</div>
-                  </c:if>
+<%--                  &lt;%&ndash; Vaccine summary if exists &ndash;%&gt;--%>
+<%--                  <c:if test="${not empty vaccineMap[a.appointmentID]}">--%>
+<%--                    <c:set var="vc" value="${vaccineMap[a.appointmentID]}"/>--%>
+<%--                    <div class="timeline-summary"><strong>Ngày tiêm:</strong> ${vc.formattedAdministeredDate}</div>--%>
+<%--                  </c:if>--%>
                   <a href="${ctx}/appointments/detail?id=${a.appointmentID}"
                      class="timeline-link" style="margin-top:6px;display:inline-block;">
                     Xem chi tiết

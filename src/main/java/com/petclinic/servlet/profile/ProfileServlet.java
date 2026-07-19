@@ -19,10 +19,11 @@ import java.sql.SQLException;
  *   POST /profile/name          → update full name
  *   POST /profile/phone         → update phone number
  *   POST /profile/email         → step 1: validate new email + send OTP
+ *                                  (only allowed while account has no email yet — locked once set)
  *   GET  /profile/email/verify  → show OTP form for pending email change
  *   POST /profile/email/verify  → step 2: verify OTP + apply new email
  *   POST /profile/email/resend  → resend OTP for pending email change (JSON)
- *   POST /profile/password      → change password (requires current password)
+ *   POST /profile/password      → change password (no current-password check required)
  */
 @WebServlet(urlPatterns = {
         "/profile", "/profile/name", "/profile/phone",
@@ -154,6 +155,10 @@ public class ProfileServlet extends HttpServlet {
                 customer.getCustomerID(), customer.getEmail(), newEmail);
 
         switch (result) {
+            case ALREADY_SET:
+                renderProfile(req, resp, customer,
+                        "Email của tài khoản đã được thiết lập và không thể thay đổi.", "email", null, null, newEmail);
+                return;
             case SAME_AS_CURRENT:
                 renderProfile(req, resp, customer, "Đây đã là email hiện tại của bạn.", "email", null, null, newEmail);
                 return;
@@ -226,6 +231,11 @@ public class ProfileServlet extends HttpServlet {
                         "Email này vừa được đăng ký bởi tài khoản khác. Vui lòng thử email khác.");
                 resp.sendRedirect(req.getContextPath() + "/profile");
                 return;
+            case ALREADY_SET:
+                session.removeAttribute("pendingEmailChange");
+                session.setAttribute("flashError", "Email của tài khoản đã được thiết lập và không thể thay đổi.");
+                resp.sendRedirect(req.getContextPath() + "/profile");
+                return;
             case SUCCESS:
                 session.removeAttribute("pendingEmailChange");
                 refreshSessionCustomer(req, customer.getCustomerID());
@@ -252,11 +262,10 @@ public class ProfileServlet extends HttpServlet {
     // ══════════════════════════════════════════════════════════════════════════
     private void handleChangePassword(HttpServletRequest req, HttpServletResponse resp, Customer customer)
             throws Exception {
-        String currentPassword = req.getParameter("currentPassword");
         String newPassword     = req.getParameter("newPassword");
         String confirmPassword = req.getParameter("confirmPassword");
 
-        if (isEmpty(currentPassword) || isEmpty(newPassword)) {
+        if (isEmpty(newPassword)) {
             renderProfile(req, resp, customer, "Vui lòng nhập đầy đủ thông tin mật khẩu.", "password", null, null, null);
             return;
         }
@@ -265,11 +274,8 @@ public class ProfileServlet extends HttpServlet {
             return;
         }
 
-        PasswordChangeResult result = profileService.changePassword(customer, currentPassword, newPassword);
+        PasswordChangeResult result = profileService.changePassword(customer, newPassword);
         switch (result) {
-            case WRONG_CURRENT:
-                renderProfile(req, resp, customer, "Mật khẩu hiện tại không đúng.", "password", null, null, null);
-                return;
             case WEAK_PASSWORD:
                 renderProfile(req, resp, customer,
                         "Mật khẩu mới phải có ít nhất 6 ký tự, bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt.",
@@ -300,6 +306,7 @@ public class ProfileServlet extends HttpServlet {
         req.setAttribute("displayName",     nameInput  != null ? nameInput  : customer.getFullName());
         req.setAttribute("displayPhone",    phoneInput != null ? phoneInput : customer.getPhone());
         req.setAttribute("displayNewEmail", newEmailInput != null ? newEmailInput : "");
+        req.setAttribute("displayInitial",  avatarInitial(customer.getFullName()));
 
         if (errorMsg != null) {
             req.setAttribute("error", errorMsg);
@@ -333,4 +340,10 @@ public class ProfileServlet extends HttpServlet {
 
     private boolean isEmpty(String s) { return s == null || s.isBlank(); }
     private String  trim(String s)    { return s != null ? s.trim() : ""; }
+
+    /** Chữ cái đầu tên hiển thị trên avatar sidebar của trang profile. */
+    private String avatarInitial(String fullName) {
+        if (fullName == null || fullName.isBlank()) return "?";
+        return fullName.trim().substring(0, 1).toUpperCase();
+    }
 }

@@ -20,16 +20,19 @@
         <a href="${ctx}/" class="nav-link">Trang chủ</a>
       </li>
 
-      <!-- Giới thiệu -->
-      <li class="nav-item">
+      <c:if test="${empty customer}">
+        <!-- Giới thiệu -->
+        <li class="nav-item">
         <span class="nav-link">Giới thiệu <span class="chevron">▾</span></span>
         <div class="nav-dropdown">
-          <a href="${ctx}/#intro">Lời giới thiệu</a>
-          <a href="${ctx}/#facility">Cơ sở vật chất</a>
-          <a href="${ctx}/#team">Nhân viên</a>
-          <a href="${ctx}/#vision">Tầm nhìn và Phát triển</a>
+        <a href="${ctx}/#intro">Lời giới thiệu</a>
+        <a href="${ctx}/#facility">Cơ sở vật chất</a>
+        <a href="${ctx}/#team">Nhân viên</a>
+        <a href="${ctx}/#vision">Tầm nhìn và Phát triển</a>
         </div>
-      </li>
+        </li>
+      </c:if>
+
 
       <!-- Dịch vụ (dynamic from DB) -->
       <li class="nav-item">

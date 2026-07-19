@@ -132,7 +132,7 @@ public class ConfirmServlet extends HttpServlet {
             BigDecimal total = (BigDecimal) sess.getAttribute("bk_total");
             long deposit = ((Number) sess.getAttribute("bk_deposit")).longValue();
 
-            List<Integer> apptIds;
+            int apptId;
             int invoiceId;
 
 
@@ -141,9 +141,12 @@ public class ConfirmServlet extends HttpServlet {
                 String iDate = (String) sess.getAttribute("bk_iDate");
                 String iPeriod = (String) sess.getAttribute("bk_iPeriod");
 
-                List<Integer> petIdList = Arrays.stream(petIds)
-                        .map(Integer::parseInt)
-                        .collect(Collectors.toList());
+                if (petIds == null || petIds.length != 1) {
+                    sess.setAttribute("flashError", "Vui lòng chọn đúng 1 thú cưng cho mỗi lượt đặt lịch nội trú.");
+                    resp.sendRedirect(req.getContextPath() + "/booking/new");
+                    return;
+                }
+                int petId = Integer.parseInt(petIds[0]);
 
                 int inpatientServiceId = firstServiceIdOfCategory(BookingService.INPATIENT_CATEGORY_ID);
                 if (inpatientServiceId <= 0) {
@@ -153,15 +156,15 @@ public class ConfirmServlet extends HttpServlet {
                     resp.sendRedirect(req.getContextPath() + "/booking/new");
                     return;
                 }
-                apptIds = bookingSvc.createAppointments(customer.getCustomerID(), petIdList, Collections.singletonList(inpatientServiceId), null, true, iDate, iPeriod);
+                apptId = bookingSvc.createInpatientAppointment(customer.getCustomerID(), petId, inpatientServiceId, iDate, iPeriod);
 
-                if (apptIds.isEmpty()) {
+                if (apptId <= 0) {
                     sess.setAttribute("flashError", "Không thể tạo lịch hẹn. Vui lòng thử lại.");
                     resp.sendRedirect(req.getContextPath() + "/booking/new");
                     return;
                 }
 
-                invoiceId = paymentSvc.createInvoice(customer.getCustomerID(), apptIds.get(0),
+                invoiceId = paymentSvc.createInvoice(customer.getCustomerID(), apptId,
                         BigDecimal.valueOf(deposit));
                 paymentSvc.addInvoiceItem(invoiceId, "Other", "Đặt cọc nội trú", BigDecimal.ONE, BigDecimal.valueOf(deposit));
             } else {
@@ -169,21 +172,27 @@ public class ConfirmServlet extends HttpServlet {
                 String slotKey = (String) sess.getAttribute("bk_slotKey");
                 List<PetBookingRequest> petBookings = PetBookingRequest.parseList(bookingPayload);
 
-                // 1 appointment cho 1 pet + NHIỀU dịch vụ/vaccine đã chọn.
-                // AppointmentServices được ghi bên trong createAppointmentsForPets
-                // (1 dòng/dịch vụ thực sự chọn; riêng Vaccine chỉ 1 dòng đại diện).
-                apptIds = bookingSvc.createAppointmentsForPets(customer.getCustomerID(), petBookings, slotKey);
+                if (petBookings.isEmpty()) {
+                    sess.setAttribute("flashError", "Không thể tạo lịch hẹn. Vui lòng thử lại.");
+                    resp.sendRedirect(req.getContextPath() + "/booking/new");
+                    return;
+                }
+                PetBookingRequest pb = petBookings.get(0);
 
-                if (apptIds.isEmpty()) {
+                // 1 appointment cho 1 pet + NHIỀU dịch vụ/vaccine đã chọn.
+                // AppointmentServices được ghi bên trong createAppointmentForPet
+                // (1 dòng/dịch vụ thực sự chọn; riêng Vaccine chỉ 1 dòng đại diện).
+                apptId = bookingSvc.createNormalAppointment(customer.getCustomerID(), pb, slotKey);
+
+                if (apptId <= 0) {
                     sess.setAttribute("flashError", "Không thể tạo lịch hẹn. Vui lòng thử lại.");
                     resp.sendRedirect(req.getContextPath() + "/booking/new");
                     return;
                 }
 
                 // totalAmount của invoice = tổng giá TẤT CẢ dịch vụ + vaccine đã chọn.
-                invoiceId = paymentSvc.createInvoice(customer.getCustomerID(), apptIds.get(0), total);
+                invoiceId = paymentSvc.createInvoice(customer.getCustomerID(), apptId, total);
 
-                PetBookingRequest pb = petBookings.get(0);
                 Pet pet = petDAO.findByCustomer(customer.getCustomerID()).stream()
                         .filter(p -> p.getPetID() == pb.getPetId())
                         .findFirst().orElse(null);
@@ -209,8 +218,7 @@ public class ConfirmServlet extends HttpServlet {
                 }
             }
 
-            sess.setAttribute("pay_apptId", apptIds.get(0));
-            sess.setAttribute("pay_apptIds", apptIds);
+            sess.setAttribute("pay_apptId", apptId);
             sess.setAttribute("pay_invoiceId", invoiceId);
             sess.setAttribute("pay_total", total);
             sess.setAttribute("pay_deposit", deposit);
@@ -242,5 +250,4 @@ public class ConfirmServlet extends HttpServlet {
         if (c == null) resp.sendRedirect(req.getContextPath() + "/auth/login");
         return c;
     }
-
 }

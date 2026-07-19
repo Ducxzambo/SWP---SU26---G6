@@ -127,7 +127,7 @@ public class BookingService {
     }
 
     private Map<LocalDate, List<TimeSlot>> generateSlotsInternal(
-            List<Integer> serviceIds, int excludeId, boolean apply12hCutoff) throws Exception {
+            List<Integer> serviceIds, int excludeId, boolean applyDeadlineCutoff) throws Exception {
 
         // Split selected services into Grooming vs Vet groups
         List<Service> allServices = (serviceIds != null && !serviceIds.isEmpty())
@@ -149,23 +149,25 @@ public class BookingService {
         // If no services selected yet, use a placeholder capacity for display
         boolean noSelectionYet = allServices.isEmpty();
 
-        LocalDateTime cutoff  = apply12hCutoff ? LocalDateTime.now().plusHours(12) : LocalDateTime.MIN;
         LocalDate today       = LocalDate.now();
         Map<LocalDate, List<TimeSlot>> result = new LinkedHashMap<>();
 
 
         for (int d = 0; d < DAYS_AHEAD; d++) {
             LocalDate date  = today.plusDays(d);
+
+            // Deadline co dinh 17:30 ngay hom truoc ngay do (dung chung logic
+            // voi Appointment.getModifyDeadline()) - khong con phu thuoc gio
+            // cua tung slot nhu truoc, nen chi can kiem tra 1 lan cho ca ngay.
+            if (applyDeadlineCutoff && !LocalDateTime.now().isBefore(Appointment.deadlineFor(date))) {
+                continue;
+            }
+
             List<TimeSlot> slots = new ArrayList<>();
 
             for (LocalTime[] win : FIXED_SLOTS) {
                 LocalTime cursor  = win[0];
                 LocalTime slotEnd = win[1];
-
-                // 12h cutoff (dung cho reschedule - khong cho chon slot qua gan)
-                if (apply12hCutoff && !cutoff.isBefore(LocalDateTime.of(date, cursor))) {
-                    continue;
-                }
 
                 int slotShift = slotShiftOf(cursor); // luon khop 1 trong FIXED_SLOTS
                 int groomLoad = groomNeeded ? appointmentDAO.countConfirmedInSlotByRoleGroup(
@@ -196,45 +198,17 @@ public class BookingService {
     // ─────────────────────────────────────────────────────────────────────────
     //  APPOINTMENT CREATION — NOI TRU
     // ─────────────────────────────────────────────────────────────────────────
-    public List<Integer> createAppointments(int customerId, List<Integer> petIds,
-                                            List<Integer> serviceIds, String slotKey,
-                                            boolean isInpatient, String inpatientDate,
-                                            String inpatientPeriod) throws Exception {
-        if (petIds == null || petIds.size() != 1) {
-            throw new IllegalArgumentException("Mỗi lượt đặt lịch chỉ áp dụng cho đúng 1 thú cưng.");
-        }
-        if (serviceIds == null || serviceIds.size() != 1) {
-            throw new IllegalArgumentException("Mỗi lượt đặt lịch chỉ áp dụng cho đúng 1 dịch vụ.");
-        }
-
-        List<Integer> created = new ArrayList<>();
+    public int createInpatientAppointment(int customerId, int petId,
+                                          int serviceId,
+                                          String inpatientDate,
+                                          String inpatientPeriod) throws Exception {
         DateTimeFormatter df = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-        DateTimeFormatter tf = DateTimeFormatter.ofPattern("HH:mm");
 
-        LocalDate date; LocalTime start, end;
-        if (isInpatient) {
-            date  = LocalDate.parse(inpatientDate, df);
-            boolean isMorning = "morning".equalsIgnoreCase(inpatientPeriod);
-            start = isMorning ? INPATIENT_MORNING_START   : INPATIENT_AFTERNOON_START;
-            end   = isMorning ? INPATIENT_MORNING_END     : INPATIENT_AFTERNOON_END;
-        } else {
-            String[] parts = slotKey.split("\\|");
-            date  = LocalDate.parse(parts[0], df);
-            start = LocalTime.parse(parts[1], tf);
-            end   = start.plusMinutes(SLOT_MINUTES);
-        }
+        LocalDate date = LocalDate.parse(inpatientDate, df);
+        boolean isMorning = "morning".equalsIgnoreCase(inpatientPeriod);
+        LocalTime start = isMorning ? INPATIENT_MORNING_START : INPATIENT_AFTERNOON_START;
+        LocalTime end   = isMorning ? INPATIENT_MORNING_END   : INPATIENT_AFTERNOON_END;
 
-        Appointment a = new Appointment();
-        a.setCustomerID(customerId);
-        a.setPetID(petIds.get(0));
-        a.setAppointmentDate(date);
-        a.setStartTime(start);
-        a.setEndTime(end);
-        a.setStatus("Pending");
-        // Inpatient khong khop 1 ca co dinh nao nen de SlotShift = null
-        if (!isInpatient) a.setSlotShift(slotShiftOf(start));
-
-        int serviceId = serviceIds.get(0);
         Service svc = serviceDAO.findById(serviceId);
         if (svc == null) {
             throw new IllegalStateException(
@@ -242,29 +216,24 @@ public class BookingService {
                             + " không tồn tại hoặc đã ngừng hoạt động). Vui lòng liên hệ quản trị viên để thêm ít nhất 1 dịch vụ (IsActive=1) cho nhóm này.");
         }
 
-        int apptId = appointmentDAO.insert(a);
-        if (apptId > 0) {
-            BigDecimal price = svc.getPrice() != null ? svc.getPrice() : BigDecimal.ZERO;
-            appointmentServiceDAO.insert(apptId, serviceId, price);
-            created.add(apptId);
-        }
-        return created;
+        // Inpatient khong khop 1 ca co dinh nao nen de SlotShift = null
+        int apptId = insertAppointmentRow(customerId, petId, date, start, end, null);
+        if (apptId <= 0) return -1;
+
+        BigDecimal price = svc.getPrice() != null ? svc.getPrice() : BigDecimal.ZERO;
+        appointmentServiceDAO.insert(apptId, serviceId, price);
+        return apptId;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
     //  APPOINTMENT CREATION — 1 appointment = 1 pet + NHIEU dich vu + 1 slot
     // ─────────────────────────────────────────────────────────────────────────
-    public List<Integer> createAppointmentsForPets(int customerId, List<PetBookingRequest> booking,
-                                                   String slotKey) throws Exception {
-        if (booking == null || booking.size() != 1) {
-            throw new IllegalArgumentException("Mỗi lượt đặt lịch chỉ áp dụng cho đúng 1 thú cưng.");
-        }
-        PetBookingRequest r = booking.get(0);
-        if (r.isEmpty()) {
+    public int createNormalAppointment(int customerId, PetBookingRequest booking,
+                                       String slotKey) throws Exception {
+        if (booking == null || booking.isEmpty()) {
             throw new IllegalArgumentException("Vui lòng chọn ít nhất 1 dịch vụ hoặc vaccine.");
         }
 
-        List<Integer> created = new ArrayList<>();
         DateTimeFormatter df = DateTimeFormatter.ofPattern("yyyy-MM-dd");
         DateTimeFormatter tf = DateTimeFormatter.ofPattern("HH:mm");
 
@@ -274,28 +243,19 @@ public class BookingService {
         LocalTime end   = start.plusMinutes(SLOT_MINUTES);
         Integer   shift = slotShiftOf(start);
 
-        Appointment a = new Appointment();
-        a.setCustomerID(customerId);
-        a.setPetID(r.getPetId());
-        a.setAppointmentDate(date);
-        a.setStartTime(start);
-        a.setEndTime(end);
-        a.setStatus("Pending");
-        a.setSlotShift(shift);
-
-        int apptId = appointmentDAO.insert(a);
-        if (apptId <= 0) return created;
+        int apptId = insertAppointmentRow(customerId, booking.getPetId(), date, start, end, shift);
+        if (apptId <= 0) return -1;
 
         // Moi dich vu duoc snapshot gia hien tai (Service.Price) tai thoi
         // diem dat lich — khong doi ke ca khi Service.Price thay doi sau nay.
-        if (!r.getServiceIds().isEmpty()) {
-            List<Service> svcs = serviceDAO.findByIds(r.getServiceIds());
+        if (!booking.getServiceIds().isEmpty()) {
+            List<Service> svcs = serviceDAO.findByIds(booking.getServiceIds());
             for (Service svc : svcs) {
                 BigDecimal price = svc.getPrice() != null ? svc.getPrice() : BigDecimal.ZERO;
                 appointmentServiceDAO.insert(apptId, svc.getServiceID(), price);
             }
         }
-        if (!r.getVaccineIds().isEmpty()) {
+        if (!booking.getVaccineIds().isEmpty()) {
             Service vaccinePlaceholder = serviceDAO.findFirstActiveByCategory(VACCINE_CATEGORY_ID);
             if (vaccinePlaceholder != null) {
                 BigDecimal price = vaccinePlaceholder.getPrice() != null
@@ -304,8 +264,20 @@ public class BookingService {
             }
         }
 
-        created.add(apptId);
-        return created;
+        return apptId;
+    }
+
+    private int insertAppointmentRow(int customerId, int petId, LocalDate date,
+                                     LocalTime start, LocalTime end, Integer slotShift) throws Exception {
+        Appointment a = new Appointment();
+        a.setCustomerID(customerId);
+        a.setPetID(petId);
+        a.setAppointmentDate(date);
+        a.setStartTime(start);
+        a.setEndTime(end);
+        a.setStatus("Pending");
+        a.setSlotShift(slotShift);
+        return appointmentDAO.insert(a);
     }
 
     // ─────────────────────────────────────────────────────────────────────────

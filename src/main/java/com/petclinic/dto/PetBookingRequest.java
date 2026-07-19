@@ -14,7 +14,7 @@ import java.util.List;
  * (mỗi pet có thể chọn bộ dịch vụ khác nhau, dùng chung 1 slotKey).
  *
  * Không lưu DB — chỉ là DTO trung gian giữa JSON submit và
- * BookingService.createAppointmentsForPets().
+ * BookingService.createNormalAppointment().
  */
 public class PetBookingRequest {
     private int petId;

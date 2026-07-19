@@ -58,7 +58,7 @@
   </c:if>
   <c:if test="${(appt.status eq 'Pending' or appt.status eq 'Confirmed') and !appt.canModify()}">
     <div class="detail-lock-notice">
-      Không thể chỉnh sửa — lịch hẹn trong vòng 12 giờ tới
+      Không thể chỉnh sửa — đã quá 17:30 của ngày trước lịch hẹn
     </div>
   </c:if>
 
@@ -117,16 +117,44 @@
                 <div class="detail-block-text">${medicalRecord.symptoms}</div>
               </div>
             </c:if>
-            <c:if test="${not empty medicalRecord.diagnosis}">
-              <div class="detail-block">
-                <div class="detail-block-label">Chẩn đoán</div>
-                <div class="detail-block-text">${medicalRecord.diagnosis}</div>
-              </div>
-            </c:if>
-            <c:if test="${not empty medicalRecord.treatmentPlan}">
+            <c:choose>
+              <c:when test="${medicalRecord.diagnosisStructured}">
+                <div class="detail-block">
+                  <div class="detail-block-label">Chẩn đoán</div>
+                  <table class="detail-table">
+                    <thead>
+                      <tr><th>Hạng mục xét nghiệm</th><th>Ghi chú</th></tr>
+                    </thead>
+                    <tbody>
+                      <c:forEach var="d" items="${medicalRecord.diagnosisEntries}">
+                        <tr><td class="td-name">${d.name}</td><td>${d.note}</td></tr>
+                      </c:forEach>
+                    </tbody>
+                  </table>
+                </div>
+              </c:when>
+              <c:otherwise>
+                <c:if test="${not empty medicalRecord.diagnosis}">
+                  <div class="detail-block">
+                    <div class="detail-block-label">Chẩn đoán</div>
+                    <div class="detail-block-text">${medicalRecord.diagnosis}</div>
+                  </div>
+                </c:if>
+              </c:otherwise>
+            </c:choose>
+            <c:if test="${not empty medicalRecord.treatmentEntries}">
               <div class="detail-block">
                 <div class="detail-block-label">Phác đồ điều trị</div>
-                <div class="detail-block-text">${medicalRecord.treatmentPlan}</div>
+                <table class="detail-table">
+                  <thead>
+                    <tr><th>Hạng mục điều trị</th><th>Ghi chú</th></tr>
+                  </thead>
+                  <tbody>
+                    <c:forEach var="t" items="${medicalRecord.treatmentEntries}">
+                      <tr><td class="td-name">${t.name}</td><td>${t.note}</td></tr>
+                    </c:forEach>
+                  </tbody>
+                </table>
               </div>
             </c:if>
           </div>
@@ -176,6 +204,85 @@
         </c:if>
       </c:otherwise>
     </c:choose>
+
+    <!-- Grooming Record -->
+    <c:if test="${not empty groomingRecord}">
+      <div class="detail-section">
+        <div class="detail-section-head">Ghi nhận chăm sóc / Spa</div>
+        <div class="detail-section-body">
+          <div class="detail-field-grid">
+            <c:if test="${not empty groomingRecord.coatCondition}">
+              <div class="detail-field">
+                <span class="field-label">Tình trạng lông</span>
+                <span class="field-value">${groomingRecord.coatCondition}</span>
+              </div>
+            </c:if>
+            <c:if test="${not empty groomingRecord.behavior}">
+              <div class="detail-field">
+                <span class="field-label">Biểu hiện</span>
+                <span class="field-value">${groomingRecord.behavior}</span>
+              </div>
+            </c:if>
+            <c:if test="${not empty groomingRecord.groomerName}">
+              <div class="detail-field">
+                <span class="field-label">Nhân viên phụ trách</span>
+                <span class="field-value">${groomingRecord.groomerName}</span>
+              </div>
+            </c:if>
+          </div>
+
+          <c:if test="${not empty groomingRecord.productsUsed}">
+            <div class="detail-block">
+              <div class="detail-block-label">Sản phẩm đã dùng</div>
+              <div class="detail-block-text">${groomingRecord.productsUsed}</div>
+            </div>
+          </c:if>
+          <c:if test="${not empty groomingRecord.notes}">
+            <div class="detail-block">
+              <div class="detail-block-label">Ghi chú</div>
+              <div class="detail-block-text">${groomingRecord.notes}</div>
+            </div>
+          </c:if>
+          <c:if test="${groomingRecord.flagForVet}">
+            <div class="detail-block" style="border-left:3px solid var(--warm-gray);padding-left:12px;">
+              <div class="detail-block-label" style="color:#b45309;">⚠ Được đánh dấu cần bác sĩ thú y kiểm tra</div>
+              <c:if test="${not empty groomingRecord.flagReason}">
+                <div class="detail-block-text">${groomingRecord.flagReason}</div>
+              </c:if>
+            </div>
+          </c:if>
+        </div>
+      </div>
+    </c:if>
+
+    <!-- Vaccination Records -->
+    <c:if test="${not empty vaccinationRecords}">
+      <div class="detail-section">
+        <div class="detail-section-head">Mũi tiêm vaccine</div>
+        <div class="detail-section-body" style="padding:0;">
+          <table class="detail-table">
+            <thead>
+              <tr>
+                <th>Vaccine</th>
+                <th>Ngày tiêm</th>
+                <th>Ngày nhắc lại</th>
+                <th>Người thực hiện</th>
+              </tr>
+            </thead>
+            <tbody>
+              <c:forEach var="v" items="${vaccinationRecords}">
+                <tr>
+                  <td class="td-name">${v.vaccineName}</td>
+                  <td>${v.formattedAdministeredDate}</td>
+                  <td>${v.formattedNextDueDate}</td>
+                  <td>${v.staffName}</td>
+                </tr>
+              </c:forEach>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </c:if>
 
     <!-- Invoice & Payments -->
     <c:if test="${not empty invoice}">
@@ -271,7 +378,7 @@
         <input type="hidden" name="appointmentId" value="${appt.appointmentID}">
 
         <div class="modal-field">
-          <label for="cancelReason">Lý do huỷ <span style="color:var(--warm-gray);font-size:12px;">(không bắt buộc)</span></label>
+          <label for="cancelReason">Lý do huỷ <span style="color:var(--warm-gray);font-size:12px;">(Vui lòng ghi chi tiết lý do nếu bạn có nhu cầu hoàn tiền)</span></label>
           <textarea id="cancelReason" name="cancelReason" rows="3"
                     placeholder="Ví dụ: Thú cưng đã khỏi, thay đổi lịch cá nhân..."></textarea>
         </div>

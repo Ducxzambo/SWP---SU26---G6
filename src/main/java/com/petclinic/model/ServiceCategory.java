@@ -1,5 +1,7 @@
 package com.petclinic.model;
 
+import com.petclinic.util.ServiceCategoryDescriptions;
+
 import java.util.List;
 
 public class ServiceCategory {
@@ -19,4 +21,12 @@ public class ServiceCategory {
     public void   setName(String v){ name = v; }
     public List<Service> getServices()           { return services; }
     public void          setServices(List<Service> v) { services = v; }
+
+    /**
+     * Mô tả ngắn cho nhóm dịch vụ, dùng trên /home và /services. Được suy ra
+     * từ tên nhóm (không lưu trong CSDL) — xem ServiceCategoryDescriptions.
+     */
+    public String getDescription() {
+        return ServiceCategoryDescriptions.describe(name);
+    }
 }
