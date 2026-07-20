@@ -27,7 +27,7 @@
         </nav>
         <div class="sidebar-user">
             👤 ${sessionScope.staff.fullName}
-            <a href="${pageContext.request.contextPath}/auth/logout" class="logout-link">Đăng xuất</a>
+            <a href="${pageContext.request.contextPath}/auth/staff/logout" class="logout-link">Đăng xuất</a>
         </div>
     </aside>
     <main class="main-content">
