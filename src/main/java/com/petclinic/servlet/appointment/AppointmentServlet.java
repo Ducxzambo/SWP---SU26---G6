@@ -42,6 +42,7 @@ public class AppointmentServlet extends HttpServlet {
     private final ServiceDAO       serviceDAO = new ServiceDAO();
     private final ReviewDAO        reviewDAO  = new ReviewDAO();
     private final NotificationDAO  notiDAO    = new  NotificationDAO();
+    private final RefundDAO        refundDAO  = new RefundDAO();
     private final BookingService   bookingSvc = new BookingService();
 
     // ── GET ───────────────────────────────────────────────────────────────────
@@ -255,9 +256,76 @@ public class AppointmentServlet extends HttpServlet {
         }
 
         String reason = req.getParameter("cancelReason");
-        apptDAO.cancel(id, reason != null && !reason.isBlank() ? reason.trim() : null);
-        req.getSession().setAttribute("flashSuccess", "Đã huỷ lịch khám thành công.");
+        String trimmedReason = reason != null && !reason.isBlank() ? reason.trim() : null;
+
+        // Yêu cầu hoàn tiền (chỉ áp dụng khi appointment đang Confirmed) (Refunds.Status='Requested')
+        boolean refundRequested = isChecked(req.getParameter("refundRequested"));
+        if (refundRequested && "Confirmed".equals(appt.getStatus())) {
+            if (!recordRefundRequest(req, id, trimmedReason)) {
+                // Thiếu thông tin ngân hàng hoặc không tìm thấy khoản đã
+                // thanh toán → dừng lại, KHÔNG huỷ lịch, để khách bổ sung.
+                resp.sendRedirect(req.getContextPath() + "/appointments/detail?id=" + id);
+                return;
+            }
+        }
+
+        apptDAO.cancel(id, trimmedReason);
+        req.getSession().setAttribute("flashSuccess",
+                refundRequested && "Confirmed".equals(appt.getStatus())
+                        ? "Đã huỷ lịch khám và ghi nhận yêu cầu hoàn tiền. Chúng tôi sẽ liên hệ xử lý trong thời gian sớm nhất."
+                        : "Đã huỷ lịch khám thành công.");
         resp.sendRedirect(req.getContextPath() + "/appointments");
+    }
+
+    /**
+     * Ghi 1 dòng Refunds (Status='Requested') cho appointment đang huỷ, dựa
+     * trên Invoice tương ứng của appointment đó - trả về false (và set
+     * flashError) nếu thiếu dữ liệu bắt buộc, true nếu insert thành công.
+     */
+    private boolean recordRefundRequest(HttpServletRequest req, int appointmentId, String cancelReason)
+            throws Exception {
+        String bankCode      = trimOrNull(req.getParameter("bankCode"));
+        String accountNumber = trimOrNull(req.getParameter("accountNumber"));
+        String accountName   = trimOrNull(req.getParameter("accountName"));
+        if (bankCode == null || accountNumber == null || accountName == null) {
+            req.getSession().setAttribute("flashError",
+                    "Vui lòng cung cấp đầy đủ thông tin ngân hàng (ngân hàng, số tài khoản, tên chủ tài khoản) để yêu cầu hoàn tiền.");
+            return false;
+        }
+
+        // AppointmentID -> Invoice tương ứng -> PaymentInvoices của invoice đó
+        Invoice invoice = invoiceDAO.findByAppointment(appointmentId);
+        if (invoice == null) {
+            req.getSession().setAttribute("flashError",
+                    "Không tìm thấy hoá đơn nào cho lịch hẹn này nên không thể tạo yêu cầu hoàn tiền.");
+            return false;
+        }
+
+        BigDecimal paidAmount = BigDecimal.ZERO;
+        for (InvoicePayment ip : invoice.getPayments()) {
+            if (ip.getAllocatedAmount() != null) paidAmount = paidAmount.add(ip.getAllocatedAmount());
+        }
+
+        Refund refundReq = new Refund();
+        refundReq.setAppointmentID(appointmentId);
+        refundReq.setTotalAmount(invoice.getTotalAmount());
+        refundReq.setPaidAmount(paidAmount);
+        refundReq.setReason(cancelReason);
+        refundReq.setBankCode(bankCode);
+        refundReq.setAccountNumber(accountNumber);
+        refundReq.setAccountName(accountName);
+        refundDAO.createRequest(refundReq);
+        return true;
+    }
+
+    private boolean isChecked(String param) {
+        return "1".equals(param) || "on".equalsIgnoreCase(param) || "true".equalsIgnoreCase(param);
+    }
+
+    private String trimOrNull(String s) {
+        if (s == null) return null;
+        String t = s.trim();
+        return t.isEmpty() ? null : t;
     }
 
     // ══════════════════════════════════════════════════════════════════════════

@@ -18,14 +18,12 @@ import java.util.Map;
  * URL map:
  *   GET  /pets                  → list of customer's pets
  *   GET  /pets/profile?id=      → pet profile + medical history + vaccines
- *   GET  /pets/new              → add pet form
- *   POST /pets/new              → save new pet
  *   GET  /pets/edit?id=         → edit pet form
  *   POST /pets/edit             → save edits
  *   POST /pets/delete           → soft delete pet
  */
 @WebServlet(urlPatterns = {
-    "/pets", "/pets/profile", "/pets/new", "/pets/edit", "/pets/delete"
+    "/pets", "/pets/profile", "/pets/edit", "/pets/delete"
 })
 public class PetServlet extends HttpServlet {
 
@@ -49,7 +47,6 @@ public class PetServlet extends HttpServlet {
             switch (req.getServletPath()) {
                 case "/pets":          handleList(req, resp, customer);    break;
                 case "/pets/profile":  handleProfile(req, resp, customer); break;
-                case "/pets/new":      handleNewForm(req, resp, customer); break;
                 case "/pets/edit":     handleEditForm(req, resp, customer);break;
                 default: resp.sendRedirect(req.getContextPath() + "/pets");
             }
@@ -65,7 +62,6 @@ public class PetServlet extends HttpServlet {
         if (customer == null) return;
         try {
             switch (req.getServletPath()) {
-                case "/pets/new":    handleNewSave(req, resp, customer);  break;
                 case "/pets/edit":   handleEditSave(req, resp, customer); break;
                 case "/pets/delete": handleDelete(req, resp, customer);   break;
                 default: resp.sendRedirect(req.getContextPath() + "/pets");
@@ -121,21 +117,21 @@ public class PetServlet extends HttpServlet {
     // ══════════════════════════════════════════════════════════════════════════
     //  NEW SAVE
     // ══════════════════════════════════════════════════════════════════════════
-    private void handleNewSave(HttpServletRequest req, HttpServletResponse resp, Customer customer)
-            throws Exception {
-        Pet pet = bindPetFromRequest(req, customer.getCustomerID());
-        String error = validate(pet);
-        if (error != null) {
-            setCommonAttrs(req, customer);
-            req.setAttribute("error", error);
-            req.setAttribute("pet", pet);
-            req.getRequestDispatcher("/WEB-INF/views/customer/pets/form.jsp").forward(req, resp);
-            return;
-        }
-        petDAO.insert(pet);
-        req.getSession().setAttribute("flashSuccess", "Thêm thú cưng thành công!");
-        resp.sendRedirect(req.getContextPath() + "/pets");
-    }
+//    private void handleNewSave(HttpServletRequest req, HttpServletResponse resp, Customer customer)
+//            throws Exception {
+//        Pet pet = bindPetFromRequest(req, customer.getCustomerID());
+//        String error = validate(pet);
+//        if (error != null) {
+//            setCommonAttrs(req, customer);
+//            req.setAttribute("error", error);
+//            req.setAttribute("pet", pet);
+//            req.getRequestDispatcher("/WEB-INF/views/customer/pets/form.jsp").forward(req, resp);
+//            return;
+//        }
+//        petDAO.insert(pet);
+//        req.getSession().setAttribute("flashSuccess", "Thêm thú cưng thành công!");
+//        resp.sendRedirect(req.getContextPath() + "/pets");
+//    }
 
     // ══════════════════════════════════════════════════════════════════════════
     //  EDIT FORM

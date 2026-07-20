@@ -494,6 +494,9 @@
   border-radius: var(--radius);
   width: 100%;
   max-width: 480px;
+  max-height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
   box-shadow: 0 20px 60px rgba(0,0,0,.25);
   transform: scale(.95);
   transition: var(--transition);
@@ -508,11 +511,17 @@
   padding: 20px 24px;
   background: #fdf0ee;
   border-bottom: 1px solid #f5c6c2;
+  flex-shrink: 0;
 }
 .modal-icon { font-size: 24px; }
 .modal-head h2 { font-size: 17px; font-weight: 700; color: #721c24; }
 
-.modal-body { padding: 22px 24px; }
+.modal-body {
+  padding: 22px 24px;
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+}
 .modal-body > p { font-size: 14px; color: var(--text-mid); margin-bottom: 10px; }
 
 .modal-appt-summary {
@@ -525,6 +534,8 @@
   border: 1px solid var(--border);
 }
 
+.modal-field { margin-bottom: 14px; }
+.modal-field:last-child { margin-bottom: 0; }
 .modal-field label {
   display: block;
   font-size: 13px;
@@ -532,18 +543,109 @@
   color: var(--text-mid);
   margin-bottom: 7px;
 }
-.modal-field textarea {
+.modal-field textarea,
+.modal-field input[type="text"],
+.modal-field select {
   width: 100%;
   padding: 10px 12px;
   border: 1.5px solid var(--border);
   border-radius: 8px;
   font-size: 14px;
   font-family: 'DM Sans', sans-serif;
-  resize: vertical;
+  color: var(--text-dark);
+  background: #fff;
   outline: none;
   transition: var(--transition);
 }
+.modal-field textarea { resize: vertical; }
+.modal-field select { cursor: pointer; }
 .modal-field textarea:focus { border-color: var(--red-err); box-shadow: 0 0 0 3px rgba(192,57,43,.1); }
+.modal-field input[type="text"]:focus,
+.modal-field select:focus { border-color: var(--green-500); box-shadow: 0 0 0 3px rgba(45,140,87,.12); }
+
+/* ── Yêu cầu hoàn tiền (trong Cancel modal, chỉ hiện khi appt Confirmed) ──── */
+.refund-toggle-field { margin-top: 4px; }
+.refund-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--green-50);
+  border: 1.5px solid var(--green-100);
+  border-radius: 8px;
+}
+.refund-checkbox-row input { width: 16px; height: 16px; accent-color: var(--green-500); cursor: pointer; }
+.refund-checkbox-row label { font-size: 13.5px; font-weight: 600; color: var(--green-900); cursor: pointer; }
+
+.refund-panel {
+  display: none;
+  margin-top: 12px;
+  padding: 16px;
+  background: var(--green-50);
+  border: 1.5px solid var(--green-100);
+  border-radius: 10px;
+}
+.refund-panel.open { display: block; animation: refundPanelIn .18s ease; }
+@keyframes refundPanelIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.refund-panel-head { font-size: 13px; color: var(--text-mid); line-height: 1.5; margin-bottom: 12px; }
+
+.refund-method-switch { display: flex; gap: 8px; margin-bottom: 12px; }
+.refund-method-btn {
+  flex: 1;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-mid);
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  transition: var(--transition);
+}
+.refund-method-btn:hover:not(.active) { background: var(--sand); }
+.refund-method-btn.active {
+  border-color: var(--green-500);
+  background: var(--green-100);
+  color: var(--green-900);
+  font-weight: 600;
+}
+
+.refund-qr-block { margin-bottom: 12px; }
+.refund-qr-drop {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1.5px dashed var(--green-400);
+  border-radius: 10px;
+  background: #fff;
+  text-align: center;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.refund-qr-drop:hover { background: var(--green-50); border-color: var(--green-500); }
+.refund-qr-drop input[type="file"] { display: none; }
+.refund-qr-drop-icon { font-size: 20px; line-height: 1; flex-shrink: 0; }
+.refund-qr-drop-text { font-size: 13px; color: var(--text-mid); text-align: left; }
+
+.refund-qr-status { margin-top: 8px; font-size: 12.5px; line-height: 1.5; }
+.refund-qr-status.success { color: var(--green-700); }
+.refund-qr-status.error   { color: var(--red-err); }
+
+/* Số tài khoản + Tên chủ tài khoản cạnh nhau để đỡ dàn trải theo chiều dọc;
+   tự rớt xuống 1 cột khi modal quá hẹp (mobile nhỏ) để không bị bóp chữ. */
+.refund-fields-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0 12px;
+}
+.refund-fields-grid .modal-field { margin-bottom: 14px; }
 
 .modal-confirm-check {
   display: flex;
@@ -560,6 +662,7 @@
   padding: 16px 24px;
   border-top: 1px solid var(--border);
   background: var(--cream);
+  flex-shrink: 0;
 }
 .modal-btn-secondary {
   flex: 1;

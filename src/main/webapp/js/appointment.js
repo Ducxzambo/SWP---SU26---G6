@@ -160,6 +160,10 @@
     }
     const ta = document.getElementById('cancelReason');
     if (ta) ta.value = '';
+
+    // Reset panel "Yêu cầu hoàn tiền" nếu trang có (xem refund.js) —
+    // chỉ áp dụng cho appointment-detail.jsp khi appt đang Confirmed.
+    if (typeof window.resetRefundPanel === 'function') window.resetRefundPanel();
   }
 
   window.openCancelModal  = openCancelModal;

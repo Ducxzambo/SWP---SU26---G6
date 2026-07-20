@@ -79,12 +79,7 @@ public class RegisterServlet extends HttpServlet {
             forwardRegisterWithError(req, resp, "Email không đúng định dạng.");
             return;
         }
-        // Phone format
-        if (!PHONE_RE.matcher(phone.trim()).matches()) {
-            forwardRegisterWithError(req, resp,
-                    "Số điện thoại không hợp lệ. Vui lòng nhập đúng 10 chữ số, bắt đầu bằng 0.");
-            return;
-        }
+
         // Password match
         if (!password.equals(confirm)) {
             forwardRegisterWithError(req, resp, "Mật khẩu xác nhận không khớp.");
@@ -97,6 +92,12 @@ public class RegisterServlet extends HttpServlet {
             return;
         }
 
+        // Phone format
+        if (!PHONE_RE.matcher(phone.trim()).matches()) {
+            forwardRegisterWithError(req, resp,
+                    "Số điện thoại không hợp lệ. Vui lòng nhập đúng 10 chữ số, bắt đầu bằng 0.");
+            return;
+        }
         try {
             SendOtpResult result = authService.initiateRegistration(
                     fullName, email.trim(), phone.trim(), password);

@@ -21,8 +21,6 @@
       <h1>Thú cưng của tôi</h1>
       <p>Quản lý hồ sơ và lịch sử khám của tất cả thú cưng</p>
     </div>
-    <a href="${ctx}/pets/new" class="pets-header-add-btn" title="Thêm thú cưng mới">
-      <span class="pets-header-add-icon">+</span>
     </a>
   </div>
 
@@ -31,8 +29,6 @@
       <div class="pets-empty">
         <div class="pets-empty-icon">🐾</div>
         <h2>Chưa có thú cưng nào</h2>
-        <p>Thêm thú cưng để bắt đầu đặt lịch khám và theo dõi sức khoẻ</p>
-        <a href="${ctx}/pets/new" class="btn-new-booking">Thêm thú cưng đầu tiên</a>
       </div>
     </c:when>
     <c:otherwise>
