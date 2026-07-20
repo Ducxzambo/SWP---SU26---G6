@@ -70,7 +70,7 @@ public class AdmitPetServlet extends HttpServlet {
             int admissionId = svc.admitPet(
                 Integer.parseInt(recordIdStr.trim()),
                 Integer.parseInt(petIdStr.trim()),
-                cageNumber.trim()
+                    Integer.parseInt(cageNumber.trim())
             );
             resp.sendRedirect(req.getContextPath()
                 + "/inpatient/detail?id=" + admissionId + "&success=admitted");

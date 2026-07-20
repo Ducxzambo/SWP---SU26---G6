@@ -5,39 +5,33 @@ import com.petclinic.model.InpatientAdmission;
 import com.petclinic.util.DBConnection;
 
 import java.sql.*;
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
  * DAO for dbo.InpatientAdmissions + dbo.DailyAssessments.
- *
- * All column names match PetClinicMVP.sql exactly:
- *   InpatientAdmissions: AdmissionID, RecordID, PetID,
- *                        AdmitDate, DischargeDate, CageNumber, Status
- *   DailyAssessments:    AssessmentID, AdmissionID, VetID,
- *                        AssessmentDate, Condition, TreatmentToday
+ * Updated: CageNumber (text) → CageID (FK → Cages)
  */
 public class InpatientAdmissionDAO {
 
-    // ══════════════════════════════════════════════════════════════════════════
-    // InpatientAdmissions
-    // ══════════════════════════════════════════════════════════════════════════
+    // ── InpatientAdmissions ───────────────────────────────────────────────────
 
     /**
-     * Insert a new admission record. Status defaults to 'Admitted'.
-     * @return generated AdmissionID, or -1 on failure
+     * Insert new admission using CageID (FK).
+     * @return generated AdmissionID
      */
-    public int create(int recordID, int petID, String cageNumber) throws SQLException {
+    public int create(int recordID, int petID, int cageID) throws SQLException {
         String sql =
-                "INSERT INTO InpatientAdmissions (RecordID, PetID, AdmitDate, CageNumber, Status) " +
-                        "VALUES (?, ?, CAST(GETDATE() AS date), ?, 'Admitted')";
+                "INSERT INTO InpatientAdmissions " +
+                        "  (RecordID, PetID, CageID, AdmitDate, Status) " +
+                        "VALUES (?, ?, ?, CAST(GETDATE() AS date), 'Admitted')";
 
         try (Connection cn = DBConnection.getConnection();
-             PreparedStatement ps = cn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+             PreparedStatement ps = cn.prepareStatement(
+                     sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setInt(1, recordID);
             ps.setInt(2, petID);
-            ps.setString(3, cageNumber);
+            ps.setInt(3, cageID);
             ps.executeUpdate();
             try (ResultSet keys = ps.getGeneratedKeys()) {
                 return keys.next() ? keys.getInt(1) : -1;
@@ -45,24 +39,9 @@ public class InpatientAdmissionDAO {
         }
     }
 
-    /**
-     * Find one admission by PK, joined with Pet + Customer + MedicalRecord.
-     */
+    /** Find one admission by PK — joins Cages, Pets, Customers, MedicalRecords. */
     public InpatientAdmission findById(int admissionID) throws SQLException {
-        String sql =
-                "SELECT ia.AdmissionID, ia.RecordID, ia.PetID, ia.AdmitDate, " +
-                        "       ia.DischargeDate, ia.CageNumber, ia.Status, " +
-                        "       p.Name          AS PetName, " +
-                        "       c.FullName      AS OwnerName, " +
-                        "       c.Email         AS OwnerEmail, " +
-                        "       c.CustomerID, " +
-                        "       mr.AppointmentID " +
-                        "FROM   InpatientAdmissions ia " +
-                        "JOIN   Pets           p  ON p.PetID        = ia.PetID " +
-                        "JOIN   Customers      c  ON c.CustomerID   = p.CustomerID " +
-                        "JOIN   MedicalRecords mr ON mr.RecordID    = ia.RecordID " +
-                        "WHERE  ia.AdmissionID = ?";
-
+        String sql = buildSelect() + "WHERE ia.AdmissionID = ?";
         try (Connection cn = DBConnection.getConnection();
              PreparedStatement ps = cn.prepareStatement(sql)) {
             ps.setInt(1, admissionID);
@@ -72,49 +51,19 @@ public class InpatientAdmissionDAO {
         }
     }
 
-    /**
-     * All active admissions (Status IN 'Admitted','Critical').
-     * Used by: Receptionist and Vet dashboards.
-     */
+    /** All active admissions (Admitted or Critical). */
     public List<InpatientAdmission> findAllActive() throws SQLException {
-        String sql =
-                "SELECT ia.AdmissionID, ia.RecordID, ia.PetID, ia.AdmitDate, " +
-                        "       ia.DischargeDate, ia.CageNumber, ia.Status, " +
-                        "       p.Name          AS PetName, " +
-                        "       c.FullName      AS OwnerName, " +
-                        "       c.Email         AS OwnerEmail, " +
-                        "       c.CustomerID, " +
-                        "       mr.AppointmentID " +
-                        "FROM   InpatientAdmissions ia " +
-                        "JOIN   Pets           p  ON p.PetID        = ia.PetID " +
-                        "JOIN   Customers      c  ON c.CustomerID   = p.CustomerID " +
-                        "JOIN   MedicalRecords mr ON mr.RecordID    = ia.RecordID " +
-                        "WHERE  ia.Status IN ('Admitted', 'Critical') " +
-                        "ORDER  BY ia.AdmitDate ASC";
-
+        String sql = buildSelect() +
+                "WHERE ia.Status IN ('Admitted','Critical') " +
+                "ORDER BY ia.AdmitDate ASC";
         return query(sql);
     }
 
-    /**
-     * Admissions for a specific customer (own pets only).
-     * Used by: Customer portal.
-     */
+    /** Admissions belonging to a specific customer. */
     public List<InpatientAdmission> findByCustomer(int customerID) throws SQLException {
-        String sql =
-                "SELECT ia.AdmissionID, ia.RecordID, ia.PetID, ia.AdmitDate, " +
-                        "       ia.DischargeDate, ia.CageNumber, ia.Status, " +
-                        "       p.Name          AS PetName, " +
-                        "       c.FullName      AS OwnerName, " +
-                        "       c.Email         AS OwnerEmail, " +
-                        "       c.CustomerID, " +
-                        "       mr.AppointmentID " +
-                        "FROM   InpatientAdmissions ia " +
-                        "JOIN   Pets           p  ON p.PetID        = ia.PetID " +
-                        "JOIN   Customers      c  ON c.CustomerID   = p.CustomerID " +
-                        "JOIN   MedicalRecords mr ON mr.RecordID    = ia.RecordID " +
-                        "WHERE  c.CustomerID = ? " +
-                        "ORDER  BY ia.AdmitDate DESC";
-
+        String sql = buildSelect() +
+                "WHERE c.CustomerID = ? " +
+                "ORDER BY ia.AdmitDate DESC";
         try (Connection cn = DBConnection.getConnection();
              PreparedStatement ps = cn.prepareStatement(sql)) {
             ps.setInt(1, customerID);
@@ -126,30 +75,9 @@ public class InpatientAdmissionDAO {
         }
     }
 
-    /**
-     * List currently occupied cage numbers.
-     * Used by: Admit form to show which cages are taken.
-     */
-    public List<String> findOccupiedCages() throws SQLException {
-        String sql =
-                "SELECT CageNumber FROM InpatientAdmissions " +
-                        "WHERE  Status IN ('Admitted', 'Critical') " +
-                        "AND    CageNumber IS NOT NULL";
-
-        List<String> list = new ArrayList<>();
-        try (Connection cn = DBConnection.getConnection();
-             PreparedStatement ps = cn.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) list.add(rs.getString("CageNumber"));
-        }
-        return list;
-    }
-
-    /**
-     * Update status only. Valid: 'Admitted' | 'Critical' | 'Discharged'
-     */
+    /** Update admission status. Values: Admitted | Critical | Discharged */
     public void updateStatus(int admissionID, String status) throws SQLException {
-        String sql = "UPDATE InpatientAdmissions SET Status = ? WHERE AdmissionID = ?";
+        String sql = "UPDATE InpatientAdmissions SET Status=? WHERE AdmissionID=?";
         try (Connection cn = DBConnection.getConnection();
              PreparedStatement ps = cn.prepareStatement(sql)) {
             ps.setString(1, status);
@@ -158,15 +86,12 @@ public class InpatientAdmissionDAO {
         }
     }
 
-    /**
-     * Set DischargeDate = today and Status = 'Discharged'.
-     * Called by DischargeServlet.
-     */
+    /** Discharge: set DischargeDate=today + Status=Discharged. */
     public void discharge(int admissionID) throws SQLException {
         String sql =
                 "UPDATE InpatientAdmissions " +
-                        "SET    DischargeDate = CAST(GETDATE() AS date), Status = 'Discharged' " +
-                        "WHERE  AdmissionID = ?";
+                        "SET DischargeDate = CAST(GETDATE() AS date), Status = 'Discharged' " +
+                        "WHERE AdmissionID = ?";
         try (Connection cn = DBConnection.getConnection();
              PreparedStatement ps = cn.prepareStatement(sql)) {
             ps.setInt(1, admissionID);
@@ -174,24 +99,20 @@ public class InpatientAdmissionDAO {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════════════════
-    // DailyAssessments
-    // ══════════════════════════════════════════════════════════════════════════
+    // ── DailyAssessments ──────────────────────────────────────────────────────
 
-    /**
-     * Insert today's assessment.
-     * Column: StaffID (updated schema — was VetID before)
-     * @return generated AssessmentID
-     */
+    /** Insert today's daily assessment. */
     public int createAssessment(int admissionID, int staffID,
-                                String condition, String treatmentToday) throws SQLException {
+                                String condition,
+                                String treatmentToday) throws SQLException {
         String sql =
                 "INSERT INTO DailyAssessments " +
                         "  (AdmissionID, StaffID, AssessmentDate, Condition, TreatmentToday) " +
                         "VALUES (?, ?, CAST(GETDATE() AS date), ?, ?)";
 
         try (Connection cn = DBConnection.getConnection();
-             PreparedStatement ps = cn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+             PreparedStatement ps = cn.prepareStatement(
+                     sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setInt(1, admissionID);
             ps.setInt(2, staffID);
             ps.setString(3, condition);
@@ -203,11 +124,9 @@ public class InpatientAdmissionDAO {
         }
     }
 
-    /**
-     * All assessments for one admission, newest first.
-     * JOIN Staff on StaffID (updated schema).
-     */
-    public List<DailyAssessment> findAssessmentsByAdmission(int admissionID) throws SQLException {
+    /** All assessments for one admission, newest first. */
+    public List<DailyAssessment> findAssessmentsByAdmission(
+            int admissionID) throws SQLException {
         String sql =
                 "SELECT da.AssessmentID, da.AdmissionID, da.StaffID, " +
                         "       da.AssessmentDate, da.Condition, da.TreatmentToday, " +
@@ -228,15 +147,11 @@ public class InpatientAdmissionDAO {
         return list;
     }
 
-    /**
-     * Returns true if an assessment for today already exists for this admission.
-     * Prevents duplicate daily entries.
-     */
+    /** True if today's assessment already exists for this admission. */
     public boolean hasTodayAssessment(int admissionID) throws SQLException {
         String sql =
                 "SELECT 1 FROM DailyAssessments " +
-                        "WHERE  AdmissionID   = ? " +
-                        "AND    AssessmentDate = CAST(GETDATE() AS date)";
+                        "WHERE AdmissionID=? AND AssessmentDate=CAST(GETDATE() AS date)";
         try (Connection cn = DBConnection.getConnection();
              PreparedStatement ps = cn.prepareStatement(sql)) {
             ps.setInt(1, admissionID);
@@ -246,9 +161,25 @@ public class InpatientAdmissionDAO {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════════════════
-    // Helpers
-    // ══════════════════════════════════════════════════════════════════════════
+    // ── Private helpers ───────────────────────────────────────────────────────
+
+    /** Base SELECT with all necessary JOINs including Cages. */
+    private String buildSelect() {
+        return
+                "SELECT ia.AdmissionID, ia.RecordID, ia.PetID, ia.CageID, " +
+                        "       ia.AdmitDate, ia.DischargeDate, ia.Status, " +
+                        "       cg.CageNumber, cg.CageType, " +
+                        "       p.Name          AS PetName, " +
+                        "       cu.FullName     AS OwnerName, " +
+                        "       cu.Email        AS OwnerEmail, " +
+                        "       cu.CustomerID, " +
+                        "       mr.AppointmentID " +
+                        "FROM   InpatientAdmissions ia " +
+                        "LEFT  JOIN Cages        cg ON cg.CageID      = ia.CageID " +
+                        "JOIN        Pets         p  ON p.PetID        = ia.PetID " +
+                        "JOIN        Customers    cu ON cu.CustomerID  = p.CustomerID " +
+                        "JOIN        MedicalRecords mr ON mr.RecordID  = ia.RecordID ";
+    }
 
     private List<InpatientAdmission> query(String sql) throws SQLException {
         List<InpatientAdmission> list = new ArrayList<>();
@@ -265,8 +196,15 @@ public class InpatientAdmissionDAO {
         a.setAdmissionID(rs.getInt("AdmissionID"));
         a.setRecordID(rs.getInt("RecordID"));
         a.setPetID(rs.getInt("PetID"));
-        a.setStatus(rs.getString("Status"));
+        a.setCageID(rs.getInt("CageID"));
         a.setCageNumber(rs.getString("CageNumber"));
+        a.setCageType(rs.getString("CageType"));
+        a.setStatus(rs.getString("Status"));
+        a.setPetName(rs.getString("PetName"));
+        a.setOwnerName(rs.getString("OwnerName"));
+        a.setOwnerEmail(rs.getString("OwnerEmail"));
+        a.setCustomerID(rs.getInt("CustomerID"));
+        a.setAppointmentID(rs.getInt("AppointmentID"));
 
         Date admit = rs.getDate("AdmitDate");
         if (admit != null) a.setAdmitDate(admit.toLocalDate());
@@ -274,12 +212,6 @@ public class InpatientAdmissionDAO {
         Date discharge = rs.getDate("DischargeDate");
         if (discharge != null) a.setDischargeDate(discharge.toLocalDate());
 
-        // joined
-        a.setPetName(rs.getString("PetName"));
-        a.setOwnerName(rs.getString("OwnerName"));
-        a.setOwnerEmail(rs.getString("OwnerEmail"));
-        a.setCustomerID(rs.getInt("CustomerID"));
-        a.setAppointmentID(rs.getInt("AppointmentID"));
         return a;
     }
 
@@ -287,7 +219,7 @@ public class InpatientAdmissionDAO {
         DailyAssessment d = new DailyAssessment();
         d.setAssessmentID(rs.getInt("AssessmentID"));
         d.setAdmissionID(rs.getInt("AdmissionID"));
-        d.setVetID(rs.getInt("StaffID"));   // column renamed StaffID in new schema
+        d.setVetID(rs.getInt("StaffID"));
         d.setCondition(rs.getString("Condition"));
         d.setTreatmentToday(rs.getString("TreatmentToday"));
         d.setVetName(rs.getString("VetName"));

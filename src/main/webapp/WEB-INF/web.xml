@@ -91,4 +91,12 @@
         <servlet-name>InpatientListServlet</servlet-name>
         <url-pattern>/inpatient/detail</url-pattern>
     </servlet-mapping>
+    <servlet>
+        <servlet-name>CageServlet</servlet-name>
+        <servlet-class>com.petclinic.servlet.inpatient.CageServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>CageServlet</servlet-name>
+        <url-pattern>/inpatient/cages</url-pattern>
+    </servlet-mapping>
 </web-app>

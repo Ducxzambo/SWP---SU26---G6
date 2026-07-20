@@ -1,0 +1,79 @@
+/* src/main/webapp/assets/css/style.css */
+:root {
+    --primary-teal: #0d9488;
+    --primary-hover: #0f766e;
+    --bg-slate: #f1f5f9;
+    --text-dark: #1e293b;
+    --text-muted: #64748b;
+    --border-light: #e2e8f0;
+    --radius-custom: 12px;
+}
+
+body {
+    background-color: var(--bg-slate) !important;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: var(--text-dark);
+}
+
+.custom-card {
+    background: #ffffff;
+    border: none;
+    border-radius: var(--radius-custom);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
+    padding: 15px;
+}
+
+.page-title {
+    color: var(--primary-teal);
+    font-weight: 700;
+    letter-spacing: -0.5px;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: var(--primary-teal) !important;
+    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.15) !important;
+}
+
+.form-label {
+    color: var(--text-dark);
+    font-size: 14px;
+}
+
+.btn-teal {
+    background-color: var(--primary-teal) !important;
+    border-color: var(--primary-teal) !important;
+    color: #ffffff !important;
+    font-weight: 600;
+    padding: 10px 20px;
+    border-radius: 6px;
+    transition: all 0.2s ease-in-out;
+}
+
+.btn-teal:hover {
+    background-color: var(--primary-hover) !important;
+    border-color: var(--primary-hover) !important;
+}
+
+.btn-outline-custom {
+    border-color: var(--border-light) !important;
+    color: var(--text-muted) !important;
+    font-weight: 500;
+    padding: 10px 20px;
+    border-radius: 6px;
+}
+
+.btn-outline-custom:hover {
+    background-color: #f8fafc !important;
+    color: var(--text-dark) !important;
+}
+
+.badge-occupied {
+    background-color: #fee2e2 !important;
+    color: #ef4444 !important;
+    border: 1px solid #fca5a5;
+    font-weight: 600;
+    padding: 5px 10px;
+    margin-right: 4px;
+    margin-top: 4px;
+    display: inline-block;
+}
