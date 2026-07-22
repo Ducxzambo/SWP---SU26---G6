@@ -6,11 +6,10 @@ import java.math.BigDecimal;
  * 1 dòng bảng InvoiceItems — 1 mục chi phí cụ thể trong hoá đơn (dịch vụ,
  * vaccine, thuốc, hoặc chi phí khác — phân biệt qua itemType).
  *
- * Đây LÀ quan hệ N-1 thật (nhiều item thuộc đúng 1 invoice) nên có field
- * invoiceID trỏ về Invoice là hợp lý — khác với Payment (N-N, không nhúng
- * invoiceID trực tiếp). Tách thành class top-level riêng (thay vì lồng
- * trong Invoice) để nhất quán với Payment/InvoicePayment và dễ tái sử dụng
- * ở nơi khác nếu cần (vd truy vấn item không qua Invoice).
+ * Quan hệ N-1 với Invoice (nhiều item thuộc đúng 1 invoice), tương tự
+ * Payment (nhiều Payment thuộc đúng 1 Invoice) — cả 2 đều tách thành class
+ * top-level riêng (thay vì lồng trong Invoice) để dễ tái sử dụng ở nơi khác
+ * nếu cần (vd truy vấn item/payment không qua Invoice).
  */
 public class InvoiceItem {
     private int         invoiceItemID;

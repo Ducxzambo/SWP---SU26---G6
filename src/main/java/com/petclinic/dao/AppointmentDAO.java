@@ -27,7 +27,8 @@ public class AppointmentDAO {
         try (Connection c = DBConnection.getConnection();
              PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setInt(1, a.getCustomerID());
-            ps.setInt(2, a.getPetID());
+            if (a.getPetID() != null) ps.setInt(2, a.getPetID());
+            else ps.setNull(2, Types.INTEGER);
             ps.setDate(3, Date.valueOf(a.getAppointmentDate()));
             ps.setTime(4, Time.valueOf(a.getStartTime()));
             ps.setTime(5, Time.valueOf(a.getEndTime()));
@@ -56,7 +57,7 @@ public class AppointmentDAO {
     public Appointment findById(int appointmentId) throws SQLException {
         String sql = "SELECT a.*, p.Name AS PetName "
                 + "FROM Appointments a "
-                + "JOIN Pets p ON a.PetID = p.PetID "
+                + "LEFT JOIN Pets p ON a.PetID = p.PetID "
                 + "WHERE a.AppointmentID = ?";
         Appointment appt;
         try (Connection c = DBConnection.getConnection();
@@ -73,7 +74,7 @@ public class AppointmentDAO {
     public List<Appointment> findByCustomer(int customerId) throws SQLException {
         String sql = "SELECT a.*, p.Name AS PetName "
                 + "FROM Appointments a "
-                + "JOIN Pets p ON a.PetID = p.PetID "
+                + "LEFT JOIN Pets p ON a.PetID = p.PetID "
                 + "WHERE a.CustomerID = ? ORDER BY a.AppointmentDate DESC, a.StartTime DESC";
         List<Appointment> list = new ArrayList<>();
         try (Connection c = DBConnection.getConnection();
@@ -90,7 +91,7 @@ public class AppointmentDAO {
     public List<Appointment> findByPet(int petId) throws SQLException {
         String sql = "SELECT a.*, p.Name AS PetName "
                 + "FROM Appointments a "
-                + "JOIN Pets p ON a.PetID = p.PetID "
+                + "LEFT JOIN Pets p ON a.PetID = p.PetID "
                 + "WHERE a.PetID = ? ORDER BY a.AppointmentDate DESC, a.StartTime DESC";
         List<Appointment> list = new ArrayList<>();
         try (Connection c = DBConnection.getConnection();
@@ -144,7 +145,7 @@ public class AppointmentDAO {
     public List<Appointment> findOverdueActive() throws SQLException {
         String sql = "SELECT a.*, p.Name AS PetName "
                 + "FROM Appointments a "
-                + "JOIN Pets p ON a.PetID = p.PetID "
+                + "LEFT JOIN Pets p ON a.PetID = p.PetID "
                 + "WHERE a.Status IN ('Pending','Confirmed') "
                 + "AND CAST(CAST(a.AppointmentDate AS DATE) AS DATETIME) "
                 + "    + CAST(a.EndTime AS DATETIME) < GETDATE()";
@@ -172,7 +173,7 @@ public class AppointmentDAO {
     public List<Appointment> findOverdueOlderThan24h() throws SQLException {
         String sql = "SELECT a.*, p.Name AS PetName "
                 + "FROM Appointments a "
-                + "JOIN Pets p ON a.PetID = p.PetID "
+                + "LEFT JOIN Pets p ON a.PetID = p.PetID "
                 + "WHERE a.Status IN ('Pending','Confirmed') "
                 + "AND CAST(CAST(a.AppointmentDate AS DATE) AS DATETIME) "
                 + "    + CAST(a.EndTime AS DATETIME) < DATEADD(HOUR, -24, GETDATE())";
@@ -187,7 +188,7 @@ public class AppointmentDAO {
     }
 
 
-    /** Cap nhat slot moi + SlotShift tuong ung, GIU NGUYEN status hien tai (khong reset ve Pending). */
+    /** Cap nhat slot moi + SlotShift tuong ung. */
     public void updateSlot(int appointmentId, LocalDate date, LocalTime start, LocalTime end)
             throws SQLException {
         String sql = "UPDATE Appointments SET AppointmentDate=?, StartTime=?, EndTime=?, SlotShift=? "
@@ -245,7 +246,7 @@ public class AppointmentDAO {
         Appointment a = new Appointment();
         a.setAppointmentID(rs.getInt("AppointmentID"));
         a.setCustomerID(rs.getInt("CustomerID"));
-        a.setPetID(rs.getInt("PetID"));
+        int petId = rs.getInt("PetID"); if (!rs.wasNull()) a.setPetID(petId);
         a.setAppointmentDate(rs.getDate("AppointmentDate").toLocalDate());
         a.setStartTime(rs.getTime("StartTime").toLocalTime());
         a.setEndTime(rs.getTime("EndTime").toLocalTime());

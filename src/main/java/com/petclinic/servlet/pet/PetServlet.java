@@ -29,7 +29,6 @@ public class PetServlet extends HttpServlet {
 
     private final PetDAO         petDAO         = new PetDAO();
     private final AppointmentDAO appointmentDAO = new AppointmentDAO();
-    private final MedicalRecordDAO mrDAO        = new MedicalRecordDAO();
     private final ServiceDAO     serviceDAO     = new ServiceDAO();
     private final NotificationDAO notifDAO      = new NotificationDAO();
 
@@ -106,34 +105,6 @@ public class PetServlet extends HttpServlet {
     }
 
     // ══════════════════════════════════════════════════════════════════════════
-    //  NEW FORM
-    // ══════════════════════════════════════════════════════════════════════════
-    private void handleNewForm(HttpServletRequest req, HttpServletResponse resp, Customer customer)
-            throws Exception {
-        setCommonAttrs(req, customer);
-        req.getRequestDispatcher("/WEB-INF/views/customer/pets/form.jsp").forward(req, resp);
-    }
-
-    // ══════════════════════════════════════════════════════════════════════════
-    //  NEW SAVE
-    // ══════════════════════════════════════════════════════════════════════════
-//    private void handleNewSave(HttpServletRequest req, HttpServletResponse resp, Customer customer)
-//            throws Exception {
-//        Pet pet = bindPetFromRequest(req, customer.getCustomerID());
-//        String error = validate(pet);
-//        if (error != null) {
-//            setCommonAttrs(req, customer);
-//            req.setAttribute("error", error);
-//            req.setAttribute("pet", pet);
-//            req.getRequestDispatcher("/WEB-INF/views/customer/pets/form.jsp").forward(req, resp);
-//            return;
-//        }
-//        petDAO.insert(pet);
-//        req.getSession().setAttribute("flashSuccess", "Thêm thú cưng thành công!");
-//        resp.sendRedirect(req.getContextPath() + "/pets");
-//    }
-
-    // ══════════════════════════════════════════════════════════════════════════
     //  EDIT FORM
     // ══════════════════════════════════════════════════════════════════════════
     private void handleEditForm(HttpServletRequest req, HttpServletResponse resp, Customer customer)
@@ -150,7 +121,7 @@ public class PetServlet extends HttpServlet {
     }
 
     // ══════════════════════════════════════════════════════════════════════════
-    //  EDIT SAVE
+    //  EDIT SAVE — CHỈ sửa được name + dateOfBirth.
     // ══════════════════════════════════════════════════════════════════════════
     private void handleEditSave(HttpServletRequest req, HttpServletResponse resp, Customer customer)
             throws Exception {
@@ -159,18 +130,17 @@ public class PetServlet extends HttpServlet {
         if (existing == null || existing.getCustomerID() != customer.getCustomerID()) {
             resp.sendError(403); return;
         }
-        Pet pet = bindPetFromRequest(req, customer.getCustomerID());
-        pet.setPetID(id);
-        String error = validate(pet);
+        applyEditableFields(existing, req);
+        String error = validate(existing);
         if (error != null) {
             setCommonAttrs(req, customer);
             req.setAttribute("error",    error);
-            req.setAttribute("pet",      pet);
+            req.setAttribute("pet",      existing);
             req.setAttribute("editMode", true);
             req.getRequestDispatcher("/WEB-INF/views/customer/pets/form.jsp").forward(req, resp);
             return;
         }
-        petDAO.update(pet);
+        petDAO.update(existing);
         req.getSession().setAttribute("flashSuccess", "Đã cập nhật thông tin thú cưng.");
         resp.sendRedirect(req.getContextPath() + "/pets/profile?id=" + id);
     }
@@ -191,36 +161,19 @@ public class PetServlet extends HttpServlet {
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
-
-    private Pet bindPetFromRequest(HttpServletRequest req, int customerId) {
-        Pet pet = new Pet();
-        pet.setCustomerID(customerId);
+    private void applyEditableFields(Pet pet, HttpServletRequest req) {
         pet.setName(trim(req.getParameter("name")));
-        pet.setSpeciesName(trim(req.getParameter("speciesName")));
-        pet.setBreedName(trim(req.getParameter("breedName")));
-        pet.setGender(trim(req.getParameter("gender")));
         String dob = trim(req.getParameter("dateOfBirth"));
         if (!dob.isEmpty()) {
             try { pet.setDateOfBirth(LocalDate.parse(dob, ISO)); } catch (Exception ignored) {}
         }
-        String w = trim(req.getParameter("weight"));
-        if (!w.isEmpty()) {
-            try { pet.setWeight(new BigDecimal(w)); } catch (Exception ignored) {}
-        }
-        return pet;
     }
 
     private String validate(Pet pet) {
         if (pet.getName() == null || pet.getName().isBlank())
             return "Tên thú cưng không được để trống.";
-        if (pet.getSpeciesName() == null || pet.getSpeciesName().isBlank())
-            return "Vui lòng chọn loài thú cưng.";
-        if (pet.getBreedName() == null || pet.getBreedName().isBlank())
-            return "Vui lòng nhập giống.";
         if (pet.getDateOfBirth() != null && pet.getDateOfBirth().isAfter(LocalDate.now()))
             return "Ngày sinh không thể là ngày trong tương lai.";
-        if (pet.getWeight() != null && pet.getWeight().doubleValue() <= 0)
-            return "Cân nặng phải lớn hơn 0.";
         return null;
     }
 

@@ -1,7 +1,7 @@
 package com.petclinic.servlet.booking;
 
 import com.petclinic.dao.*;
-import com.petclinic.dto.PetBookingRequest;
+import com.petclinic.dto.BookingSelection;
 import com.petclinic.model.*;
 import com.petclinic.service.BookingService;
 import com.petclinic.service.PaymentService;
@@ -18,7 +18,6 @@ import java.util.stream.Collectors;
 public class ConfirmServlet extends HttpServlet {
 
     private final ServiceDAO serviceDAO = new ServiceDAO();
-    private final PetDAO petDAO = new PetDAO();
     private final VaccineDAO vaccineDAO = new VaccineDAO();
     private final BookingService bookingSvc = new BookingService();
     private final PaymentService paymentSvc = new PaymentService();
@@ -39,63 +38,34 @@ public class ConfirmServlet extends HttpServlet {
 
             boolean isInpatient = (Boolean) sess.getAttribute("bk_isInpatient");
             if (isInpatient) {
-                String[] petIds = (String[]) sess.getAttribute("bk_petIds");
-                List<Integer> petIdList = Arrays.stream(petIds)
-                        .map(Integer::parseInt)
-                        .collect(Collectors.toList());
-
-                List<Pet> selectedPets = petDAO.findByCustomer(customer.getCustomerID()).stream()
-                        .filter(p -> petIdList.contains(p.getPetID()))
-                        .collect(Collectors.toList());
-
                 boolean isMorning = "morning".equals(sess.getAttribute("bk_iPeriod"));
 
-                req.setAttribute("selectedPets", selectedPets);
                 req.setAttribute("isInpatient", true);
                 req.setAttribute("inpatientDate", sess.getAttribute("bk_iDate"));
                 req.setAttribute("inpatientPeriod", isMorning ? "Buổi sáng (08:00–12:00)" : "Buổi chiều (13:30–17:30)");
             }
             else {
-                // petBreakdown gom TẤT CẢ dịch vụ + vaccine đã chọn cho 1 pet
-                // (danh sách, không giới hạn 1 mục) — hiển thị đầy đủ ở confirm.jsp.
+                // services/vaccines gom TẤT CẢ dịch vụ + vaccine đã chọn cho lượt
+                // đặt lịch này (danh sách, không giới hạn 1 mục) — hiển thị đầy
+                // đủ ở confirm.jsp.
                 String bookingPayload = (String) sess.getAttribute("bk_payload");
-                List<PetBookingRequest> petBookings = PetBookingRequest.parseList(bookingPayload);
+                BookingSelection selection = BookingSelection.parse(bookingPayload);
 
-                Map<Integer, Pet> petById = petDAO.findByCustomer(customer.getCustomerID()).stream()
-                        .collect(Collectors.toMap(Pet::getPetID, p -> p));
-                Map<Integer, Vaccine> vaccineById = vaccineDAO.findAvailable().stream()
-                        .collect(Collectors.toMap(Vaccine::getVaccineID, v -> v));
+                Map<Integer, Vaccine> vaccineById = new LinkedHashMap<>();
+                for (Vaccine v : vaccineDAO.findAvailable()) vaccineById.put(v.getVaccineID(), v);
 
-                List<Map<String, Object>> petBreakdown = new ArrayList<>();
-                for (PetBookingRequest pb : petBookings) {
-                    Pet pet = petById.get(pb.getPetId());
-                    if (pet == null) continue;
+                List<Service> svcs = selection.getServiceIds().isEmpty()
+                        ? Collections.emptyList()
+                        : serviceDAO.findByIds(selection.getServiceIds());
 
-                    List<Service> svcs = pb.getServiceIds().isEmpty()
-                            ? Collections.emptyList()
-                            : serviceDAO.findByIds(pb.getServiceIds());
-
-                    List<Vaccine> vaccines = pb.getVaccineIds().stream()
-                            .map(vaccineById::get)
-                            .filter(Objects::nonNull)
-                            .collect(Collectors.toList());
-
-                    BigDecimal subtotal = svcs.stream()
-                            .map(s -> s.getPrice() != null ? s.getPrice() : BigDecimal.ZERO)
-                            .reduce(BigDecimal.ZERO, BigDecimal::add)
-                            .add(vaccines.stream()
-                                    .map(Vaccine::getUnitPrice)
-                                    .reduce(BigDecimal.ZERO, BigDecimal::add));
-
-                    Map<String, Object> row = new LinkedHashMap<>();
-                    row.put("pet", pet);
-                    row.put("services", svcs);
-                    row.put("vaccines", vaccines);
-                    row.put("subtotal", subtotal);
-                    petBreakdown.add(row);
+                List<Vaccine> vaccines = new ArrayList<>();
+                for (Integer vid : selection.getVaccineIds()) {
+                    Vaccine v = vaccineById.get(vid);
+                    if (v != null) vaccines.add(v);
                 }
 
-                req.setAttribute("petBreakdown", petBreakdown);
+                req.setAttribute("services", svcs);
+                req.setAttribute("vaccines", vaccines);
                 req.setAttribute("slotKey", sess.getAttribute("bk_slotKey"));
                 req.setAttribute("isInpatient", false);
             }
@@ -137,16 +107,8 @@ public class ConfirmServlet extends HttpServlet {
 
 
             if (isInpatient) {
-                String[] petIds = (String[]) sess.getAttribute("bk_petIds");
                 String iDate = (String) sess.getAttribute("bk_iDate");
                 String iPeriod = (String) sess.getAttribute("bk_iPeriod");
-
-                if (petIds == null || petIds.length != 1) {
-                    sess.setAttribute("flashError", "Vui lòng chọn đúng 1 thú cưng cho mỗi lượt đặt lịch nội trú.");
-                    resp.sendRedirect(req.getContextPath() + "/booking/new");
-                    return;
-                }
-                int petId = Integer.parseInt(petIds[0]);
 
                 int inpatientServiceId = firstServiceIdOfCategory(BookingService.INPATIENT_CATEGORY_ID);
                 if (inpatientServiceId <= 0) {
@@ -156,7 +118,7 @@ public class ConfirmServlet extends HttpServlet {
                     resp.sendRedirect(req.getContextPath() + "/booking/new");
                     return;
                 }
-                apptId = bookingSvc.createInpatientAppointment(customer.getCustomerID(), petId, inpatientServiceId, iDate, iPeriod);
+                apptId = bookingSvc.createInpatientAppointment(customer.getCustomerID(), inpatientServiceId, iDate, iPeriod);
 
                 if (apptId <= 0) {
                     sess.setAttribute("flashError", "Không thể tạo lịch hẹn. Vui lòng thử lại.");
@@ -170,19 +132,18 @@ public class ConfirmServlet extends HttpServlet {
             } else {
                 String bookingPayload = (String) sess.getAttribute("bk_payload");
                 String slotKey = (String) sess.getAttribute("bk_slotKey");
-                List<PetBookingRequest> petBookings = PetBookingRequest.parseList(bookingPayload);
+                BookingSelection selection = BookingSelection.parse(bookingPayload);
 
-                if (petBookings.isEmpty()) {
+                if (selection.isEmpty()) {
                     sess.setAttribute("flashError", "Không thể tạo lịch hẹn. Vui lòng thử lại.");
                     resp.sendRedirect(req.getContextPath() + "/booking/new");
                     return;
                 }
-                PetBookingRequest pb = petBookings.get(0);
 
-                // 1 appointment cho 1 pet + NHIỀU dịch vụ/vaccine đã chọn.
-                // AppointmentServices được ghi bên trong createAppointmentForPet
+                // 1 appointment cho NHIỀU dịch vụ/vaccine đã chọn.
+                // AppointmentServices được ghi bên trong createNormalAppointment
                 // (1 dòng/dịch vụ thực sự chọn; riêng Vaccine chỉ 1 dòng đại diện).
-                apptId = bookingSvc.createNormalAppointment(customer.getCustomerID(), pb, slotKey);
+                apptId = bookingSvc.createNormalAppointment(customer.getCustomerID(), selection, slotKey);
 
                 if (apptId <= 0) {
                     sess.setAttribute("flashError", "Không thể tạo lịch hẹn. Vui lòng thử lại.");
@@ -193,25 +154,20 @@ public class ConfirmServlet extends HttpServlet {
                 // totalAmount của invoice = tổng giá TẤT CẢ dịch vụ + vaccine đã chọn.
                 invoiceId = paymentSvc.createInvoice(customer.getCustomerID(), apptId, total);
 
-                Pet pet = petDAO.findByCustomer(customer.getCustomerID()).stream()
-                        .filter(p -> p.getPetID() == pb.getPetId())
-                        .findFirst().orElse(null);
-                String petName = pet != null ? pet.getName() : ("Pet " + pb.getPetId());
-
-                if (!pb.getServiceIds().isEmpty()) {
-                    List<Service> svcs = serviceDAO.findByIds(pb.getServiceIds());
+                if (!selection.getServiceIds().isEmpty()) {
+                    List<Service> svcs = serviceDAO.findByIds(selection.getServiceIds());
                     for (Service svc : svcs) {
-                        paymentSvc.addInvoiceItem(invoiceId, "Service", petName + " - " + svc.getName(),
+                        paymentSvc.addInvoiceItem(invoiceId, "Service", svc.getName(),
                                 BigDecimal.ONE, svc.getPrice());
                     }
                 }
-                if (!pb.getVaccineIds().isEmpty()) {
-                    Map<Integer, Vaccine> vaccineById = vaccineDAO.findAvailable().stream()
-                            .collect(Collectors.toMap(Vaccine::getVaccineID, v -> v));
-                    for (Integer vaccineId : new LinkedHashSet<>(pb.getVaccineIds())) {
+                if (!selection.getVaccineIds().isEmpty()) {
+                    Map<Integer, Vaccine> vaccineById = new LinkedHashMap<>();
+                    for (Vaccine v : vaccineDAO.findAvailable()) vaccineById.put(v.getVaccineID(), v);
+                    for (Integer vaccineId : new LinkedHashSet<>(selection.getVaccineIds())) {
                         Vaccine v = vaccineById.get(vaccineId);
                         if (v != null) {
-                            paymentSvc.addInvoiceItem(invoiceId, "Vaccine", petName + " - " + v.getName(),
+                            paymentSvc.addInvoiceItem(invoiceId, "Vaccine", v.getName(),
                                     BigDecimal.ONE, v.getUnitPrice());
                         }
                     }

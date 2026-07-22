@@ -72,6 +72,24 @@ public class MedicalRecordDAO {
         return list;
     }
 
+    /**
+     * Cân nặng ở lần khám GẦN NHẤT có ghi nhận cân nặng cho 1 pet - dùng làm
+     * fallback khi Pets.Weight null. Trả về null nếu pet chưa có medical record
+     * nào ghi nhận cân nặng.
+     */
+    public java.math.BigDecimal findLatestWeightByPet(int petId) throws SQLException {
+        String sql = "SELECT TOP 1 Weight FROM MedicalRecords "
+                + "WHERE PetID = ? AND Weight IS NOT NULL "
+                + "ORDER BY CreatedAt DESC";
+        try (Connection c = DBConnection.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, petId);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getBigDecimal(1) : null;
+            }
+        }
+    }
+
     private MedicalRecord mapRecord(ResultSet rs) throws SQLException {
         MedicalRecord mr = new MedicalRecord();
         mr.setRecordID(rs.getInt("RecordID"));

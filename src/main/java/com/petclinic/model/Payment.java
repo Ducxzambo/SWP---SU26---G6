@@ -5,16 +5,17 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 /**
- * 1 dòng bảng Payments — đại diện cho 1 GIAO DỊCH thanh toán độc lập.
+ * 1 dòng bảng Payments — đại diện cho 1 GIAO DỊCH thanh toán, thuộc về
+ * ĐÚNG 1 Invoice (1-N: 1 Invoice có thể có nhiều Payment, mỗi Payment chỉ
+ * thuộc 1 Invoice — xem cột Payments.InvoiceID, FK_Payments_Invoices).
  *
- * KHÔNG có field invoiceID: một Payment KHÔNG thuộc về 1 invoice cụ thể nào
- * (N-N với Invoice qua bảng join {@link InvoicePayment}/PaymentInvoices).
- * "amount" ở đây là TỔNG số tiền của giao dịch thanh toán này — số tiền cụ
- * thể được phân bổ (allocate) cho MỘT invoice nào đó nằm ở
- * {@link InvoicePayment#getAllocatedAmount()}, không phải ở đây.
+ * "amount" là số tiền của giao dịch thanh toán này, áp dụng trọn vẹn cho
+ * invoiceID — không còn khái niệm "phân bổ" (allocate) một phần cho nhiều
+ * invoice khác nhau như mô hình N-N cũ (đã bỏ bảng PaymentInvoices).
  */
 public class Payment {
     private int             paymentID;
+    private int              invoiceID;
     private BigDecimal      amount;
     private String          method;
     private LocalDateTime   paidAt;
@@ -27,6 +28,8 @@ public class Payment {
 
     public int           getPaymentID()               { return paymentID; }
     public void          setPaymentID(int v)           { paymentID = v; }
+    public int           getInvoiceID()                { return invoiceID; }
+    public void          setInvoiceID(int v)            { invoiceID = v; }
     public BigDecimal    getAmount()                   { return amount; }
     public void          setAmount(BigDecimal v)       { amount = v; }
     public String        getMethod()                   { return method; }

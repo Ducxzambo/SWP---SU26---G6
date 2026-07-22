@@ -3,7 +3,7 @@ package com.petclinic.service;
 import com.petclinic.dao.AppointmentDAO;
 import com.petclinic.dao.AppointmentServiceDAO;
 import com.petclinic.dao.ServiceDAO;
-import com.petclinic.dto.PetBookingRequest;
+import com.petclinic.dto.BookingSelection;
 import com.petclinic.dto.TimeSlot;
 import com.petclinic.model.*;
 
@@ -42,8 +42,6 @@ import java.util.*;
 public class BookingService {
 
     public  static final int    SLOT_MINUTES        = 120;
-    private static final LocalTime LUNCH_START      = LocalTime.of(12, 0);
-    private static final LocalTime LUNCH_END        = LocalTime.of(13, 30);
     private static final int    DAYS_AHEAD          = 30;
 
     /** 4 slot chinh, co dinh */
@@ -156,9 +154,7 @@ public class BookingService {
         for (int d = 0; d < DAYS_AHEAD; d++) {
             LocalDate date  = today.plusDays(d);
 
-            // Deadline co dinh 17:30 ngay hom truoc ngay do (dung chung logic
-            // voi Appointment.getModifyDeadline()) - khong con phu thuoc gio
-            // cua tung slot nhu truoc, nen chi can kiem tra 1 lan cho ca ngay.
+            // Deadline co dinh 17:30 ngay hom truoc ngay do.
             if (applyDeadlineCutoff && !LocalDateTime.now().isBefore(Appointment.deadlineFor(date))) {
                 continue;
             }
@@ -198,7 +194,7 @@ public class BookingService {
     // ─────────────────────────────────────────────────────────────────────────
     //  APPOINTMENT CREATION — NOI TRU
     // ─────────────────────────────────────────────────────────────────────────
-    public int createInpatientAppointment(int customerId, int petId,
+    public int createInpatientAppointment(int customerId,
                                           int serviceId,
                                           String inpatientDate,
                                           String inpatientPeriod) throws Exception {
@@ -217,7 +213,7 @@ public class BookingService {
         }
 
         // Inpatient khong khop 1 ca co dinh nao nen de SlotShift = null
-        int apptId = insertAppointmentRow(customerId, petId, date, start, end, null);
+        int apptId = insertAppointmentRow(customerId, date, start, end, null);
         if (apptId <= 0) return -1;
 
         BigDecimal price = svc.getPrice() != null ? svc.getPrice() : BigDecimal.ZERO;
@@ -228,7 +224,7 @@ public class BookingService {
     // ─────────────────────────────────────────────────────────────────────────
     //  APPOINTMENT CREATION — 1 appointment = 1 pet + NHIEU dich vu + 1 slot
     // ─────────────────────────────────────────────────────────────────────────
-    public int createNormalAppointment(int customerId, PetBookingRequest booking,
+    public int createNormalAppointment(int customerId, BookingSelection booking,
                                        String slotKey) throws Exception {
         if (booking == null || booking.isEmpty()) {
             throw new IllegalArgumentException("Vui lòng chọn ít nhất 1 dịch vụ hoặc vaccine.");
@@ -243,7 +239,7 @@ public class BookingService {
         LocalTime end   = start.plusMinutes(SLOT_MINUTES);
         Integer   shift = slotShiftOf(start);
 
-        int apptId = insertAppointmentRow(customerId, booking.getPetId(), date, start, end, shift);
+        int apptId = insertAppointmentRow(customerId, date, start, end, shift);
         if (apptId <= 0) return -1;
 
         // Moi dich vu duoc snapshot gia hien tai (Service.Price) tai thoi
@@ -267,11 +263,11 @@ public class BookingService {
         return apptId;
     }
 
-    private int insertAppointmentRow(int customerId, int petId, LocalDate date,
+    private int insertAppointmentRow(int customerId, LocalDate date,
                                      LocalTime start, LocalTime end, Integer slotShift) throws Exception {
         Appointment a = new Appointment();
         a.setCustomerID(customerId);
-        a.setPetID(petId);
+        a.setPetID(null);
         a.setAppointmentDate(date);
         a.setStartTime(start);
         a.setEndTime(end);

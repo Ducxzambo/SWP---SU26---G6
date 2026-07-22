@@ -39,7 +39,7 @@
     </div>
     <div class="profile-hero-actions">
       <a href="${ctx}/pets/edit?id=${pet.petID}" class="btn-edit-pet">Sửa</a>
-      <a href="${ctx}/booking/new?prefillPet=${pet.petID}" class="btn-edit-pet"
+      <a href="${ctx}/booking/new" class="btn-edit-pet"
          style="background:var(--green-400);border-color:var(--green-400);color:var(--green-900);">
         Đặt lịch
       </a>
@@ -86,7 +86,7 @@
         <c:when test="${empty appointments}">
           <div style="padding:28px;text-align:center;color:var(--warm-gray);font-size:14px;">
             Chưa có lịch sử khám bệnh.
-            <a href="${ctx}/booking/new?prefillPet=${pet.petID}"
+            <a href="${ctx}/booking/new"
                style="color:var(--green-500);font-weight:500;margin-left:4px;">Đặt lịch ngay</a>
           </div>
         </c:when>

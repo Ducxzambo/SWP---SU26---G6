@@ -302,8 +302,8 @@ public class AppointmentServlet extends HttpServlet {
         }
 
         BigDecimal paidAmount = BigDecimal.ZERO;
-        for (InvoicePayment ip : invoice.getPayments()) {
-            if (ip.getAllocatedAmount() != null) paidAmount = paidAmount.add(ip.getAllocatedAmount());
+        for (Payment p : invoice.getPayments()) {
+            if (p.getAmount() != null) paidAmount = paidAmount.add(p.getAmount());
         }
 
         Refund refundReq = new Refund();

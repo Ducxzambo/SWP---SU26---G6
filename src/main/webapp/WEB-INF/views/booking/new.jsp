@@ -16,16 +16,11 @@
 <div class="booking-wrap">
   <div class="booking-header">
     <h1>Đặt lịch khám mới</h1>
-    <p>Chọn thú cưng, các dịch vụ và khung giờ phù hợp</p>
+    <p>Chọn các dịch vụ và khung giờ phù hợp</p>
   </div>
 
   <c:if test="${not empty requestScope.error}">
     <div class="bk-alert bk-alert--error">${requestScope.error}</div>
-  </c:if>
-  <c:if test="${empty pets}">
-    <div class="bk-alert bk-alert--info">
-      Bạn chưa có thú cưng. <a href="${ctx}/pets/new">Thêm thú cưng</a> để đặt lịch.
-    </div>
   </c:if>
 
   <form action="${ctx}/booking/new" method="post" id="bookingForm">
@@ -53,29 +48,8 @@
         </div>
 
         <div id="normalModePanels">
-          <div class="bk-panel">
-            <div class="bk-panel-head"><span class="bk-step-num">2</span> Chọn thú cưng</div>
-            <div class="bk-panel-body">
-              <c:choose>
-                <c:when test="${not empty pets}">
-                  <div class="chip-grid" id="mainPetChips">
-                    <c:forEach var="pet" items="${pets}">
-                      <div class="chip" data-pet-id="${pet.petID}" data-pet-name="${pet.name}"
-                           onclick="toggleMainPet(this, ${pet.petID}, this.dataset.petName)">
-                        ${pet.name} <span class="chip-sub">${pet.speciesName}</span>
-                      </div>
-                    </c:forEach>
-                  </div>
-                </c:when>
-                <c:otherwise>
-                  <p class="bk-empty">Chưa có thú cưng. <a href="${ctx}/pets/new">Thêm ngay</a></p>
-                </c:otherwise>
-              </c:choose>
-            </div>
-          </div>
-
-          <div class="bk-panel" id="petConfigPanel" style="display:none;">
-            <div class="bk-panel-head"><span class="bk-step-num">3</span> Chọn dịch vụ
+          <div class="bk-panel" id="petConfigPanel">
+            <div class="bk-panel-head"><span class="bk-step-num">2</span> Chọn dịch vụ
               <span class="bk-panel-hint">chọn được nhiều nhóm &amp; dịch vụ</span>
             </div>
             <div class="bk-panel-body">
@@ -90,34 +64,21 @@
 
           <div class="bk-panel" id="slotPanel" style="display:none;">
             <div class="bk-panel-head">
-              <span class="bk-step-num">4</span> Chọn khung giờ
+              <span class="bk-step-num">3</span> Chọn khung giờ
               <span class="bk-panel-hint">120 phút · chọn 1 ca</span>
             </div>
             <div class="bk-panel-body">
               <div class="date-tabs" id="dateTabs"></div>
               <div class="slot-grid" id="slotGrid">
-                <div class="slot-loading">Vui lòng chọn thú cưng và dịch vụ trước</div>
+                <div class="slot-loading">Vui lòng chọn dịch vụ trước</div>
               </div>
             </div>
           </div>
         </div>
 
         <div id="inpatientModePanels" style="display:none;">
-          <div class="bk-panel" id="inpPetPanel">
-            <div class="bk-panel-head"><span class="bk-step-num">2</span> Chọn thú cưng</div>
-            <div class="bk-panel-body">
-              <div class="chip-grid" id="inpPetChips">
-                <c:forEach var="pet" items="${pets}">
-                  <div class="chip" data-pet-id="${pet.petID}" onclick="toggleInpatientPet(this, ${pet.petID})">
-                    ${pet.name} <span class="chip-sub">${pet.speciesName}</span>
-                  </div>
-                </c:forEach>
-              </div>
-            </div>
-          </div>
-
           <div class="bk-panel" id="inpatientPanel">
-            <div class="bk-panel-head"><span class="bk-step-num">3</span> Chọn ngày và buổi nội trú</div>
+            <div class="bk-panel-head"><span class="bk-step-num">2</span> Chọn ngày và buổi nội trú</div>
             <div class="bk-panel-body">
               <div class="inpatient-row">
                 <div class="form-field">
@@ -153,11 +114,6 @@
       <div class="bk-summary">
         <h3>Tóm tắt đặt lịch</h3>
 
-        <div id="sumPetSection" class="sum-section" style="display:none;">
-          <div class="sum-section-label">Thú cưng</div>
-          <div class="sum-section-body" id="sumPets"></div>
-        </div>
-
         <div id="sumSvcSection" class="sum-section" style="display:none;">
           <div class="sum-section-label">Dịch vụ</div>
           <div class="sum-section-body" id="sumSvcs"></div>
@@ -186,7 +142,6 @@
 
 <script>
   window.BOOKING_TODAY = '${today}';
-  window.BOOKING_PREFILL_PET = '${prefillPet}';
   window.BOOKING_PREFILL_CAT = '${prefillCat}';
   window.APP_CTX = '${ctx}';
   // Neu khach vua bam "Quay lai chinh sua" tu trang confirm (hoac quay lai

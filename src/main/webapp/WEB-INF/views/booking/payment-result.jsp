@@ -33,7 +33,9 @@
       <div class="result-card">
         <div class="result-row"><span>Mã lịch hẹn</span><strong>#${appt.appointmentID}</strong></div>
         <div class="result-row"><span>Dịch vụ</span><strong>${appt.serviceName}</strong></div>
-        <div class="result-row"><span>Thú cưng</span><strong>${appt.petName}</strong></div>
+        <c:if test="${not empty appt.petName}">
+          <div class="result-row"><span>Thú cưng</span><strong>${appt.petName}</strong></div>
+        </c:if>
         <div class="result-row"><span>Thời gian</span>
           <%--
             Sửa lỗi: bản gốc dùng

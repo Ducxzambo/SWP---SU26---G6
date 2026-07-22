@@ -3,7 +3,6 @@ package com.petclinic.dao;
 import com.petclinic.model.Appointment;
 import com.petclinic.model.Invoice;
 import com.petclinic.model.InvoiceItem;
-import com.petclinic.model.InvoicePayment;
 import com.petclinic.model.Payment;
 import com.petclinic.service.BookingService;
 import com.petclinic.util.DBConnection;
@@ -64,7 +63,7 @@ public class InvoiceDAO {
                 if (!rs.next()) return null;
                 Invoice inv = mapInvoice(rs);
                 inv.setItems(findItems(inv.getInvoiceID()));
-                inv.setPayments(findInvoicePayments(inv.getInvoiceID()));
+                inv.setPayments(findPaymentsByInvoice(inv.getInvoiceID()));
                 applyOvertimeFeeIfApplicable(inv, appointmentId);
                 return inv;
             }
@@ -80,7 +79,7 @@ public class InvoiceDAO {
                 if (!rs.next()) return null;
                 Invoice inv = mapInvoice(rs);
                 inv.setItems(findItems(invoiceId));
-                inv.setPayments(findInvoicePayments(invoiceId));
+                inv.setPayments(findPaymentsByInvoice(invoiceId));
                 applyOvertimeFeeIfApplicable(inv, inv.getAppointmentID());
                 return inv;
             }
@@ -153,18 +152,18 @@ public class InvoiceDAO {
         return list;
     }
 
-    // ── Payment recording (Payments/PaymentInvoices N-N) ────────────────────────
+    // ── Payment recording (Payments 1-N Invoices qua Payments.InvoiceID) ────────
 
     /**
-     * Ghi nhận 1 khoản thanh toán cho invoice — insert Payments.
+     * Ghi nhận 1 khoản thanh toán cho invoice — insert Payments (InvoiceID
+     * gắn thẳng vào dòng Payment, không còn bảng join riêng).
      */
     public void insertPayment(int invoiceId, BigDecimal amount, String method) throws SQLException {
         try (Connection c = DBConnection.getConnection()) {
             c.setAutoCommit(false);
             try {
-                int paymentId = insertPaymentRow(c, amount, method, 1);
+                int paymentId = insertPaymentRow(c, invoiceId, amount, method, 1);
                 if (paymentId > 0) {
-                    insertPaymentInvoiceRow(c, paymentId, invoiceId, amount);
                     recomputeAndUpdateStatus(c, invoiceId);
                 }
                 c.commit();
@@ -176,30 +175,24 @@ public class InvoiceDAO {
     }
 
     /**
-     * Danh sách InvoicePayment của 1 invoice,
-     * allocatedAmount là số tiền dùng cho invoice này — khác với payment.getAmount()
+     * Danh sách Payment thuộc về 1 invoice (1-N trực tiếp qua Payments.InvoiceID
+     * — không còn bảng join PaymentInvoices/AllocatedAmount).
      */
-    private List<InvoicePayment> findInvoicePayments(int invoiceId) throws SQLException {
-        String sql = "SELECT pi.PaymentInvoiceID, pi.PaymentID, pi.InvoiceID, pi.AllocatedAmount, "
-                + "p.Amount, p.Method, p.PaidAt, p.ProcessedByID, s.FullName AS ProcessedByName "
-                + "FROM PaymentInvoices pi "
-                + "JOIN Payments p ON pi.PaymentID = p.PaymentID "
+    private List<Payment> findPaymentsByInvoice(int invoiceId) throws SQLException {
+        String sql = "SELECT p.PaymentID, p.InvoiceID, p.Amount, p.Method, p.PaidAt, "
+                + "p.ProcessedByID, s.FullName AS ProcessedByName "
+                + "FROM Payments p "
                 + "LEFT JOIN Staff s ON p.ProcessedByID = s.StaffID "
-                + "WHERE pi.InvoiceID = ? ORDER BY p.PaidAt DESC";
-        List<InvoicePayment> list = new ArrayList<>();
+                + "WHERE p.InvoiceID = ? ORDER BY p.PaidAt DESC";
+        List<Payment> list = new ArrayList<>();
         try (Connection c = DBConnection.getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, invoiceId);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    InvoicePayment ip = new InvoicePayment();
-                    ip.setPaymentInvoiceID(rs.getInt("PaymentInvoiceID"));
-                    ip.setPaymentID(rs.getInt("PaymentID"));
-                    ip.setInvoiceID(rs.getInt("InvoiceID"));
-                    ip.setAllocatedAmount(rs.getBigDecimal("AllocatedAmount"));
-
                     Payment pay = new Payment();
                     pay.setPaymentID(rs.getInt("PaymentID"));
+                    pay.setInvoiceID(rs.getInt("InvoiceID"));
                     pay.setAmount(rs.getBigDecimal("Amount"));
                     pay.setMethod(rs.getString("Method"));
                     Timestamp ts = rs.getTimestamp("PaidAt");
@@ -207,9 +200,7 @@ public class InvoiceDAO {
                     int staffId = rs.getInt("ProcessedByID");
                     if (!rs.wasNull()) pay.setProcessedByStaffID(staffId);
                     pay.setProcessedByName(rs.getString("ProcessedByName"));
-
-                    ip.setPayment(pay);
-                    list.add(ip);
+                    list.add(pay);
                 }
             }
         }
@@ -229,8 +220,8 @@ public class InvoiceDAO {
 
     /**
      * Xác nhận thanh toán từ webhook PayOS (nguon xac nhan CHINH THUC).
-     * Insert Payments + PaymentInvoices, tính lại và cập nhật Status invoice
-     * (Unpaid/PrePaid/Paid), chuyển Status appointment sang 'Confirmed'.
+     * Insert Payments (InvoiceID gắn thẳng), tính lại và cập nhật Status
+     * invoice (Unpaid/PrePaid/Paid), chuyển Status appointment sang 'Confirmed'.
      *
      * @return AppointmentID để gọi AssignmentService.autoAssign(), hoặc -1
      *         nếu không có gì thay đổi (ví dụ invoice đã Paid/PrePaid trước đó, webhook gọi lại).
@@ -258,9 +249,8 @@ public class InvoiceDAO {
                     return -1; // đã xử lý trước đó, không cần insert thêm Payment nữa
                 }
 
-                int paymentId = insertPaymentRow(c, BigDecimal.valueOf(amountVnd), "BankTransfer", 1);
+                int paymentId = insertPaymentRow(c, invoiceId, BigDecimal.valueOf(amountVnd), "BankTransfer", 1);
                 if (paymentId > 0) {
-                    insertPaymentInvoiceRow(c, paymentId, invoiceId, BigDecimal.valueOf(amountVnd));
                     recomputeAndUpdateStatus(c, invoiceId);
                 }
 
@@ -280,15 +270,16 @@ public class InvoiceDAO {
         }
     }
 
-    /** Insert Payment */
-    private int insertPaymentRow(Connection c, BigDecimal amount, String method, Integer processedByStaffId)
+    /** Insert Payment (InvoiceID bắt buộc — 1-N trực tiếp với Invoice) */
+    private int insertPaymentRow(Connection c, int invoiceId, BigDecimal amount, String method, Integer processedByStaffId)
             throws SQLException {
-        String sql = "INSERT INTO Payments (Amount, Method, PaidAt, ProcessedByID) VALUES (?, ?, GETDATE(), ?)";
+        String sql = "INSERT INTO Payments (InvoiceID, Amount, Method, PaidAt, ProcessedByID) VALUES (?, ?, ?, GETDATE(), ?)";
         try (PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            ps.setBigDecimal(1, amount);
-            ps.setString(2, method);
-            if (processedByStaffId != null) ps.setInt(3, processedByStaffId);
-            else ps.setNull(3, Types.INTEGER);
+            ps.setInt(1, invoiceId);
+            ps.setBigDecimal(2, amount);
+            ps.setString(3, method);
+            if (processedByStaffId != null) ps.setInt(4, processedByStaffId);
+            else ps.setNull(4, Types.INTEGER);
             ps.executeUpdate();
             try (ResultSet keys = ps.getGeneratedKeys()) {
                 return keys.next() ? keys.getInt(1) : -1;
@@ -296,21 +287,9 @@ public class InvoiceDAO {
         }
     }
 
-    /** Insert PaymentInvoice */
-    private void insertPaymentInvoiceRow(Connection c, int paymentId, int invoiceId, BigDecimal allocatedAmount)
-            throws SQLException {
-        String sql = "INSERT INTO PaymentInvoices (PaymentID, InvoiceID, AllocatedAmount) VALUES (?, ?, ?)";
-        try (PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setInt(1, paymentId);
-            ps.setInt(2, invoiceId);
-            ps.setBigDecimal(3, allocatedAmount);
-            ps.executeUpdate();
-        }
-    }
-
     /**
      * Tính lại Status (Unpaid/PrePaid/Paid) cho 1 invoice dựa trên tổng đã
-     * thu (SUM PaymentInvoices.AllocatedAmount) so với TotalAmount ban đầu
+     * thu (SUM Payments.Amount theo InvoiceID) so với TotalAmount ban đầu
      * (SUM InvoiceItems.LineTotal) và TotalAmount hiện tại (Invoices.TotalAmount),
      * rồi UPDATE Status. Chạy trong cùng connection/transaction với bước ghi Payment
      */
@@ -348,7 +327,7 @@ public class InvoiceDAO {
 
     private BigDecimal sumAmountPaid(Connection c, int invoiceId) throws SQLException {
         try (PreparedStatement ps = c.prepareStatement(
-                "SELECT ISNULL(SUM(AllocatedAmount),0) FROM PaymentInvoices WHERE InvoiceID = ?")) {
+                "SELECT ISNULL(SUM(Amount),0) FROM Payments WHERE InvoiceID = ?")) {
             ps.setInt(1, invoiceId);
             try (ResultSet rs = ps.executeQuery()) {
                 return rs.next() ? rs.getBigDecimal(1) : BigDecimal.ZERO;

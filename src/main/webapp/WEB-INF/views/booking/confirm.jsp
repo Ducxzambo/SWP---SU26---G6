@@ -31,16 +31,6 @@
       <c:when test="${isInpatient}">
         <table class="confirm-table">
           <tr>
-            <td>Thú cưng</td>
-            <td>
-              <c:forEach var="pet" items="${selectedPets}">
-                <span class="confirm-chip confirm-chip--pet">
-                  ${pet.name} <span style="opacity:.65;">(${pet.speciesName})</span>
-                </span>
-              </c:forEach>
-            </td>
-          </tr>
-          <tr>
             <td>Dịch vụ</td>
             <td><span class="confirm-chip">Nội trú</span></td>
           </tr>
@@ -56,28 +46,17 @@
       </c:when>
 
       <c:otherwise>
-        <div class="confirm-pet-list">
-          <c:forEach var="row" items="${petBreakdown}">
-            <div class="confirm-pet-card">
-              <div class="confirm-pet-title">
-                ${row.pet.name}
-                <span>${row.pet.speciesName}</span>
-              </div>
-
-              <div class="confirm-item-list">
-                <c:forEach var="svc" items="${row.services}">
-                  <div class="confirm-item-row">
-                    <span class="confirm-item-name">${svc.name}</span>
-                    <span class="confirm-item-price"><fmt:formatNumber value="${svc.price}" type="number" groupingUsed="true"/>đ</span>
-                  </div>
-                </c:forEach>
-                <c:forEach var="vac" items="${row.vaccines}">
-                  <div class="confirm-item-row">
-                    <span class="confirm-item-name">${vac.name}</span>
-                    <span class="confirm-item-price"><fmt:formatNumber value="${vac.unitPrice}" type="number" groupingUsed="true"/>đ</span>
-                  </div>
-                </c:forEach>
-              </div>
+        <div class="confirm-item-list">
+          <c:forEach var="svc" items="${services}">
+            <div class="confirm-item-row">
+              <span class="confirm-item-name">${svc.name}</span>
+              <span class="confirm-item-price"><fmt:formatNumber value="${svc.price}" type="number" groupingUsed="true"/>đ</span>
+            </div>
+          </c:forEach>
+          <c:forEach var="vac" items="${vaccines}">
+            <div class="confirm-item-row">
+              <span class="confirm-item-name">${vac.name}</span>
+              <span class="confirm-item-price"><fmt:formatNumber value="${vac.unitPrice}" type="number" groupingUsed="true"/>đ</span>
             </div>
           </c:forEach>
         </div>

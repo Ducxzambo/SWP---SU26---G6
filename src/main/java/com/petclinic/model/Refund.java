@@ -20,17 +20,18 @@ import java.time.format.DateTimeFormatter;
  *     hien tai - class nay chi expose san cac field can thiet de lam sau.
  *
  * KHONG luu PaymentID: appointmentID la du de tra ra Invoice tuong ung
- * (Invoices.AppointmentID) roi tra tiep PaymentInvoices theo InvoiceID bat
- * cu luc nao can doi chieu lai. totalAmount/paidAmount la SNAPSHOT tai thoi
- * diem tao yeu cau (Invoice.TotalAmount va tong PaymentInvoices.AllocatedAmount
- * cua invoice do) - khong doc lai truc tiep tu Invoice moi lan hien thi, vi
- * invoice co the bi thay doi sau do (vd phu phi qua gio o noi tru).
+ * (Invoices.AppointmentID) roi tra tiep cac Payment co InvoiceID do (1-N
+ * truc tiep qua Payments.InvoiceID) bat cu luc nao can doi chieu lai.
+ * totalAmount/paidAmount la SNAPSHOT tai thoi diem tao yeu cau
+ * (Invoice.TotalAmount va tong Payments.Amount cua invoice do) - khong doc
+ * lai truc tiep tu Invoice moi lan hien thi, vi invoice co the bi thay doi
+ * sau do (vd phu phi qua gio o noi tru).
  */
 public class Refund {
     private int            refundID;
     private int             appointmentID;
     private BigDecimal      totalAmount;   // snapshot Invoice.TotalAmount luc yeu cau
-    private BigDecimal      paidAmount;    // snapshot tong PaymentInvoices.AllocatedAmount luc yeu cau
+    private BigDecimal      paidAmount;    // snapshot tong Payments.Amount (InvoiceID tuong ung) luc yeu cau
     private String          reason;
     private String          bankCode;
     private String          accountNumber;

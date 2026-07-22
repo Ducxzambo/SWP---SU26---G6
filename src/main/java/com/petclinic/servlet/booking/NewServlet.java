@@ -3,7 +3,7 @@ package com.petclinic.servlet.booking;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.petclinic.dao.*;
-import com.petclinic.dto.PetBookingRequest;
+import com.petclinic.dto.BookingSelection;
 import com.petclinic.model.*;
 import com.petclinic.service.BookingService;
 import com.petclinic.service.PaymentService;
@@ -35,7 +35,6 @@ public class NewServlet extends HttpServlet {
     private final PetDAO petDAO = new PetDAO();
     private final VaccineDAO vaccineDAO = new VaccineDAO();
     private final BookingService bookingSvc = new BookingService();
-    private final PaymentService paymentSvc = new PaymentService();
 
     // ── GET ───────────────────────────────────────────────────────────────────
 
@@ -45,17 +44,10 @@ public class NewServlet extends HttpServlet {
         if (customer == null) return;
 
         try {
-            List<Pet> pets = petDAO.findByCustomer(customer.getCustomerID());
-
-            // prefillPet/prefillCat: dùng cho mô hình pet-centric — chọn sẵn 1 pet
-            // và 1 category cho pet đó (vd: link "Đặt lịch tiêm vaccine" từ trang pet).
-            String prefillPet = req.getParameter("prefillPet");
             String prefillCat = req.getParameter("prefillCat");
 
             req.setAttribute("navCategories", serviceDAO.findAllCategoriesWithServices());
-            req.setAttribute("pets", pets);
             req.setAttribute("today", LocalDate.now().toString());
-            req.setAttribute("prefillPet", prefillPet != null ? prefillPet : "");
             req.setAttribute("prefillCat", prefillCat != null ? prefillCat : "");
             req.setAttribute("resumeData", buildResumeJson(req));
 
@@ -84,14 +76,6 @@ public class NewServlet extends HttpServlet {
         o.addProperty("notes", (String) sess.getAttribute("bk_notes"));
 
         if (isInpatient) {
-            String[] petIds = (String[]) sess.getAttribute("bk_petIds");
-            JsonArray idsArr = new JsonArray();
-            if (petIds != null) {
-                for (String id : petIds) {
-                    try { idsArr.add(Integer.parseInt(id)); } catch (Exception ignored) {}
-                }
-            }
-            o.add("petIds", idsArr);
             o.addProperty("inpatientDate", (String) sess.getAttribute("bk_iDate"));
             o.addProperty("inpatientPeriod", (String) sess.getAttribute("bk_iPeriod"));
         } else {
@@ -131,15 +115,10 @@ public class NewServlet extends HttpServlet {
      * viện — ngoài phạm vi codebase này).
      */
     private void handleStep1PostInpatient(HttpServletRequest req, HttpServletResponse resp, Customer customer) throws Exception {
-        String[] petIds = req.getParameterValues("petIds");
         String iDate = req.getParameter("inpatientDate");
         String iPeriod = req.getParameter("inpatientPeriod");
         String notes = req.getParameter("notes");
 
-        if (petIds == null || petIds.length != 1) {
-            forwardStep1Error(req, resp, customer, "Vui lòng chọn đúng 1 thú cưng cho mỗi lượt đặt lịch nội trú.");
-            return;
-        }
         if (iDate == null || iDate.isBlank()) {
             forwardStep1Error(req, resp, customer, "Vui lòng chọn ngày nhập viện.");
             return;
@@ -149,18 +128,9 @@ public class NewServlet extends HttpServlet {
             return;
         }
 
-        List<Integer> petIdList = Arrays.stream(petIds)
-                .map(Integer::parseInt)
-                .collect(Collectors.toList());
-
-        List<Pet> selectedPets = petDAO.findByCustomer(customer.getCustomerID()).stream()
-                .filter(p -> petIdList.contains(p.getPetID()))
-                .collect(Collectors.toList());
-
         long depositAmount = bookingSvc.computeDeposit(true);
 
         HttpSession sess = req.getSession(true);
-        sess.setAttribute("bk_petIds", petIds);
         sess.setAttribute("bk_isInpatient", true);
         sess.setAttribute("bk_iDate", iDate);
         sess.setAttribute("bk_iPeriod", iPeriod);
@@ -168,7 +138,6 @@ public class NewServlet extends HttpServlet {
         sess.setAttribute("bk_total", BigDecimal.valueOf(depositAmount));
         sess.setAttribute("bk_deposit", depositAmount);
 
-        req.setAttribute("selectedPets", selectedPets);
         req.setAttribute("isInpatient", true);
         req.setAttribute("inpatientDate", iDate);
         req.setAttribute("inpatientPeriod", "morning".equals(iPeriod) ? "Buổi sáng (08:00–12:00)" : "Buổi chiều (13:30–17:30)");
@@ -197,57 +166,31 @@ public class NewServlet extends HttpServlet {
             return;
         }
 
-        List<PetBookingRequest> petBookings = PetBookingRequest.parseList(bookingPayload);
-        if (petBookings.size() != 1) {
-            forwardStep1Error(req, resp, customer, "Vui lòng chọn đúng 1 thú cưng cho mỗi lượt đặt lịch.");
-            return;
-        }
-
-        PetBookingRequest onlyBooking = petBookings.get(0);
-        int totalItems = onlyBooking.getServiceIds().size() + onlyBooking.getVaccineIds().size();
+        BookingSelection selection = BookingSelection.parse(bookingPayload);
+        int totalItems = selection.getServiceIds().size() + selection.getVaccineIds().size();
         if (totalItems < 1) {
             forwardStep1Error(req, resp, customer,
                     "Vui lòng chọn ít nhất 1 dịch vụ hoặc vaccine.");
             return;
         }
 
-        Map<Integer, Pet> petById = petDAO.findByCustomer(customer.getCustomerID()).stream()
-                .collect(Collectors.toMap(Pet::getPetID, p -> p));
-        Map<Integer, Vaccine> vaccineById = vaccineDAO.findAvailable().stream()
-                .collect(Collectors.toMap(Vaccine::getVaccineID, v -> v));
+        Map<Integer, Vaccine> vaccineById = new LinkedHashMap<>();
+        for (Vaccine v : vaccineDAO.findAvailable()) vaccineById.put(v.getVaccineID(), v);
+
+
+        List<Service> svcs = selection.getServiceIds().isEmpty()
+                ? Collections.emptyList()
+                : serviceDAO.findByIds(selection.getServiceIds());
+
+        List<Vaccine> vaccines = new ArrayList<>();
+        for (Integer vid : selection.getVaccineIds()) {
+            Vaccine v = vaccineById.get(vid);
+            if (v != null) vaccines.add(v);
+        }
 
         BigDecimal total = BigDecimal.ZERO;
-        List<Map<String, Object>> petBreakdown = new ArrayList<>();
-
-        for (PetBookingRequest pb : petBookings) {
-            Pet pet = petById.get(pb.getPetId());
-            if (pet == null) continue;
-
-            List<Service> svcs = pb.getServiceIds().isEmpty()
-                    ? Collections.emptyList()
-                    : serviceDAO.findByIds(pb.getServiceIds());
-
-            List<Vaccine> vaccines = pb.getVaccineIds().stream()
-                    .map(vaccineById::get)
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.toList());
-
-            BigDecimal subtotal = svcs.stream()
-                    .map(s -> s.getPrice() != null ? s.getPrice() : BigDecimal.ZERO)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add)
-                    .add(vaccines.stream()
-                            .map(Vaccine::getUnitPrice)
-                            .reduce(BigDecimal.ZERO, BigDecimal::add));
-
-            total = total.add(subtotal);
-
-            Map<String, Object> row = new LinkedHashMap<>();
-            row.put("pet", pet);
-            row.put("services", svcs);
-            row.put("vaccines", vaccines);
-            row.put("subtotal", subtotal);
-            petBreakdown.add(row);
-        }
+        for (Service s : svcs) total = total.add(s.getPrice() != null ? s.getPrice() : BigDecimal.ZERO);
+        for (Vaccine v : vaccines) total = total.add(v.getUnitPrice() != null ? v.getUnitPrice() : BigDecimal.ZERO);
 
         // Khách thanh toán 100% "total".
         long depositAmount = bookingSvc.computeDeposit(false);
@@ -260,7 +203,8 @@ public class NewServlet extends HttpServlet {
         sess.setAttribute("bk_total", total);
         sess.setAttribute("bk_deposit", depositAmount);
 
-        req.setAttribute("petBreakdown", petBreakdown);
+        req.setAttribute("services", svcs);
+        req.setAttribute("vaccines", vaccines);
         req.setAttribute("slotKey", slotKey);
         req.setAttribute("isInpatient", false);
         req.setAttribute("notes", notes);

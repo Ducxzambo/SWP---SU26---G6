@@ -23,37 +23,6 @@
 }
 .pets-page-header p { font-size: 14px; color: var(--warm-gray); }
 
-/* Nút thêm thú cưng — góc trên bên phải .pets-page-header. Thay cho FAB nổi
-   cố định trước đây: luôn nằm ngay trong header, không phụ thuộc cuộn
-   trang, không bị các phần tử fixed khác che khuất. */
-.pets-header-add-btn {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
-  background: var(--green-700);
-  color: #fff;
-  text-decoration: none;
-  box-shadow: 0 3px 10px rgba(15,61,36,.28);
-  transition: var(--transition);
-}
-.pets-header-add-btn:hover {
-  background: var(--green-900);
-  box-shadow: 0 6px 18px rgba(15,61,36,.35);
-  transform: translateY(-2px);
-}
-.pets-header-add-btn:active { transform: translateY(0); }
-.pets-header-add-icon {
-  font-size: 24px;
-  font-weight: 300;
-  line-height: 1;
-  transition: transform var(--transition);
-}
-.pets-header-add-btn:hover .pets-header-add-icon { transform: scale(1.15); }
-
 /* ── LIST PAGE (pets/list.jsp) ───────────────────────────────────────────── */
 .pets-list-wrap {
   max-width: 760px;

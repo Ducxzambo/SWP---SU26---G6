@@ -12,28 +12,18 @@ import java.util.Locale;
 import java.util.stream.Collectors;
 
 /**
- * 1 appointment = 1 customer + 1 pet + 1 slot, nhung nay co the gan NHIEU
- * dich vu qua bang join AppointmentServices (N-N) - khop voi schema moi.
- * Appointments KHONG con cot ServiceID hay AssignedStaffID truc tiep; cac
- * thong tin nay nay nam o tung dong AppointmentService (moi dich vu co the
- * duoc gan cho 1 nhan vien khac nhau).
+ * 1 appointment = 1 customer + 1 slot, co the gan NHIEU dich vu
+ * qua bang join AppointmentServices (N-N).
  *
- * Luu y ve Vaccine: khong co bang join rieng cho vaccine. Khi khach chon
- * category "Vaccine" (co the chon nhieu vaccine cu the), he thong CHI insert
- * DUY NHAT 1 dong AppointmentServices dai dien cho ca category Vaccine (dung
- * 1 Service "dai dien" co CategoryID = Vaccine) — con danh sach CU THE cac
- * vaccine da chon (co the nhieu) duoc luu chi tiet ben InvoiceItems
- * (ItemType='Vaccine'), khong nam trong AppointmentServices/Appointment nay.
- * Tuong tu voi category "Dich vu noi tru" (chi 1 dong dai dien).
+ * petID CO THE NULL
  *
  * serviceName / categoryName / staffName ben duoi la cac truong HIEN THI
- * tong hop (aggregate), duoc AppointmentDAO tinh tu danh sach services -
- * giu de tuong thich nguoc voi JSP/JS hien co von hien thi 1 chuoi duy nhat.
+ * tong hop (aggregate), duoc AppointmentDAO tinh tu danh sach services.
  */
 public class Appointment {
     private int       appointmentID;
     private int       customerID;
-    private int       petID;
+    private Integer   petID;
     private LocalDate appointmentDate;
     private LocalTime startTime;
     private LocalTime endTime;
@@ -79,8 +69,8 @@ public class Appointment {
     public void      setAppointmentID(int v)    { appointmentID = v; }
     public int       getCustomerID()            { return customerID; }
     public void      setCustomerID(int v)       { customerID = v; }
-    public int       getPetID()                 { return petID; }
-    public void      setPetID(int v)            { petID = v; }
+    public Integer   getPetID()                 { return petID; }
+    public void      setPetID(Integer v)        { petID = v; }
     public LocalDate getAppointmentDate()       { return appointmentDate; }
     public void      setAppointmentDate(LocalDate v){ appointmentDate = v; }
     public LocalTime getStartTime()             { return startTime; }
@@ -142,20 +132,13 @@ public class Appointment {
 
     /**
      * Gio cutoff co dinh dung de tinh deadline chinh sua (huy/doi lich):
-     * 17:30 CUA NGAY HOM TRUOC ngay hen — khong con phu thuoc StartTime cua
-     * tung appointment nhu truoc (12 gio truoc StartTime). Vi du: lich hen
-     * ngay 20/07 (bat ke slot sang/chieu) deu phai duoc huy/doi truoc
-     * 17:30 ngay 19/07.
+     * 17:30 CUA NGAY HOM TRUOC ngay hen
+     * . Vi du: lich hen ngay 20/07 deu phai duoc huy/doi truoc 17:30 ngay 19/07.
      */
     public static final LocalTime MODIFY_DEADLINE_TIME = LocalTime.of(17, 30);
 
     /**
-     * Tinh deadline 17:30 ngay hom truoc cho 1 ngay hen bat ky. Dung lai
-     * duoc cho ca appointment HIEN TAI (getModifyDeadline() ben duoi) lan
-     * ngay MOI dang duoc chon khi doi lich (xem
-     * BookingService.generateSlotsForReschedule() va
-     * AppointmentServlet.handleReschedulePost()) — 2 noi nay can dung
-     * chung 1 moc thoi gian de tranh lech logic.
+     * Tinh deadline 17:30 ngay hom truoc cho 1 ngay hen bat ky.
      */
     public static LocalDateTime deadlineFor(LocalDate date) {
         return LocalDateTime.of(date.minusDays(1), MODIFY_DEADLINE_TIME);
@@ -163,10 +146,6 @@ public class Appointment {
 
     /**
      * Deadline chung cho ca doi lich (reschedule) va huy lich (cancel):
-     * 17:30 cua ngay hom truoc AppointmentDate (khong con tinh theo
-     * StartTime nhu truoc). Ap dung nhu nhau cho ca Pending va Confirmed.
-     * Tra ve null neu status khac (khong cho chinh sua) hoac thieu
-     * AppointmentDate/StartTime.
      */
     public LocalDateTime getModifyDeadline() {
         if (appointmentDate == null || startTime == null) return null;
@@ -175,8 +154,7 @@ public class Appointment {
     }
 
     /**
-     * Co the doi lich khong. Luu y: sau khi doi lich, Status duoc GIU
-     * NGUYEN (khong reset ve Pending) - xem AppointmentDAO.updateSlot().
+     * Co the doi lich khong.
      */
     public boolean canReschedule() {
         LocalDateTime deadline = getModifyDeadline();
@@ -184,8 +162,7 @@ public class Appointment {
     }
 
     /**
-     * Co the huy lich khong - dung chung deadline 17:30 ngay hom truoc
-     * AppointmentDate voi reschedule.
+     * Co the huy lich khong.
      */
     public boolean canCancel() {
         return canReschedule();

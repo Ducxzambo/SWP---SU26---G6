@@ -15,6 +15,9 @@ public class PetDAO {
 
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
+    /** Dùng cho weight fallback — xem applyWeightFallback(). */
+    private final MedicalRecordDAO medicalRecordDAO = new MedicalRecordDAO();
+
     // ── Read ──────────────────────────────────────────────────────────────────
 
     public List<Pet> findByCustomer(int customerId) throws SQLException {
@@ -121,7 +124,25 @@ public class PetDAO {
         p.setTotalAppointments(rs.getInt("TotalAppts"));
         p.setDoneAppointments(rs.getInt("DoneAppts"));
         p.setLastVisitDate(rs.getString("LastVisit")); // yyyy-MM-dd or null
+        applyWeightFallback(p);
         return p;
+    }
+
+    /**
+     * Neu Pets.Weight null (tu khi bo chinh sua can nang truc tiep o Edit
+     * Pet - chi con staff ghi nhan can nang qua MedicalRecord luc kham),
+     * dung can nang o lan kham GAN NHAT co ghi nhan lam gia tri hien thi
+     * thay the. CHI ap dung trong bo nho cho object tra ve - KHONG ghi de
+     * lai vao Pets.Weight trong DB.
+     */
+    private void applyWeightFallback(Pet p) {
+        if (p.getWeight() != null) return;
+        try {
+            BigDecimal latest = medicalRecordDAO.findLatestWeightByPet(p.getPetID());
+            if (latest != null) p.setWeight(latest);
+        } catch (SQLException ignored) {
+            // Loi tra cuu fallback khong duoc lam hong viec hien thi pet.
+        }
     }
 
     public Pet mapRow(ResultSet rs) throws SQLException {

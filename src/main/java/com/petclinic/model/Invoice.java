@@ -6,7 +6,8 @@ import java.util.List;
 
 /**
  * 1 dòng bảng Invoices — hoá đơn ứng với 1 Appointment (1-1, ràng buộc bởi
- * UNIQUE constraint trên AppointmentID).
+ * UNIQUE constraint trên AppointmentID). 1 Invoice có thể có nhiều Payment
+ * (1-N, xem Payment.getInvoiceID()/FK_Payments_Invoices).
  */
 public class Invoice {
     private int              invoiceID;
@@ -15,8 +16,8 @@ public class Invoice {
     private BigDecimal        totalAmount;
     private String            otherFees;
     private String            status;
-    private List<InvoiceItem>    items    = new ArrayList<>();
-    private List<InvoicePayment> payments = new ArrayList<>();
+    private List<InvoiceItem> items    = new ArrayList<>();
+    private List<Payment>     payments = new ArrayList<>();
 
     public Invoice() {}
 
@@ -37,8 +38,8 @@ public class Invoice {
     public void              setItems(List<InvoiceItem> v) {
         this.items = v != null ? v : new ArrayList<>();
     }
-    public List<InvoicePayment> getPayments()                    { return payments; }
-    public void                 setPayments(List<InvoicePayment> v) {
+    public List<Payment> getPayments()                 { return payments; }
+    public void          setPayments(List<Payment> v) {
         this.payments = v != null ? v : new ArrayList<>();
     }
 }

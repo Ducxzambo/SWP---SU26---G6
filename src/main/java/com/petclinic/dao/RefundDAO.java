@@ -12,8 +12,13 @@ import java.sql.*;
  * xong 1 khoan hoan tien (PaymentID/ProcessedByID/RefundedAt NOT NULL). Tinh
  * nang hien tai (khach hang tick "Yeu cau hoan tien" luc huy lich) chi tao ra
  * 1 YEU CAU - chua co nhan vien nao xu ly - nen migration:
+ *   - bo cot PaymentID (khong can luu co dinh 1 PaymentID - AppointmentID la
+ *     du de tra ra Invoice roi cac Payment co InvoiceID do bat cu luc nao
+ *     can doi chieu)
  *   - them AppointmentID/Status/RequestedAt/TotalAmount/PaidAmount
  *   - noi long ProcessedByID/RefundedAt ve NULL-able
+ * Xem file sql/refund_request_schema_update.sql di kem, PHAI chay truoc khi
+ * dung DAO nay.
  */
 public class RefundDAO {
 
@@ -44,6 +49,23 @@ public class RefundDAO {
             }
         }
         return -1;
+    }
+
+    /**
+     * Yeu cau hoan tien gan nhat (neu co) cua 1 appointment - dung de kiem
+     * tra idempotency (tranh insert trung neu form bi submit lai) va cho cac
+     * man hinh hien thi trang thai yeu cau sau nay.
+     */
+    public Refund findLatestByAppointment(int appointmentId) throws SQLException {
+        String sql = "SELECT TOP 1 * FROM Refunds WHERE AppointmentID = ? ORDER BY RequestedAt DESC";
+        try (Connection c = DBConnection.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, appointmentId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) return null;
+                return mapRefund(rs);
+            }
+        }
     }
 
     private Refund mapRefund(ResultSet rs) throws SQLException {

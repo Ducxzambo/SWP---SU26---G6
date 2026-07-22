@@ -21,7 +21,6 @@
       <h1>Thú cưng của tôi</h1>
       <p>Quản lý hồ sơ và lịch sử khám của tất cả thú cưng</p>
     </div>
-    </a>
   </div>
 
   <c:choose>
@@ -29,6 +28,7 @@
       <div class="pets-empty">
         <div class="pets-empty-icon">🐾</div>
         <h2>Chưa có thú cưng nào</h2>
+        <p>Vui lòng liên hệ phòng khám để đăng ký hồ sơ thú cưng của bạn.</p>
       </div>
     </c:when>
     <c:otherwise>
