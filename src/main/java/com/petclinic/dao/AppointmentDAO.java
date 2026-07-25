@@ -232,9 +232,10 @@ public class AppointmentDAO {
     public List<Appointment> findStaffQueue(int staffID, LocalDate date, String categoryFilter,
                                             String excludeIfRecordExistsIn) throws SQLException {
         StringBuilder sql = new StringBuilder(
-                "SELECT a.AppointmentID,a.CustomerID,a.PetID," +
+                "SELECT DISTINCT a.AppointmentID,a.CustomerID,a.PetID," +
                         "a.AppointmentDate,a.StartTime,a.EndTime,a.Status,a.SlotShift,a.Notes,a.CancelReason," +
-                        "c.FullName AS CustomerName,p.Name AS PetName " +
+                        "c.FullName AS CustomerName,p.Name AS PetName, " +
+                        "CASE a.Status WHEN 'InProgress' THEN 0 ELSE 1 END AS StatusOrder " + // <-- THÊM CỘT NÀY VÀO SELECT
                         "FROM Appointments a " +
                         "JOIN Customers c ON c.CustomerID=a.CustomerID " +
                         "JOIN Pets p ON p.PetID=a.PetID " +
@@ -247,7 +248,8 @@ public class AppointmentDAO {
             sql.append("AND NOT EXISTS (SELECT 1 FROM ").append(excludeIfRecordExistsIn)
                     .append(" rec WHERE rec.AppointmentID = a.AppointmentID) ");
         }
-        sql.append("ORDER BY CASE a.Status WHEN 'InProgress' THEN 0 ELSE 1 END, a.SlotShift, a.StartTime");
+        // Gọi trực tiếp bí danh StatusOrder đã khai báo ở SELECT vào ORDER BY
+        sql.append("ORDER BY StatusOrder, a.SlotShift, a.StartTime");
 
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql.toString())) {
