@@ -158,7 +158,7 @@ public class NewServlet extends HttpServlet {
         String notes = req.getParameter("notes");
 
         if (bookingPayload == null || bookingPayload.isBlank()) {
-            forwardStep1Error(req, resp, customer, "Vui lòng chọn thú cưng và dịch vụ.");
+            forwardStep1Error(req, resp, customer, "Vui lòng chọn dịch vụ.");
             return;
         }
         if (slotKey == null || slotKey.isBlank()) {

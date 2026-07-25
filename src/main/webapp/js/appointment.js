@@ -59,7 +59,7 @@
           let haystack = '';
           if (field === 'all') {
             haystack = [card.dataset.pet, card.dataset.service,
-                        card.dataset.category, card.dataset.staff].join(' ');
+              card.dataset.category, card.dataset.staff].join(' ');
           } else {
             haystack = card.dataset[field] || '';
           }
@@ -166,8 +166,43 @@
     if (typeof window.resetRefundPanel === 'function') window.resetRefundPanel();
   }
 
+  /**
+   * BUG FIX: hàm này TRƯỚC ĐÂY chỉ tồn tại trong refund.js — file đó (1) chỉ
+   * được <script> include khi appt.status == 'Confirmed', và (2) tự thoát
+   * sớm (return) nếu #refundPanel không tồn tại trong DOM. Với appointment
+   * đang Pending, cả 2 điều kiện trên đều không thoả, nên
+   * window.updateConfirmButtonState() không hề được định nghĩa — bấm
+   * checkbox "Tôi xác nhận muốn huỷ lịch hẹn này" ném ReferenceError và nút
+   * "Xác nhận huỷ" bị kẹt ở trạng thái disabled vĩnh viễn.
+   *
+   * Định nghĩa hàm này ở đây (appointment.js luôn được load cho mọi trạng
+   * thái appointment) để đảm bảo nút luôn bật/tắt đúng theo checkbox xác
+   * nhận, bất kể appointment có đang Confirmed hay không. Khi refund.js
+   * cũng được load (chỉ với Confirmed), các field ngân hàng
+   * (#refundRequested/#refundBankSelect/...) sẽ tồn tại và được cộng thêm
+   * vào điều kiện — logic dưới đây đã tự kiểm tra sự tồn tại của các field
+   * đó nên dùng chung được cho cả 2 trường hợp, không cần định nghĩa lại.
+   */
+  function updateConfirmButtonState() {
+    const btn = document.getElementById('btnConfirmCancel');
+    const confirmCb = document.getElementById('confirmCheck');
+    if (!btn || !confirmCb) return;
+
+    let ok = confirmCb.checked;
+    const refundCb = document.getElementById('refundRequested');
+    if (refundCb && refundCb.checked) {
+      const bank    = document.getElementById('refundBankSelect');
+      const accNo   = document.getElementById('refundAccountNumber');
+      const accName = document.getElementById('refundAccountName');
+      const filled = !!(bank && bank.value && accNo && accNo.value.trim() && accName && accName.value.trim());
+      ok = ok && filled;
+    }
+    btn.disabled = !ok;
+  }
+
   window.openCancelModal  = openCancelModal;
   window.closeCancelModal = closeCancelModal;
+  window.updateConfirmButtonState = updateConfirmButtonState;
 
   document.addEventListener('DOMContentLoaded', function () {
     const overlay = document.getElementById('cancelModal');
@@ -241,11 +276,11 @@
     slots.forEach(slot => {
       const fill      = Math.min(100, slot.fill || 0);
       const fillColor = fill >= 100 ? 'var(--red-err)'
-                      : fill >= 70  ? 'var(--amber)' : 'var(--green-400)';
+          : fill >= 70  ? 'var(--amber)' : 'var(--green-400)';
       const wrap = document.createElement('div');
       wrap.className = 'slot-card'
-        + (!slot.available    ? ' booked'   : '')
-        + (slot.key === selectedKey ? ' selected' : '');
+          + (!slot.available    ? ' booked'   : '')
+          + (slot.key === selectedKey ? ' selected' : '');
       wrap.innerHTML = `
         <div class="slot-time">${slot.display}</div>
         <div class="slot-fill-bar">

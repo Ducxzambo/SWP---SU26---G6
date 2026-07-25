@@ -34,19 +34,19 @@
     }
 
     fetch(BANKS_API_URL)
-      .then(function (r) { return r.json(); })
-      .then(function (json) {
-        var banks = (json && Array.isArray(json.data)) ? json.data : [];
-        bankListCache = banks;
-        renderBankOptions(banks);
-      })
-      .catch(function () {
-        if (select) {
-          select.innerHTML = '';
-          select.appendChild(makeOption('', 'Không tải được danh sách ngân hàng — vui lòng thử lại'));
-        }
-      })
-      .finally(function () { bankListLoading = false; });
+        .then(function (r) { return r.json(); })
+        .then(function (json) {
+          var banks = (json && Array.isArray(json.data)) ? json.data : [];
+          bankListCache = banks;
+          renderBankOptions(banks);
+        })
+        .catch(function () {
+          if (select) {
+            select.innerHTML = '';
+            select.appendChild(makeOption('', 'Không tải được danh sách ngân hàng — vui lòng thử lại'));
+          }
+        })
+        .finally(function () { bankListLoading = false; });
   }
 
   function renderBankOptions(banks) {
@@ -184,8 +184,8 @@
 
     var bankLabel = matched ? (matched.shortName || matched.code) : null;
     var msg = bankLabel
-        ? '✓ Đã nhận diện ' + bankLabel + ' — STK ' + info.accountNumber + '.'
-        : '✓ Đã đọc được số tài khoản ' + info.accountNumber + ', chưa xác định được ngân hàng — vui lòng chọn thủ công.';
+        ? 'Đã nhận diện ' + bankLabel + ' — STK ' + info.accountNumber + '.'
+        : 'Đã đọc được số tài khoản ' + info.accountNumber + ', chưa xác định được ngân hàng — vui lòng chọn thủ công.';
     if (nameAutoFilled) {
       msg += ' Vui lòng kiểm tra lại tên chủ tài khoản.';
     } else if (!candidateName) {
@@ -212,8 +212,8 @@
 
     var upper = name.toUpperCase();
     var GENERIC = ['VIETQR', 'VIET QR', 'NAPAS', 'NAPAS247', 'NAPAS 247',
-                   'QRCODE', 'QR CODE', 'MERCHANT', 'MERCHANT NAME',
-                   'BANK', 'PAYMENT', 'THANH TOAN', 'CHUYEN TIEN'];
+      'QRCODE', 'QR CODE', 'MERCHANT', 'MERCHANT NAME',
+      'BANK', 'PAYMENT', 'THANH TOAN', 'CHUYEN TIEN'];
     if (GENERIC.indexOf(upper) !== -1) return null;
 
     if (matchedBank) {
@@ -282,27 +282,10 @@
   /* ============================================================
    * 5) VALIDATE trước khi cho bấm "Xác nhận huỷ"
    * ============================================================ */
-  function updateConfirmButtonState() {
-    var btn = document.getElementById('btnConfirmCancel');
-    var confirmCb = document.getElementById('confirmCheck');
-    if (!btn || !confirmCb) return;
-
-    var ok = confirmCb.checked;
-    var refundCb = document.getElementById('refundRequested');
-    if (refundCb && refundCb.checked) {
-      var bank    = document.getElementById('refundBankSelect');
-      var accNo   = document.getElementById('refundAccountNumber');
-      var accName = document.getElementById('refundAccountName');
-      var filled = !!(bank && bank.value && accNo && accNo.value.trim() && accName && accName.value.trim());
-      ok = ok && filled;
-    }
-    btn.disabled = !ok;
-  }
 
   // Expose cho inline onclick/onchange trong JSP + cho appointment.js gọi khi đóng modal
   window.toggleRefundPanel      = toggleRefundPanel;
   window.switchRefundMethod     = switchRefundMethod;
   window.handleRefundQrFile     = handleRefundQrFile;
-  window.updateConfirmButtonState = updateConfirmButtonState;
   window.resetRefundPanel       = resetRefundPanel;
 })();

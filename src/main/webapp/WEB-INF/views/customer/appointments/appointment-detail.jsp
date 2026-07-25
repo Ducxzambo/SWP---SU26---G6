@@ -383,8 +383,7 @@
                     placeholder="Ví dụ: Thú cưng đã khỏi, thay đổi lịch cá nhân..."></textarea>
         </div>
 
-        <%-- Yêu cầu hoàn tiền: chỉ cho appointment đang Confirmed (Pending
-             chưa từng thanh toán nên không có gì để hoàn). --%>
+        <%-- Yêu cầu hoàn tiền: chỉ cho appointment đang Confirmed. --%>
         <c:if test="${appt.status eq 'Confirmed'}">
         <div class="modal-field refund-toggle-field">
           <div class="refund-checkbox-row">
@@ -401,16 +400,15 @@
 
           <div class="refund-method-switch">
             <button type="button" class="refund-method-btn active" data-method="qr"
-                    onclick="switchRefundMethod('qr')">📷 Quét mã QR</button>
+                    onclick="switchRefundMethod('qr')">Quét mã QR</button>
             <button type="button" class="refund-method-btn" data-method="manual"
-                    onclick="switchRefundMethod('manual')">✍️ Nhập thủ công</button>
+                    onclick="switchRefundMethod('manual')">Nhập thủ công</button>
           </div>
 
           <div class="refund-qr-block" id="refundQrBlock">
             <label class="refund-qr-drop" for="refundQrFile">
               <input type="file" id="refundQrFile" accept="image/*" capture="environment"
                      onchange="handleRefundQrFile(this.files[0])">
-              <span class="refund-qr-drop-icon">📷</span>
               <span class="refund-qr-drop-text">Chụp ảnh hoặc tải ảnh mã QR ngân hàng của bạn</span>
             </label>
             <div class="refund-qr-status" id="refundQrStatus"></div>
@@ -463,9 +461,7 @@
 
 <script src="${ctx}/js/appointment.js"></script>
 <c:if test="${appt.status eq 'Confirmed'}">
-  <%-- jsQR: đọc mã QR ngân hàng từ ảnh khách chụp/tải lên (Option 1 của form
-       yêu cầu hoàn tiền) — chỉ tải khi trang thực sự có thể hiện checkbox
-       "Yêu cầu hoàn tiền" (appointment đang Confirmed). --%>
+  <%-- jsQR: đọc mã QR ngân hàng từ ảnh khách chụp/tải lên--%>
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
   <script src="${ctx}/js/refund.js"></script>
 </c:if>
