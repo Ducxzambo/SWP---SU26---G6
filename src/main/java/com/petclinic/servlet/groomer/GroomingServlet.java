@@ -38,11 +38,12 @@ public class GroomingServlet extends HttpServlet {
         if (action == null) action = "queue";
 
         switch (action) {
-            case "queue"  -> showQueue(req, resp, groomer);
-            case "start"  -> startSession(req, resp, groomer);
-            case "form"   -> showForm(req, resp, groomer);
-            case "view"   -> viewRecord(req, resp, groomer);
-            default       -> resp.sendRedirect(req.getContextPath() + "/groomer/session");
+            case "queue"   -> showQueue(req, resp, groomer);
+            case "history" -> showHistory(req, resp, groomer);
+            case "start"   -> startSession(req, resp, groomer);
+            case "form"    -> showForm(req, resp, groomer);
+            case "view"    -> viewRecord(req, resp, groomer);
+            default        -> resp.sendRedirect(req.getContextPath() + "/groomer/session");
         }
     }
 
@@ -113,20 +114,15 @@ public class GroomingServlet extends HttpServlet {
         LocalDate filterDate = parseDate(req.getParameter("date"));
         String shiftParam = req.getParameter("shift");
         try {
-            List<Appointment> queue     = groomingService.getGroomerQueue(groomer.getStaffID(), filterDate);
-            List<Appointment> completed = groomingService.getGroomerCompletedToday(groomer.getStaffID(), filterDate);
+            List<Appointment> queue = groomingService.getGroomerQueue(groomer.getStaffID(), filterDate);
 
             if (shiftParam != null && !shiftParam.isBlank()) {
                 int sf = Integer.parseInt(shiftParam);
                 queue = queue.stream()
                         .filter(a -> a.getSlotShift() != null && a.getSlotShift() == sf)
                         .collect(java.util.stream.Collectors.toList());
-                completed = completed.stream()
-                        .filter(a -> a.getSlotShift() != null && a.getSlotShift() == sf)
-                        .collect(java.util.stream.Collectors.toList());
             }
             req.setAttribute("queue",       queue);
-            req.setAttribute("completed",   completed);
             req.setAttribute("filterDate",  filterDate.toString());
             req.setAttribute("isToday",     filterDate.equals(LocalDate.now()));
             req.setAttribute("shiftFilter", shiftParam != null ? shiftParam : "");
@@ -136,6 +132,32 @@ public class GroomingServlet extends HttpServlet {
             e.printStackTrace();
             req.setAttribute("error", "Không tải được danh sách.");
             req.getRequestDispatcher("/WEB-INF/views/groomer/session.jsp").forward(req, resp);
+        }
+    }
+
+    /** Tab "Lịch sử của tôi" — các ca groomer này ĐÃ lưu kết quả grooming xong. */
+    private void showHistory(HttpServletRequest req, HttpServletResponse resp, Staff groomer)
+            throws ServletException, IOException {
+        LocalDate filterDate = parseDate(req.getParameter("date"));
+        String shiftParam = req.getParameter("shift");
+        try {
+            List<Appointment> completed = groomingService.getGroomerCompletedToday(groomer.getStaffID(), filterDate);
+
+            if (shiftParam != null && !shiftParam.isBlank()) {
+                int sf = Integer.parseInt(shiftParam);
+                completed = completed.stream()
+                        .filter(a -> a.getSlotShift() != null && a.getSlotShift() == sf)
+                        .collect(java.util.stream.Collectors.toList());
+            }
+            req.setAttribute("completed",   completed);
+            req.setAttribute("filterDate",  filterDate.toString());
+            req.setAttribute("isToday",     filterDate.equals(LocalDate.now()));
+            req.setAttribute("shiftFilter", shiftParam != null ? shiftParam : "");
+            req.getRequestDispatcher("/WEB-INF/views/groomer/session-history.jsp").forward(req, resp);
+        } catch (Exception e) {
+            e.printStackTrace();
+            req.setAttribute("error", "Không tải được lịch sử.");
+            req.getRequestDispatcher("/WEB-INF/views/groomer/session-history.jsp").forward(req, resp);
         }
     }
 

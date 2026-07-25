@@ -190,7 +190,10 @@ public class ExaminationService {
                 return SaveRecordResult.INSUFFICIENT_STOCK;
             throw e;
         }
-        appointmentDAO.updateStatus(record.getAppointmentID(), "Done");
+        // KHÔNG tự động chuyển Status → Done ở đây. Appointment có thể trộn
+        // category (VD Khám + Grooming), nên vet lưu xong chỉ là 1 phần việc.
+        // Status vẫn giữ "InProgress"; lễ tân là người xác nhận Done cuối cùng
+        // qua finalizeAppointment(), sau khi kiểm tra MỌI category đã có record.
         return SaveRecordResult.SUCCESS;
     }
 
@@ -203,20 +206,28 @@ public class ExaminationService {
         return appointmentDAO.searchForCheckIn(keyword, date == null ? LocalDate.now() : date, categoryFilter);
     }
 
-    /** Hàng chờ bác sĩ: Arrived/InProgress có dịch vụ Chẩn đoán/Phác đồ gán cho vetID. */
+    /**
+     * Hàng chờ bác sĩ: Arrived/InProgress có dịch vụ Chẩn đoán/Phác đồ gán cho vetID,
+     * LOẠI TRỪ appointment mà vet này ĐÃ lưu MedicalRecord rồi (đã xong phần việc
+     * của mình, dù Status vẫn "InProgress" chờ lễ tân xác nhận Done).
+     */
     public List<Appointment> getVetQueue(int vetID, LocalDate date) throws SQLException {
-        List<Appointment> result = appointmentDAO.findStaffQueue(vetID, date == null ? LocalDate.now() : date, CAT_LAB_TEST);
-        List<Appointment> treatQueue = appointmentDAO.findStaffQueue(vetID, date == null ? LocalDate.now() : date, CAT_TREATMENT);
+        LocalDate d = date == null ? LocalDate.now() : date;
+        List<Appointment> result    = appointmentDAO.findStaffQueue(vetID, d, CAT_LAB_TEST, "MedicalRecords");
+        List<Appointment> treatQueue = appointmentDAO.findStaffQueue(vetID, d, CAT_TREATMENT, "MedicalRecords");
         mergeDistinctById(result, treatQueue);
         return result;
     }
 
-    /** Các ca khám đã hoàn thành (Done) của 1 bác sĩ trong 1 ngày — để xem lại bệnh án. */
+    /**
+     * Các ca mà bác sĩ này ĐÃ lưu xong MedicalRecord trong 1 ngày — để xem lại
+     * bệnh án. Dựa trên "record đã tồn tại", KHÔNG dựa Status='Done' (vì
+     * appointment có thể còn dịch vụ Grooming khác đang chờ groomer xử lý).
+     */
     public List<Appointment> getVetCompletedToday(int vetID, LocalDate date) throws SQLException {
-        List<Appointment> result = appointmentDAO.findStaffCompletedToday(
-                vetID, date == null ? LocalDate.now() : date, CAT_LAB_TEST, "MedicalRecords");
-        List<Appointment> treatDone = appointmentDAO.findStaffCompletedToday(
-                vetID, date == null ? LocalDate.now() : date, CAT_TREATMENT, "MedicalRecords");
+        LocalDate d = date == null ? LocalDate.now() : date;
+        List<Appointment> result = appointmentDAO.findStaffCompletedToday(vetID, d, CAT_LAB_TEST, "MedicalRecords");
+        List<Appointment> treatDone = appointmentDAO.findStaffCompletedToday(vetID, d, CAT_TREATMENT, "MedicalRecords");
         mergeDistinctById(result, treatDone);
         return result;
     }
@@ -257,4 +268,40 @@ public class ExaminationService {
     }
 
 
+
+    // ══ LỊCH SỬ LỊCH HẸN + HOÀN TẤT (Receptionist) ══════════════════════════════
+
+    /** Toàn bộ lịch hẹn trong 1 ngày (mọi trạng thái) — dùng cho tab "Lịch sử" của lễ tân. */
+    public List<Appointment> getAppointmentHistory(LocalDate date, Integer shift) throws SQLException {
+        return appointmentDAO.findAppointmentHistory(date == null ? LocalDate.now() : date, shift);
+    }
+
+    public enum FinalizeResult { SUCCESS, NOT_FOUND, WRONG_STATUS, NOT_READY }
+
+    /**
+     * Lễ tân xác nhận hoàn tất 1 lịch hẹn. Chỉ cho phép khi MỌI category dịch vụ
+     * trong appointment đã có record tương ứng (MedicalRecord cho Khám,
+     * GroomingRecord cho Grooming). Nếu còn thiếu, trả về NOT_READY kèm danh
+     * sách category còn thiếu để servlet hiển thị thông báo cụ thể.
+     */
+    public FinalizeResult finalizeAppointment(int appointmentID) throws SQLException {
+        return finalizeAppointment(appointmentID, null);
+    }
+
+    /** Overload cho phép lấy ra danh sách category còn thiếu (để hiển thị chi tiết). */
+    public FinalizeResult finalizeAppointment(int appointmentID, List<String> outMissingCategories) throws SQLException {
+        Appointment appt = appointmentDAO.findById(appointmentID);
+        if (appt == null) return FinalizeResult.NOT_FOUND;
+        if (!"Arrived".equals(appt.getStatus()) && !"InProgress".equals(appt.getStatus()))
+            return FinalizeResult.WRONG_STATUS;
+
+        List<String> missing = appointmentDAO.findMissingRecordCategories(appointmentID);
+        if (!missing.isEmpty()) {
+            if (outMissingCategories != null) outMissingCategories.addAll(missing);
+            return FinalizeResult.NOT_READY;
+        }
+
+        boolean updated = appointmentDAO.finalizeAppointment(appointmentID);
+        return updated ? FinalizeResult.SUCCESS : FinalizeResult.WRONG_STATUS;
+    }
 }

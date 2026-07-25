@@ -99,7 +99,9 @@ public class GroomingService {
             return SaveResult.RECORD_ALREADY_EXISTS;
 
         groomingRecordDAO.save(record);
-        appointmentDAO.updateStatus(record.getAppointmentID(), "Done");
+        // KHÔNG tự động chuyển Status → Done. Appointment có thể còn dịch vụ
+        // Khám bệnh khác đang chờ vet xử lý. Status vẫn giữ "InProgress";
+        // lễ tân xác nhận Done cuối cùng qua ExaminationService.finalizeAppointment().
         return SaveResult.SUCCESS;
     }
 

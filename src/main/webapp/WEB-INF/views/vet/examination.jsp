@@ -60,10 +60,11 @@
         <div class="sidebar-logo">🐾 PetClinic</div>
         <nav>
             <a href="${pageContext.request.contextPath}/vet/examination" class="nav-item active">Hàng chờ khám</a>
+            <a href="${pageContext.request.contextPath}/vet/examination?action=history" class="nav-item">Lịch sử khám</a>
         </nav>
         <div class="sidebar-user">
              ${sessionScope.staff.fullName}
-            <a href="${pageContext.request.contextPath}/auth/logout" class="logout-link">Đăng xuất</a>
+            <a href="${pageContext.request.contextPath}/auth/staff/logout" class="logout-link">Đăng xuất</a>
         </div>
     </aside>
 
@@ -180,58 +181,7 @@
             </c:choose>
         </div>
 
-        <details class="card" style="margin-top:20px;padding:0;">
-            <summary style="cursor:pointer;padding:14px 20px;font-weight:600;color:var(--teal-800);
-                    list-style:none;display:flex;align-items:center;gap:8px;">
-                Đã hoàn thành hôm nay
-                <c:if test="${not empty completed}">
-                    <span class="badge badge-success">${completed.size()}</span>
-                </c:if>
-            </summary>
-            <div style="padding:0 0 8px;">
-                <c:choose>
-                    <c:when test="${empty completed}">
-                        <div class="empty-state" style="padding:32px 24px;">
-                            <div class="empty-icon"></div>
-                            <p>Chưa có ca khám nào hoàn thành.</p>
-                        </div>
-                    </c:when>
-                    <c:otherwise>
-                        <table class="data-table">
-                            <thead>
-                            <tr>
-                                <th>STT</th><th>Ca</th><th>Giờ hẹn</th><th>Tên chủ</th>
-                                <th>Thú cưng</th><th>Dịch vụ</th><th>Thao tác</th>
-                            </tr>
-                            </thead>
-                            <tbody>
-                            <c:forEach items="${completed}" var="appt" varStatus="loop">
-                                <tr>
-                                    <td>${loop.count}</td>
-                                    <td><span class="badge badge-teal">Ca ${appt.slotShift}</span></td>
-                                    <td>${appt.startTime}</td>
-                                    <td><strong><c:out value="${appt.customerName}"/></strong></td>
-                                    <td><c:out value="${appt.petName}"/></td>
-                                    <td><c:out value="${appt.serviceName}"/></td>
-                                    <td>
-                                        <c:choose>
-                                            <c:when test="${not empty appt.recordID}">
-                                                <a href="${pageContext.request.contextPath}/vet/examination?action=view&recordID=${appt.recordID}"
-                                                   class="btn btn-outline btn-sm">Xem bệnh án</a>
-                                            </c:when>
-                                            <c:otherwise>
-                                                <span class="badge badge-neutral">Không có bệnh án</span>
-                                            </c:otherwise>
-                                        </c:choose>
-                                    </td>
-                                </tr>
-                            </c:forEach>
-                            </tbody>
-                        </table>
-                    </c:otherwise>
-                </c:choose>
-            </div>
-        </details>
+
     </main>
 </div>
 <script src="${pageContext.request.contextPath}/js/dashboard.js"></script>

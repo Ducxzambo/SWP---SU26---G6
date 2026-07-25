@@ -2,7 +2,6 @@ package com.petclinic.dao;
 
 import com.petclinic.model.Appointment;
 import com.petclinic.model.GroomingRecord;
-import com.petclinic.model.MedicalRecord;
 import com.petclinic.util.DBConnection;
 
 import java.sql.*;
@@ -59,21 +58,6 @@ public class GroomingRecordDAO {
         }
     }
 
-    public List<GroomingRecord> findByPet(int petId) throws SQLException {
-        String sql = "SELECT mr.* "
-                + "FROM GroomingRecord gr "
-                + "WHERE gr.PetID = ? Order by gr.AppointmentID desc";
-        List<GroomingRecord> list = new ArrayList<>();
-        try (Connection c = DBConnection.getConnection();
-             PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setInt(1, petId);
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) list.add(mapRow(rs));
-            }
-        }
-        return list;
-    }
-
     /** Lịch sử spa của 1 thú cưng — groomer xem lại trước khi bắt đầu phiên mới. */
     public List<GroomingRecord> findHistoryByPetId(int petID) throws SQLException {
         String sql = BASE_SELECT + " WHERE gr.PetID = ? ORDER BY gr.CreatedAt DESC";
@@ -94,14 +78,20 @@ public class GroomingRecordDAO {
      * Hàng chờ của 1 groomer trong 1 ngày: gồm 2 nhóm gộp lại (loại trùng theo AppointmentID)
      *  1. Appointment có ÍT NHẤT 1 dòng dịch vụ Grooming ĐANG GÁN cho groomerID (Arrived/InProgress)
      *  2. Appointment có ÍT NHẤT 1 dòng dịch vụ Grooming CHƯA AI NHẬN (self-assign pool)
+     * Cả 2 nhóm đều LOẠI TRỪ appointment mà groomer này ĐÃ lưu GroomingRecord rồi
+     * (đã xong phần việc của mình, dù Status vẫn "InProgress" chờ vet/lễ tân).
      */
     public List<Appointment> findGroomerQueue(int groomerID, LocalDate date) throws SQLException {
-        List<Appointment> assigned   = appointmentDAO.findStaffQueue(groomerID, date, CATEGORY_GROOMING);
-        List<Appointment> unassigned = appointmentDAO.findUnassignedArrived(date, CATEGORY_GROOMING);
+        List<Appointment> assigned   = appointmentDAO.findStaffQueue(groomerID, date, CATEGORY_GROOMING, "GroomingRecords");
+        List<Appointment> unassigned = appointmentDAO.findUnassignedArrived(date, CATEGORY_GROOMING, "GroomingRecords");
         return mergeDistinctById(assigned, unassigned);
     }
 
-    /** Các ca grooming đã hoàn thành (Done) của 1 groomer trong 1 ngày, kèm RecordID để xem lại. */
+    /**
+     * Các ca mà groomer này ĐÃ lưu xong GroomingRecord trong 1 ngày — để xem lại
+     * kết quả. Dựa trên "record đã tồn tại", KHÔNG dựa Status='Done' (appointment
+     * có thể còn dịch vụ Khám khác đang chờ vet xử lý).
+     */
     public List<Appointment> findGroomerCompletedToday(int groomerID, LocalDate date) throws SQLException {
         return appointmentDAO.findStaffCompletedToday(groomerID, date, CATEGORY_GROOMING, "GroomingRecords");
     }
@@ -171,6 +161,21 @@ public class GroomingRecordDAO {
             JOIN Customers cu ON cu.CustomerID = (SELECT CustomerID FROM Pets WHERE PetID = gr.PetID)
             JOIN Staff     st ON st.StaffID    = gr.GroomerID
             """;
+
+    public List<GroomingRecord> findByPet(int petId) throws SQLException {
+        String sql = "SELECT mr.* "
+                + "FROM GroomingRecord gr "
+                + "WHERE gr.PetID = ? Order by gr.AppointmentID desc";
+        List<GroomingRecord> list = new ArrayList<>();
+        try (Connection c = DBConnection.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, petId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) list.add(mapRow(rs));
+            }
+        }
+        return list;
+    }
 
     private GroomingRecord mapRow(ResultSet rs) throws SQLException {
         GroomingRecord r = new GroomingRecord();

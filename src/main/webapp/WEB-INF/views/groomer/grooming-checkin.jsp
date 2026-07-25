@@ -23,7 +23,8 @@
         <div class="sidebar-logo">🐾 PetClinic</div>
         <nav>
             <a href="${pageContext.request.contextPath}/receptionist/checkin" class="nav-item">Check-in Khám</a>
-            <a href="${pageContext.request.contextPath}/receptionist/grooming-checkin" class="nav-item active">Check-in Grooming</a>
+            <a href="${pageContext.request.contextPath}/receptionist/grooming-checkin" class="nav-item active">✂️ Check-in Grooming</a>
+            <a href="${pageContext.request.contextPath}/receptionist/history" class="nav-item">📜 Lịch sử</a>
         </nav>
         <div class="sidebar-user">
             👤 ${sessionScope.staff.fullName}

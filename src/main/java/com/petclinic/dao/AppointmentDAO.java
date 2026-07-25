@@ -229,9 +229,10 @@ public class AppointmentDAO {
      * Arrived/InProgress appointments có ít nhất 1 dòng service ĐANG GÁN cho staffID
      * và thuộc categoryFilter. Dùng cho hàng chờ của bác sĩ/groomer.
      */
-    public List<Appointment> findStaffQueue(int staffID, LocalDate date, String categoryFilter) throws SQLException {
-        String sql =
-                "SELECT DISTINCT a.AppointmentID,a.CustomerID,a.PetID," +
+    public List<Appointment> findStaffQueue(int staffID, LocalDate date, String categoryFilter,
+                                            String excludeIfRecordExistsIn) throws SQLException {
+        StringBuilder sql = new StringBuilder(
+                "SELECT a.AppointmentID,a.CustomerID,a.PetID," +
                         "a.AppointmentDate,a.StartTime,a.EndTime,a.Status,a.SlotShift,a.Notes,a.CancelReason," +
                         "c.FullName AS CustomerName,p.Name AS PetName " +
                         "FROM Appointments a " +
@@ -240,11 +241,16 @@ public class AppointmentDAO {
                         "JOIN AppointmentServices aps ON aps.AppointmentID=a.AppointmentID " +
                         "JOIN Services s ON s.ServiceID=aps.ServiceID " +
                         "JOIN ServiceCategories sc ON sc.CategoryID=s.CategoryID " +
-                        "WHERE a.AppointmentDate=? AND aps.AssignedStaffID=? AND a.Status IN('Arrived','InProgress') AND sc.Name=? " +
-                        "ORDER BY a.SlotShift, a.StartTime";
+                        "WHERE a.AppointmentDate=? AND aps.AssignedStaffID=? AND a.Status IN('Arrived','InProgress') AND sc.Name=? "
+        );
+        if (excludeIfRecordExistsIn != null) {
+            sql.append("AND NOT EXISTS (SELECT 1 FROM ").append(excludeIfRecordExistsIn)
+                    .append(" rec WHERE rec.AppointmentID = a.AppointmentID) ");
+        }
+        sql.append("ORDER BY CASE a.Status WHEN 'InProgress' THEN 0 ELSE 1 END, a.SlotShift, a.StartTime");
 
         try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+             PreparedStatement ps = conn.prepareStatement(sql.toString())) {
             ps.setDate(1, Date.valueOf(date));
             ps.setInt(2, staffID);
             ps.setString(3, categoryFilter);
@@ -253,6 +259,12 @@ public class AppointmentDAO {
             return list;
         }
     }
+
+    /** Overload không loại trừ gì — giữ tương thích cho nơi chưa cần logic mới. */
+    public List<Appointment> findStaffQueue(int staffID, LocalDate date, String categoryFilter) throws SQLException {
+        return findStaffQueue(staffID, date, categoryFilter, null);
+    }
+
 
 
     public void assignVet(int appointmentID, int vetID) throws SQLException {
@@ -314,9 +326,11 @@ public class AppointmentDAO {
     /**
      * Arrived appointments có ÍT NHẤT 1 dòng service thuộc categoryFilter CHƯA gán staff
      * (AssignedStaffID IS NULL) — dùng cho self-assign (groomer tự nhận ca).
+     * excludeIfRecordExistsIn: cùng ý nghĩa như ở findStaffQueue.
      */
-    public List<Appointment> findUnassignedArrived(LocalDate date, String categoryFilter) throws SQLException {
-        String sql =
+    public List<Appointment> findUnassignedArrived(LocalDate date, String categoryFilter,
+                                                   String excludeIfRecordExistsIn) throws SQLException {
+        StringBuilder sql = new StringBuilder(
                 "SELECT DISTINCT a.AppointmentID,a.CustomerID,a.PetID," +
                         "a.AppointmentDate,a.StartTime,a.EndTime,a.Status,a.SlotShift,a.Notes,a.CancelReason," +
                         "c.FullName AS CustomerName,p.Name AS PetName " +
@@ -326,16 +340,26 @@ public class AppointmentDAO {
                         "JOIN AppointmentServices aps ON aps.AppointmentID=a.AppointmentID " +
                         "JOIN Services s ON s.ServiceID=aps.ServiceID " +
                         "JOIN ServiceCategories sc ON sc.CategoryID=s.CategoryID " +
-                        "WHERE a.AppointmentDate=? AND aps.AssignedStaffID IS NULL AND a.Status='Arrived' AND sc.Name=? " +
-                        "ORDER BY a.SlotShift, a.StartTime";
+                        "WHERE a.AppointmentDate=? AND aps.AssignedStaffID IS NULL AND a.Status='Arrived' AND sc.Name=? "
+        );
+        if (excludeIfRecordExistsIn != null) {
+            sql.append("AND NOT EXISTS (SELECT 1 FROM ").append(excludeIfRecordExistsIn)
+                    .append(" rec WHERE rec.AppointmentID = a.AppointmentID) ");
+        }
+        sql.append("ORDER BY a.SlotShift, a.StartTime");
         try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+             PreparedStatement ps = conn.prepareStatement(sql.toString())) {
             ps.setDate(1, Date.valueOf(date));
             ps.setString(2, categoryFilter);
             List<Appointment> list = mapList(ps.executeQuery());
             attachServices(list);
             return list;
         }
+    }
+
+    /** Overload không loại trừ gì — giữ tương thích cho nơi chưa cần logic mới. */
+    public List<Appointment> findUnassignedArrived(LocalDate date, String categoryFilter) throws SQLException {
+        return findUnassignedArrived(date, categoryFilter, null);
     }
 
     /** Các ca đã hoàn thành (Done) có dịch vụ thuộc categoryFilter, gán cho staffID, trong 1 ngày — kèm RecordID. */
@@ -351,8 +375,9 @@ public class AppointmentDAO {
                         "JOIN AppointmentServices aps ON aps.AppointmentID=a.AppointmentID " +
                         "JOIN Services s ON s.ServiceID=aps.ServiceID " +
                         "JOIN ServiceCategories sc ON sc.CategoryID=s.CategoryID " +
-                        "LEFT JOIN " + recordTable + " rec ON rec.AppointmentID = a.AppointmentID " +
-                        "WHERE a.AppointmentDate=? AND aps.AssignedStaffID=? AND a.Status='Done' AND sc.Name=? " +
+                        "JOIN " + recordTable + " rec ON rec.AppointmentID = a.AppointmentID " +
+                        "WHERE a.AppointmentDate=? AND aps.AssignedStaffID=? AND sc.Name=? " +
+                        "  AND a.Status IN ('InProgress','Done') " +
                         "ORDER BY a.SlotShift, a.StartTime";
 
         try (Connection conn = DBConnection.getConnection();
@@ -371,6 +396,82 @@ public class AppointmentDAO {
             }
             attachServices(list);
             return list;
+        }
+    }
+
+    // ── Lịch sử lịch hẹn (Receptionist) + Hoàn tất lịch hẹn ─────────────────────
+
+    /**
+     * TOÀN BỘ lịch hẹn trong 1 ngày (mọi trạng thái: Arrived/InProgress/Done/
+     * Cancelled/NoShow), lọc theo shift tùy chọn — dùng cho tab "Lịch sử" của
+     * lễ tân, khác tab "Check-in" (chỉ hiện Confirmed).
+     */
+    public List<Appointment> findAppointmentHistory(LocalDate date, Integer shift) throws SQLException {
+        StringBuilder sql = new StringBuilder(
+                "SELECT a.AppointmentID,a.CustomerID,a.PetID," +
+                        "a.AppointmentDate,a.StartTime,a.EndTime,a.Status,a.SlotShift,a.Notes,a.CancelReason," +
+                        "c.FullName AS CustomerName,p.Name AS PetName " +
+                        "FROM Appointments a " +
+                        "JOIN Customers c ON c.CustomerID=a.CustomerID " +
+                        "JOIN Pets p ON p.PetID=a.PetID " +
+                        "WHERE a.AppointmentDate=? "
+        );
+        if (shift != null) sql.append("AND a.SlotShift=? ");
+        sql.append("ORDER BY a.SlotShift, a.StartTime");
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+            int idx = 1;
+            ps.setDate(idx++, Date.valueOf(date));
+            if (shift != null) ps.setInt(idx++, shift);
+            List<Appointment> list = mapList(ps.executeQuery());
+            attachServices(list);
+            return list;
+        }
+    }
+
+    /**
+     * Kiểm tra MỌI category dịch vụ trong appointment đã có record tương ứng
+     * chưa (MedicalRecords cho Chẩn đoán/Phác đồ điều trị, GroomingRecords cho
+     * Grooming). Trả về danh sách category CÒN THIẾU record (rỗng = đã đủ).
+     */
+
+    public List<String> findMissingRecordCategories(int appointmentID) throws SQLException {
+        String sql =
+                "SELECT DISTINCT sc.Name AS CategoryName " +
+                        "FROM AppointmentServices aps " +
+                        "JOIN Services s ON s.ServiceID = aps.ServiceID " +
+                        "JOIN ServiceCategories sc ON sc.CategoryID = s.CategoryID " +
+                        "WHERE aps.AppointmentID = ? " +
+                        "  AND (" +
+                        "    (sc.Name IN ('Chẩn đoán','Phác đồ điều trị') AND NOT EXISTS " +
+                        "        (SELECT 1 FROM MedicalRecords mr WHERE mr.AppointmentID = aps.AppointmentID))" +
+                        "    OR " +
+                        "    (sc.Name = 'Grooming' AND NOT EXISTS " +
+                        "        (SELECT 1 FROM GroomingRecords gr WHERE gr.AppointmentID = aps.AppointmentID))" +
+                        "  )";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, appointmentID);
+            List<String> missing = new ArrayList<>();
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) missing.add(rs.getString("CategoryName"));
+            }
+            return missing;
+        }
+    }
+
+    /**
+     * Lễ tân xác nhận hoàn tất lịch hẹn: chuyển Status → Done.
+     * Chỉ thực thi UPDATE thuần — việc kiểm tra "đã đủ record chưa" nằm ở tầng
+     * Service (findMissingRecordCategories), gọi trước khi gọi method này.
+     */
+    public boolean finalizeAppointment(int appointmentID) throws SQLException {
+        String sql = "UPDATE Appointments SET Status='Done' WHERE AppointmentID=? AND Status IN ('Arrived','InProgress')";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, appointmentID);
+            return ps.executeUpdate() > 0;
         }
     }
 

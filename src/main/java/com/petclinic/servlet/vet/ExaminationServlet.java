@@ -1,6 +1,5 @@
 package com.petclinic.servlet.vet;
 
-import com.petclinic.dao.AppointmentDAO;
 import com.petclinic.model.*;
 import com.petclinic.service.ExaminationService;
 import com.petclinic.service.ExaminationService.SaveRecordResult;
@@ -37,11 +36,12 @@ public class ExaminationServlet extends HttpServlet {
         if (action == null) action = "queue";
 
         switch (action) {
-            case "queue"  -> showQueue(req, resp, vet);
-            case "start"  -> startExam(req, resp, vet);
-            case "form"   -> showExamForm(req, resp, vet);
-            case "view"   -> viewRecord(req, resp, vet);
-            default       -> resp.sendRedirect(req.getContextPath() + "/vet/examination");
+            case "queue"   -> showQueue(req, resp, vet);
+            case "history" -> showHistory(req, resp, vet);
+            case "start"   -> startExam(req, resp, vet);
+            case "form"    -> showExamForm(req, resp, vet);
+            case "view"    -> viewRecord(req, resp, vet);
+            default        -> resp.sendRedirect(req.getContextPath() + "/vet/examination");
         }
     }
 
@@ -70,12 +70,10 @@ public class ExaminationServlet extends HttpServlet {
         try {
             Appointment appt = examinationService.getAppointment(appointmentID);
             if (appt == null) {
-                forwardFormWithError(req, resp, appointmentID, vet.getStaffID(),
-                        "Không tìm thấy lịch hẹn.");
+                forwardFormWithError(req, resp, appointmentID, "Không tìm thấy lịch hẹn.");
                 return;
             }
 
-            // Build MedicalRecord
             MedicalRecord record = new MedicalRecord();
             record.setAppointmentID(appointmentID);
             record.setPetID(appt.getPetID());
@@ -104,25 +102,23 @@ public class ExaminationServlet extends HttpServlet {
                     resp.sendRedirect(req.getContextPath() + "/vet/examination");
                 }
                 case INSUFFICIENT_STOCK ->
-                        forwardFormWithError(req, resp, appointmentID, vet.getStaffID(),
+                        forwardFormWithError(req, resp, appointmentID,
                                 "Thuốc không đủ tồn kho. Vui lòng kiểm tra lại đơn thuốc.");
                 case RECORD_ALREADY_EXISTS ->
-                        forwardFormWithError(req, resp, appointmentID, vet.getStaffID(),
+                        forwardFormWithError(req, resp, appointmentID,
                                 "Bệnh án cho lịch khám này đã tồn tại.");
                 case WRONG_STATUS ->
-                        forwardFormWithError(req, resp, appointmentID, vet.getStaffID(),
+                        forwardFormWithError(req, resp, appointmentID,
                                 "Lịch hẹn không ở trạng thái InProgress.");
                 default ->
-                        forwardFormWithError(req, resp, appointmentID, vet.getStaffID(),
-                                "Lỗi hệ thống, vui lòng thử lại.");
+                        forwardFormWithError(req, resp, appointmentID, "Lỗi hệ thống, vui lòng thử lại.");
             }
         } catch (NumberFormatException e) {
-            forwardFormWithError(req, resp, appointmentID, vet.getStaffID(),
+            forwardFormWithError(req, resp, appointmentID,
                     "Dữ liệu nhập không hợp lệ (cân nặng, nhiệt độ, số lượng thuốc).");
         } catch (Exception e) {
             e.printStackTrace();
-            forwardFormWithError(req, resp, appointmentID, vet.getStaffID(),
-                    "Lỗi hệ thống: " + e.getMessage());
+            forwardFormWithError(req, resp, appointmentID, "Lỗi hệ thống: " + e.getMessage());
         }
     }
 
@@ -131,37 +127,20 @@ public class ExaminationServlet extends HttpServlet {
     private void showQueue(HttpServletRequest req, HttpServletResponse resp, Staff vet)
             throws ServletException, IOException {
 
-        // Date filter
-        LocalDate filterDate = LocalDate.now();
-        String dateParam = req.getParameter("date");
-        if (dateParam != null && !dateParam.isBlank()) {
-            try { filterDate = LocalDate.parse(dateParam); } catch (DateTimeParseException ignored) {}
-        }
-
-        // Shift filter
+        LocalDate filterDate = parseDate(req.getParameter("date"));
         String shiftParam = req.getParameter("shift");
-        Integer shiftFilter = null;
-        if (shiftParam != null && !shiftParam.isBlank()) {
-            try { shiftFilter = Integer.parseInt(shiftParam); } catch (NumberFormatException ignored) {}
-        }
+        Integer shiftFilter = parseShift(shiftParam);
 
         try {
             List<Appointment> queue = examinationService.getVetQueue(vet.getStaffID(), filterDate);
-            List<Appointment> completed = examinationService.getVetCompletedToday(vet.getStaffID(), filterDate);
 
-            // Apply shift filter in memory (cho cả 2 danh sách)
             if (shiftFilter != null) {
-                final int sf = shiftFilter;
                 queue = queue.stream()
-                        .filter(a -> a.getSlotShift() != null && a.getSlotShift() == sf)
-                        .collect(Collectors.toList());
-                completed = completed.stream()
-                        .filter(a -> a.getSlotShift() != null && a.getSlotShift() == sf)
+                        .filter(a -> a.getSlotShift() != null && a.getSlotShift().equals(shiftFilter))
                         .collect(Collectors.toList());
             }
 
             req.setAttribute("queue",       queue);
-            req.setAttribute("completed",   completed);
             req.setAttribute("filterDate",  filterDate.toString());
             req.setAttribute("isToday",     filterDate.equals(LocalDate.now()));
             req.setAttribute("shiftFilter", shiftParam != null ? shiftParam : "");
@@ -171,6 +150,36 @@ public class ExaminationServlet extends HttpServlet {
             e.printStackTrace();
             req.setAttribute("error", "Không tải được danh sách bệnh nhân.");
             req.getRequestDispatcher("/WEB-INF/views/vet/examination.jsp").forward(req, resp);
+        }
+    }
+
+    /** Tab "Lịch sử của tôi" — các ca bác sĩ này ĐÃ lưu bệnh án xong. */
+    private void showHistory(HttpServletRequest req, HttpServletResponse resp, Staff vet)
+            throws ServletException, IOException {
+
+        LocalDate filterDate = parseDate(req.getParameter("date"));
+        String shiftParam = req.getParameter("shift");
+        Integer shiftFilter = parseShift(shiftParam);
+
+        try {
+            List<Appointment> completed = examinationService.getVetCompletedToday(vet.getStaffID(), filterDate);
+
+            if (shiftFilter != null) {
+                completed = completed.stream()
+                        .filter(a -> a.getSlotShift() != null && a.getSlotShift().equals(shiftFilter))
+                        .collect(Collectors.toList());
+            }
+
+            req.setAttribute("completed",   completed);
+            req.setAttribute("filterDate",  filterDate.toString());
+            req.setAttribute("isToday",     filterDate.equals(LocalDate.now()));
+            req.setAttribute("shiftFilter", shiftParam != null ? shiftParam : "");
+            req.getRequestDispatcher("/WEB-INF/views/vet/examination-history.jsp").forward(req, resp);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            req.setAttribute("error", "Không tải được lịch sử.");
+            req.getRequestDispatcher("/WEB-INF/views/vet/examination-history.jsp").forward(req, resp);
         }
     }
 
@@ -204,9 +213,9 @@ public class ExaminationServlet extends HttpServlet {
             Appointment appt = examinationService.getAppointment(apptID);
             if (appt == null) { resp.sendRedirect(req.getContextPath() + "/vet/examination"); return; }
 
-            List<MedicalRecord> history = examinationService.getPetMedicalHistory(appt.getPetID());
-            List<Medicine>      medicines = examinationService.getMedicinesInStock();
-            List<Service>       labTests  = examinationService.getLabTests();
+            List<MedicalRecord> history      = examinationService.getPetMedicalHistory(appt.getPetID());
+            List<Medicine>      medicines    = examinationService.getMedicinesInStock();
+            List<Service>       labTests     = examinationService.getLabTests();
             List<Service>       treatmentPlans = examinationService.getTreatmentPlans();
 
             req.setAttribute("appointment",    appt);
@@ -240,14 +249,9 @@ public class ExaminationServlet extends HttpServlet {
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    /**
-     * Build diagnosis string from checklist + notes.
-     * Form fields: labTestID[] (ServiceID), labTestNote_<id>
-     */
     private String buildDiagnosis(HttpServletRequest req) {
         String[] ids = req.getParameterValues("labTestID[]");
         if (ids == null || ids.length == 0) return req.getParameter("symptoms");
-
         StringBuilder sb = new StringBuilder();
         for (String id : ids) {
             String name = req.getParameter("labTestName_" + id);
@@ -261,14 +265,9 @@ public class ExaminationServlet extends HttpServlet {
         return sb.toString().trim();
     }
 
-    /**
-     * Build treatment plan string from checklist + notes.
-     * Form fields: treatmentID[] (ServiceID), treatmentNote_<id>
-     */
     private String buildTreatmentPlan(HttpServletRequest req) {
         String[] ids = req.getParameterValues("treatmentID[]");
         if (ids == null || ids.length == 0) return "";
-
         StringBuilder sb = new StringBuilder();
         for (String id : ids) {
             String name = req.getParameter("treatmentName_" + id);
@@ -304,14 +303,14 @@ public class ExaminationServlet extends HttpServlet {
     }
 
     private void forwardFormWithError(HttpServletRequest req, HttpServletResponse resp,
-                                      int appointmentID, int vetID, String errorMsg)
+                                      int appointmentID, String errorMsg)
             throws ServletException, IOException {
         try {
             Appointment appt = examinationService.getAppointment(appointmentID);
             List<MedicalRecord> history = appt != null
                     ? examinationService.getPetMedicalHistory(appt.getPetID()) : List.of();
-            List<Medicine> medicines     = examinationService.getMedicinesInStock();
-            List<Service>  labTests      = examinationService.getLabTests();
+            List<Medicine> medicines      = examinationService.getMedicinesInStock();
+            List<Service>  labTests       = examinationService.getLabTests();
             List<Service>  treatmentPlans = examinationService.getTreatmentPlans();
 
             req.setAttribute("appointment",    appt);
@@ -338,6 +337,16 @@ public class ExaminationServlet extends HttpServlet {
             return null;
         }
         return staff;
+    }
+
+    private LocalDate parseDate(String p) {
+        if (p == null || p.isBlank()) return LocalDate.now();
+        try { return LocalDate.parse(p); } catch (DateTimeParseException e) { return LocalDate.now(); }
+    }
+
+    private Integer parseShift(String p) {
+        if (p == null || p.isBlank()) return null;
+        try { return Integer.parseInt(p); } catch (NumberFormatException e) { return null; }
     }
 
     private void triggerInvoice(int appointmentID) {

@@ -68,10 +68,11 @@
         <div class="sidebar-logo">🐾 PetClinic</div>
         <nav>
             <a href="${pageContext.request.contextPath}/receptionist/checkin" class="nav-item active">Check-in</a>
+            <a href="${pageContext.request.contextPath}/receptionist/history" class="nav-item">Lịch sử</a>
         </nav>
         <div class="sidebar-user">
              ${sessionScope.staff.fullName}
-            <a href="${pageContext.request.contextPath}/auth/logout" class="logout-link">Đăng xuất</a>
+            <a href="${pageContext.request.contextPath}/auth/staff/logout" class="logout-link">Đăng xuất</a>
         </div>
     </aside>
 
