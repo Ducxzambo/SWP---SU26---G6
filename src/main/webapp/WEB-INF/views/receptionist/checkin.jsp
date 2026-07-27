@@ -180,7 +180,16 @@
                                 <td><span class="badge badge-teal">Ca ${appt.slotShift}</span></td>
                                 <td>${appt.startTime}</td>
                                 <td><strong><c:out value="${appt.customerName}"/></strong></td>
-                                <td><c:out value="${appt.petName}"/></td>
+                                <td>
+                                    <c:choose>
+                                        <c:when test="${appt.petUnassigned}">
+                                            <span class="badge badge-warning">⚠ Chưa có thú cưng</span>
+                                        </c:when>
+                                        <c:otherwise>
+                                            <c:out value="${appt.petName}"/>
+                                        </c:otherwise>
+                                    </c:choose>
+                                </td>
                                 <td>
                                     <c:forEach items="${appt.services}" var="svc">
                                         <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;font-size:12.5px;">
@@ -213,12 +222,24 @@
                                     </c:forEach>
                                 </td>
                                 <td>
-                                    <form action="${pageContext.request.contextPath}/receptionist/checkin" method="post"
-                                          onsubmit="return confirm('Check-in cho ${appt.petName}?')">
-                                        <input type="hidden" name="appointmentID" value="${appt.appointmentID}">
-
-                                        <button type="submit" class="btn btn-primary btn-sm">Check-in</button>
-                                    </form>
+                                    <c:choose>
+                                        <c:when test="${appt.petUnassigned}">
+                                            <button type="button" class="btn btn-warning btn-sm"
+                                                    onclick="openPetAssignModal(
+                                                        ${appt.appointmentID},
+                                                        ${appt.customerID},
+                                                            '${appt.customerName}')">
+                                                Gán pet & Check-in
+                                            </button>
+                                        </c:when>
+                                        <c:otherwise>
+                                            <form action="${pageContext.request.contextPath}/receptionist/checkin" method="post"
+                                                  onsubmit="return confirm('Check-in cho ${appt.petName}?')">
+                                                <input type="hidden" name="appointmentID" value="${appt.appointmentID}">
+                                                <button type="submit" class="btn btn-primary btn-sm">Check-in</button>
+                                            </form>
+                                        </c:otherwise>
+                                    </c:choose>
                                 </td>
                             </tr>
                         </c:forEach>
@@ -228,6 +249,71 @@
             </c:choose>
         </div>
     </main>
+</div>
+
+<%-- Modal gán pet cho online booking chưa có pet --%>
+<div class="modal-backdrop" id="petAssignModal" onclick="if(event.target===this)closePetModal()">
+    <div class="modal">
+        <h3>Gán thú cưng & Check-in</h3>
+        <p class="step-label" id="petModalSub"></p>
+
+        <%-- Tab: chọn pet đã có --%>
+        <div id="petExistingSection">
+            <label class="form-label">Chọn thú cưng đã có</label>
+            <div id="petRadioListModal" class="pet-radio-list">
+                <%-- Load động bằng JS từ API hoặc load sẵn khi mở modal --%>
+            </div>
+            <span class="new-pet-toggle" onclick="showNewPetSection()">
+                + Thêm thú cưng mới
+            </span>
+        </div>
+
+        <%-- Form chọn pet đã có --%>
+        <form action="${pageContext.request.contextPath}/receptionist/checkin"
+              method="post" id="assignPetForm">
+            <input type="hidden" name="action" value="assignPet">
+            <input type="hidden" name="appointmentID" id="modalApptID">
+            <input type="hidden" name="petID" id="modalPetID">
+            <div class="modal-footer" id="existingPetFooter">
+                <button type="button" class="btn btn-outline" onclick="closePetModal()">Hủy</button>
+                <button type="submit" class="btn btn-primary">Xác nhận Check-in</button>
+            </div>
+        </form>
+
+        <%-- Form tạo pet mới --%>
+        <form action="${pageContext.request.contextPath}/receptionist/checkin"
+              method="post" id="newPetForm" style="display:none;">
+            <input type="hidden" name="action" value="createPetAndCheckIn">
+            <input type="hidden" name="appointmentID" id="modalApptID2">
+            <input type="hidden" name="customerID" id="modalCustomerID">
+            <div class="form-group">
+                <label class="form-label">Tên thú cưng <span class="required">*</span></label>
+                <input type="text" name="petName" class="form-control no-icon" required>
+            </div>
+            <div class="form-row col-2">
+                <div class="form-group">
+                    <label class="form-label">Loài</label>
+                    <input type="text" name="species" class="form-control no-icon" placeholder="VD: Chó, Mèo">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Giống</label>
+                    <input type="text" name="breed" class="form-control no-icon" placeholder="VD: Poodle">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Giới tính</label>
+                <select name="gender" class="form-control no-icon">
+                    <option value="">— Không rõ —</option>
+                    <option value="Male">Đực</option>
+                    <option value="Female">Cái</option>
+                </select>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="showExistingPetSection()">← Quay lại</button>
+                <button type="submit" class="btn btn-primary">Tạo & Check-in</button>
+            </div>
+        </form>
+    </div>
 </div>
 
 <%-- ═══════════════════════════════════════════════════════════════════════════
@@ -367,16 +453,9 @@
                                 <select name="staffFor_${svc.serviceID}" id="staffSel_${svc.serviceID}"
                                         style="width:150px;font-size:12.5px;" disabled>
                                     <option value="">— Chưa gán —</option>
-                                    <c:if test="${svc.categoryName == 'Chẩn đoán' || svc.categoryName == 'Phác đồ điều trị'}">
-                                        <c:forEach items="${vets}" var="v">
+                                        <c:forEach items="${staffs}" var="v">
                                             <option value="${v.staffID}"><c:out value="${v.fullName}"/></option>
                                         </c:forEach>
-                                    </c:if>
-                                    <c:if test="${svc.categoryName == 'Grooming'}">
-                                        <c:forEach items="${groomers}" var="g">
-                                            <option value="${g.staffID}"><c:out value="${g.fullName}"/></option>
-                                        </c:forEach>
-                                    </c:if>
                                 </select>
                             </div>
                         </c:forEach>
@@ -420,6 +499,61 @@
     // đoạn này chỉ đảm bảo phòng trường hợp CSS chưa kịp áp dụng)
     document.addEventListener('DOMContentLoaded', openWalkIn);
     </c:if>
+
+    // Dữ liệu pets của từng customer (truyền từ server qua JSON hoặc load AJAX)
+    // Đơn giản nhất: nhúng sẵn vào JSP khi render danh sách appointments
+    const PET_DATA = {}; // { customerID: [{petID, petName, speciesName, breedName}] }
+    <c:forEach items="${appointments}" var="appt">
+    <c:if test="${appt.petUnassigned}">
+    // Sẽ cần load pets của customer ${appt.customerID} — xem ghi chú bên dưới
+    </c:if>
+    </c:forEach>
+
+    function openPetAssignModal(apptID, customerID, customerName) {
+        document.getElementById('modalApptID').value  = apptID;
+        document.getElementById('modalApptID2').value = apptID;
+        document.getElementById('modalCustomerID').value = customerID;
+        document.getElementById('petModalSub').textContent = 'Khách: ' + customerName;
+        showExistingPetSection();
+        // Load pets của customer này (cần endpoint GET /receptionist/checkin?action=loadPets&customerID=X)
+        loadPetsForCustomer(customerID);
+        document.getElementById('petAssignModal').classList.add('open');
+    }
+
+    function closePetModal() {
+        document.getElementById('petAssignModal').classList.remove('open');
+    }
+
+    function showNewPetSection() {
+        document.getElementById('petExistingSection').style.display = 'none';
+        document.getElementById('assignPetForm').style.display = 'none';
+        document.getElementById('newPetForm').style.display = '';
+    }
+
+    function showExistingPetSection() {
+        document.getElementById('petExistingSection').style.display = '';
+        document.getElementById('assignPetForm').style.display = '';
+        document.getElementById('newPetForm').style.display = 'none';
+    }
+
+    function loadPetsForCustomer(customerID) {
+        fetch('${pageContext.request.contextPath}/receptionist/checkin?action=loadPets&customerID=' + customerID)
+            .then(r => r.json())
+            .then(pets => {
+                const list = document.getElementById('petRadioListModal');
+                list.innerHTML = pets.length === 0
+                    ? '<p style="color:var(--text-soft);font-size:13px;">Khách chưa có thú cưng nào.</p>'
+                    : pets.map(p =>
+                        '<label class="pet-radio-item">'
+                        + '<input type="radio" name="_petSel" value="' + p.petID + '"'
+                        + ' onchange="document.getElementById(\'modalPetID\').value=this.value">'
+                        + '<div class="pet-info">'
+                        + '<div class="name">' + p.petName + '</div>'
+                        + '<div class="sub">' + (p.speciesName||'') + ' — ' + (p.breedName||'') + '</div>'
+                        + '</div></label>'
+                    ).join('');
+            });
+    }
 </script>
 </body>
 </html>

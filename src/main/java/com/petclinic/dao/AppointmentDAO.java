@@ -73,10 +73,12 @@ public class AppointmentDAO {
         StringBuilder sql = new StringBuilder(
                 "SELECT DISTINCT a.AppointmentID,a.CustomerID,a.PetID," +
                         "a.AppointmentDate,a.StartTime,a.EndTime,a.Status,a.SlotShift,a.Notes,a.CancelReason," +
-                        "c.FullName AS CustomerName,p.Name AS PetName " +
+                        "c.FullName AS CustomerName," +
+                        "p.Name AS PetName,p.SpeciesName AS PetSpeciesName,p.BreedName AS PetBreedName," +
+                        "p.Gender AS PetGender,p.Weight AS PetWeight " +
                         "FROM Appointments a " +
                         "JOIN Customers c ON c.CustomerID=a.CustomerID " +
-                        "JOIN Pets p ON p.PetID=a.PetID "
+                        "LEFT JOIN Pets p ON p.PetID=a.PetID "
         );
         if (categoryFilter != null) {
             sql.append("JOIN AppointmentServices aps ON aps.AppointmentID=a.AppointmentID ")
@@ -104,17 +106,17 @@ public class AppointmentDAO {
         StringBuilder sql = new StringBuilder(
                 "SELECT DISTINCT a.AppointmentID,a.CustomerID,a.PetID," +
                         "a.AppointmentDate,a.StartTime,a.EndTime,a.Status,a.SlotShift,a.Notes,a.CancelReason," +
-                        "c.FullName AS CustomerName,p.Name AS PetName " +
+                        "c.FullName AS CustomerName,p.Name AS PetName,p.SpeciesName, p.BreedName, p.Gender, p.Weight " +
                         "FROM Appointments a " +
                         "JOIN Customers c ON c.CustomerID=a.CustomerID " +
-                        "JOIN Pets p ON p.PetID=a.PetID "
+                        "LEFT JOIN Pets p ON p.PetID=a.PetID "
         );
         if (categoryFilter != null) {
             sql.append("JOIN AppointmentServices aps ON aps.AppointmentID=a.AppointmentID ")
                     .append("JOIN Services s ON s.ServiceID=aps.ServiceID ")
                     .append("JOIN ServiceCategories sc ON sc.CategoryID=s.CategoryID ");
         }
-        sql.append("WHERE a.AppointmentDate=? AND a.Status='Confirmed' AND (c.FullName LIKE ? OR p.Name LIKE ?) ");
+        sql.append("WHERE a.AppointmentDate=? AND a.Status='Confirmed' AND (c.FullName LIKE ? OR p.Name LIKE ? OR p.Name IS NULL) ");
         if (categoryFilter != null) sql.append("AND sc.Name=? ");
         sql.append("ORDER BY a.SlotShift,a.StartTime");
 
@@ -238,7 +240,7 @@ public class AppointmentDAO {
                         "CASE a.Status WHEN 'InProgress' THEN 0 ELSE 1 END AS StatusOrder " + // <-- THÊM CỘT NÀY VÀO SELECT
                         "FROM Appointments a " +
                         "JOIN Customers c ON c.CustomerID=a.CustomerID " +
-                        "JOIN Pets p ON p.PetID=a.PetID " +
+                        "LEFT JOIN Pets p ON p.PetID=a.PetID " +
                         "JOIN AppointmentServices aps ON aps.AppointmentID=a.AppointmentID " +
                         "JOIN Services s ON s.ServiceID=aps.ServiceID " +
                         "JOIN ServiceCategories sc ON sc.CategoryID=s.CategoryID " +
@@ -300,7 +302,8 @@ public class AppointmentDAO {
         try (Connection c = DBConnection.getConnection();
              PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setInt(1, a.getCustomerID());
-            ps.setInt(2, a.getPetID());
+            if (a.getPetID() != null) ps.setInt(2, a.getPetID());
+            else ps.setNull(2, Types.INTEGER);
             ps.setInt(3, a.getServiceID());
             ps.setDate(4, Date.valueOf(a.getAppointmentDate()));
             ps.setTime(5, Time.valueOf(a.getStartTime()));
@@ -338,7 +341,7 @@ public class AppointmentDAO {
                         "c.FullName AS CustomerName,p.Name AS PetName " +
                         "FROM Appointments a " +
                         "JOIN Customers c ON c.CustomerID=a.CustomerID " +
-                        "JOIN Pets p ON p.PetID=a.PetID " +
+                        "LEFT JOIN Pets p ON p.PetID=a.PetID " +
                         "JOIN AppointmentServices aps ON aps.AppointmentID=a.AppointmentID " +
                         "JOIN Services s ON s.ServiceID=aps.ServiceID " +
                         "JOIN ServiceCategories sc ON sc.CategoryID=s.CategoryID " +
@@ -373,7 +376,7 @@ public class AppointmentDAO {
                         "c.FullName AS CustomerName,p.Name AS PetName, rec.RecordID AS RecordID " +
                         "FROM Appointments a " +
                         "JOIN Customers c ON c.CustomerID=a.CustomerID " +
-                        "JOIN Pets p ON p.PetID=a.PetID " +
+                        "LEFT JOIN Pets p ON p.PetID=a.PetID " +
                         "JOIN AppointmentServices aps ON aps.AppointmentID=a.AppointmentID " +
                         "JOIN Services s ON s.ServiceID=aps.ServiceID " +
                         "JOIN ServiceCategories sc ON sc.CategoryID=s.CategoryID " +
@@ -485,7 +488,7 @@ public class AppointmentDAO {
                 "c.FullName AS CustomerName,p.Name AS PetName " +
                 "FROM Appointments a " +
                 "JOIN Customers c ON c.CustomerID=a.CustomerID " +
-                "JOIN Pets p ON p.PetID=a.PetID " +
+                "LEFT JOIN Pets p ON p.PetID=a.PetID " +
                 "WHERE a.AppointmentID=?";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -733,7 +736,8 @@ public class AppointmentDAO {
         Appointment a = new Appointment();
         a.setAppointmentID(rs.getInt("AppointmentID"));
         a.setCustomerID(rs.getInt("CustomerID"));
-        a.setPetID(rs.getInt("PetID"));
+        int pid = rs.getInt("PetID");
+        a.setPetID(rs.wasNull() ? null : pid);
         Date d = rs.getDate("AppointmentDate"); if (d != null) a.setAppointmentDate(d.toLocalDate());
         Time st = rs.getTime("StartTime");       if (st != null) a.setStartTime(st.toLocalTime());
         Time et = rs.getTime("EndTime");         if (et != null) a.setEndTime(et.toLocalTime());
@@ -743,14 +747,28 @@ public class AppointmentDAO {
         try { a.setCancelReason(rs.getString("CancelReason")); } catch (SQLException ignored) {}
         try { a.setCustomerName(rs.getString("CustomerName")); } catch (SQLException ignored) {}
         try { a.setPetName(rs.getString("PetName"));           } catch (SQLException ignored) {}
+        try { a.setPetSpeciesName(rs.getString("PetSpeciesName")); } catch (SQLException ignored) {}
+        try { a.setPetBreedName(rs.getString("PetBreedName"));   } catch (SQLException ignored) {}
+        try { a.setPetGender(rs.getString("PetGender"));         } catch (SQLException ignored) {}
+        try { a.setPetWeight(rs.getBigDecimal("PetWeight"));     } catch (SQLException ignored) {}
         return a;
+    }
+
+    /** Gán pet vào appointment (dùng khi lễ tân check-in online booking chưa có pet). */
+    public void assignPet(int appointmentID, int petID) throws SQLException {
+        String sql = "UPDATE Appointments SET PetID=? WHERE AppointmentID=?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, petID); ps.setInt(2, appointmentID); ps.executeUpdate();
+        }
     }
 
     private Appointment mapRowSimple(ResultSet rs) throws SQLException {
         Appointment a = new Appointment();
         a.setAppointmentID(rs.getInt("AppointmentID"));
         a.setCustomerID(rs.getInt("CustomerID"));
-        a.setPetID(rs.getInt("PetID"));
+        int pid = rs.getInt("PetID");
+        a.setPetID(rs.wasNull() ? null : pid);
         a.setServiceID(rs.getInt("ServiceID"));
         int vid = rs.getInt("AssignedStaffID");
         a.setAppointmentDate(rs.getDate("AppointmentDate").toLocalDate());

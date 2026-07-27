@@ -10,7 +10,7 @@ import java.util.List;
 public class Appointment {
     private int appointmentID;
     private int customerID;
-    private int petID;
+    private Integer petID;
     private int serviceID;
     private LocalDate appointmentDate;
     private LocalTime startTime;
@@ -24,8 +24,13 @@ public class Appointment {
     private String customerName;
     private String petName;
     private String serviceName;
-    private String    categoryName;
+    private String categoryName;
     private Integer recordID; // RecordID của MedicalRecord/GroomingRecord nếu status = Done (nullable)
+
+    private String           petSpeciesName;
+    private String           petBreedName;
+    private String           petGender;
+    private java.math.BigDecimal petWeight;
 
     public Appointment() {}
 
@@ -33,8 +38,8 @@ public class Appointment {
     public void      setAppointmentID(int v)      { appointmentID = v; }
     public int       getCustomerID()             { return customerID; }
     public void      setCustomerID(int v)         { customerID = v; }
-    public int       getPetID()                  { return petID; }
-    public void      setPetID(int v)              { petID = v; }
+    public Integer   getPetID()                  { return petID; }
+    public void      setPetID(Integer  v)              { petID = v; }
     public int       getServiceID()              { return serviceID; }
     public void      setServiceID(int v)          { serviceID = v; }
     public LocalDate getAppointmentDate()        { return appointmentDate; }
@@ -63,6 +68,15 @@ public class Appointment {
     public void    setRecordID(Integer v)        { recordID = v; }
     public String    getCategoryName()          { return categoryName; }
     public void      setCategoryName(String v)  { categoryName = v; }
+
+    public String           getPetSpeciesName() { return petSpeciesName; }
+    public void             setPetSpeciesName(String v) { petSpeciesName = v; }
+    public String           getPetBreedName()  { return petBreedName; }
+    public void             setPetBreedName(String v)  { petBreedName = v; }
+    public String           getPetGender()    { return petGender; }
+    public void             setPetGender(String v)    { petGender = v; }
+    public java.math.BigDecimal getPetWeight() { return petWeight; }
+    public void             setPetWeight(java.math.BigDecimal v) { petWeight = v; }
 
     public List<AppointmentServiceItem> getServices() {
         return services;
@@ -186,5 +200,9 @@ public class Appointment {
             if (categoryName.equals(s.getCategoryName())) return true;
         }
         return false;
+    }
+
+    public boolean isPetUnassigned() {
+        return petID == null;
     }
 }
