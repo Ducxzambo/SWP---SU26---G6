@@ -388,12 +388,13 @@
                             <c:when test="${not empty labTests}">
                                 <div class="checklist-grid" id="labGrid">
                                     <c:forEach items="${labTests}" var="llt">
-                                        <div class="check-item" id="labItem_${llt.serviceID}">
+                                        <div class="check-item ${preSelectedLabIds.contains(llt.serviceID) ? 'checked' : ''}" id="labItem_${llt.serviceID}">
                                             <div class="check-item-header">
                                                 <input type="checkbox"
                                                        id="lab_${llt.serviceID}"
                                                        name="labTestID[]"
                                                        value="${llt.serviceID}"
+                                                    ${preSelectedLabIds.contains(llt.serviceID) ? 'checked' : ''}
                                                        onchange="toggleCheckItem(this, 'labItem_${llt.serviceID}')">
                                                 <input type="hidden" name="labTestName_${llt.serviceID}" value="<c:out value='${llt.name}'/>">
                                                 <label for="lab_${llt.serviceID}"><c:out value="${llt.name}"/></label>
@@ -432,12 +433,14 @@
                             <c:when test="${not empty treatmentPlans}">
                                 <div class="checklist-grid" id="treatGrid">
                                     <c:forEach items="${treatmentPlans}" var="tp">
-                                        <div class="check-item" id="treatItem_${tp.serviceID}">
+                                        <div class="check-item ${preSelectedTreatIds.contains(tp.serviceID) ? 'checked' : ''}"
+                                             id="treatItem_${tp.serviceID}">
                                             <div class="check-item-header">
                                                 <input type="checkbox"
                                                        id="treat_${tp.serviceID}"
                                                        name="treatmentID[]"
                                                        value="${tp.serviceID}"
+                                                    ${preSelectedTreatIds.contains(tp.serviceID) ? 'checked' : ''}
                                                        onchange="toggleCheckItem(this, 'treatItem_${tp.serviceID}')">
                                                 <input type="hidden" name="treatmentName_${tp.serviceID}" value="<c:out value='${tp.name}'/>">
                                                 <label for="treat_${tp.serviceID}"><c:out value="${tp.name}"/></label>

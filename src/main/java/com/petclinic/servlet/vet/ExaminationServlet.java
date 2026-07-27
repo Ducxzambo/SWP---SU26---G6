@@ -17,6 +17,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @WebServlet("/vet/examination")
@@ -218,11 +219,18 @@ public class ExaminationServlet extends HttpServlet {
             List<Service>       labTests     = examinationService.getLabTests();
             List<Service>       treatmentPlans = examinationService.getTreatmentPlans();
 
+            Set<Integer> preSelectedLabIds = appt.getServicesByCategory("Chẩn đoán")
+                    .stream().map(s -> s.getServiceID()).collect(java.util.stream.Collectors.toSet());
+            Set<Integer> preSelectedTreatIds = appt.getServicesByCategory("Phác đồ điều trị")
+                    .stream().map(s -> s.getServiceID()).collect(java.util.stream.Collectors.toSet());
+
             req.setAttribute("appointment",    appt);
             req.setAttribute("history",        history);
             req.setAttribute("medicines",      medicines);
             req.setAttribute("labTests",       labTests);
             req.setAttribute("treatmentPlans", treatmentPlans);
+            req.setAttribute("preSelectedLabIds",   preSelectedLabIds);
+            req.setAttribute("preSelectedTreatIds", preSelectedTreatIds);
             req.getRequestDispatcher("/WEB-INF/views/vet/examination-detail.jsp").forward(req, resp);
 
         } catch (Exception e) {
@@ -313,6 +321,15 @@ public class ExaminationServlet extends HttpServlet {
             List<Service>  labTests       = examinationService.getLabTests();
             List<Service>  treatmentPlans = examinationService.getTreatmentPlans();
 
+            Set<Integer> preSelectedLabIds = appt != null
+                    ? appt.getServicesByCategory("Chẩn đoán")
+                      .stream().map(s -> s.getServiceID()).collect(java.util.stream.Collectors.toSet())
+                    : java.util.Collections.emptySet();
+            Set<Integer> preSelectedTreatIds = appt != null
+                    ? appt.getServicesByCategory("Phác đồ điều trị")
+                      .stream().map(s -> s.getServiceID()).collect(java.util.stream.Collectors.toSet())
+                    : java.util.Collections.emptySet();
+
             req.setAttribute("appointment",    appt);
             req.setAttribute("history",        history);
             req.setAttribute("medicines",      medicines);
@@ -320,6 +337,8 @@ public class ExaminationServlet extends HttpServlet {
             req.setAttribute("treatmentPlans", treatmentPlans);
             req.setAttribute("error",          errorMsg);
             req.setAttribute("symptoms",       req.getParameter("symptoms"));
+            req.setAttribute("preSelectedLabIds",   preSelectedLabIds);
+            req.setAttribute("preSelectedTreatIds", preSelectedTreatIds);
         } catch (Exception e) { e.printStackTrace(); }
         req.getRequestDispatcher("/WEB-INF/views/vet/examination-detail.jsp").forward(req, resp);
     }
