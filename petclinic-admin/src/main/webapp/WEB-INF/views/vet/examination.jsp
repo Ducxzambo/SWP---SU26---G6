@@ -147,7 +147,14 @@
                                 <td>${appt.startTime}</td>
                                 <td><strong><c:out value="${appt.customerName}"/></strong></td>
                                 <td><c:out value="${appt.petName}"/></td>
-                                <td><c:out value="${appt.serviceName}"/></td>
+                                <td>
+                                    <c:forEach items="${appt.services}" var="svc" varStatus="s">
+                                        <span class="badge badge-teal" style="font-size:11px;">
+                                            <c:out value="${svc.serviceName}"/>
+                                        </span>
+                                        <c:if test="${!s.last}"><br></c:if>
+                                    </c:forEach>
+                                </td>
                                 <td>
                                     <c:choose>
                                         <c:when test="${appt.status == 'InProgress'}">

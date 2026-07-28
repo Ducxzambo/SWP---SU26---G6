@@ -171,7 +171,7 @@
                     <table class="data-table">
                         <thead>
                         <tr><th>#</th><th>Ca</th><th>Giờ hẹn</th><th>Tên chủ</th>
-                            <th>Thú cưng</th><th>Dịch vụ</th><th>Bác sĩ</th><th>Thao tác</th></tr>
+                            <th>Thú cưng</th><th>Dịch vụ</th><th>Thao tác</th></tr>
                         </thead>
                         <tbody>
                         <c:forEach items="${appointments}" var="appt" varStatus="loop">
@@ -204,16 +204,9 @@
                                                         <input type="hidden" name="appointmentServiceID" value="${svc.appointmentServiceID}">
                                                         <select name="staffID" style="font-size:11px;padding:2px 4px;" onchange="this.form.submit()">
                                                             <option value="">— Gán —</option>
-                                                            <c:if test="${svc.categoryName == 'Chẩn đoán' || svc.categoryName == 'Điều trị'}">
                                                                 <c:forEach items="${vets}" var="v">
                                                                     <option value="${v.staffID}"><c:out value="${v.fullName}"/></option>
                                                                 </c:forEach>
-                                                            </c:if>
-                                                            <c:if test="${svc.categoryName == 'Grooming'}">
-                                                                <c:forEach items="${groomers}" var="g">
-                                                                    <option value="${g.staffID}"><c:out value="${g.fullName}"/></option>
-                                                                </c:forEach>
-                                                            </c:if>
                                                         </select>
                                                     </form>
                                                 </c:otherwise>

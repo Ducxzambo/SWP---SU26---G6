@@ -23,8 +23,8 @@
     <aside class="sidebar">
         <div class="sidebar-logo">🐾 PetClinic</div>
         <nav>
-            <a href="${pageContext.request.contextPath}/vet/examination" class="nav-item">🩺 Hàng chờ khám</a>
-            <a href="${pageContext.request.contextPath}/vet/examination?action=history" class="nav-item active">📜 Lịch sử của tôi</a>
+            <a href="${pageContext.request.contextPath}/vet/examination" class="nav-item">Hàng chờ khám</a>
+            <a href="${pageContext.request.contextPath}/vet/examination?action=history" class="nav-item active">Lịch sử</a>
         </nav>
         <div class="sidebar-user">
             👤 ${sessionScope.staff.fullName}
