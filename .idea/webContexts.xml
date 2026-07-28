@@ -3,6 +3,8 @@
   <component name="WebContextManager">
     <option name="state">
       <map>
+        <entry key="file://$PROJECT_DIR$/petclinic-customer/src/main/webapp/WEB-INF/views/auth/forgot.jsp" value="file://$PROJECT_DIR$/petclinic-customer/src/main/webapp/WEB-INF/views/auth" />
+        <entry key="file://$PROJECT_DIR$/petclinic-customer/src/main/webapp/WEB-INF/views/booking/new.jsp" value="file://$PROJECT_DIR$/petclinic-customer/src/main/webapp/WEB-INF/views/booking" />
         <entry key="file://$PROJECT_DIR$/src/main/webapp/WEB-INF/views/customer/pets/list.jsp" value="file://$PROJECT_DIR$/src/main/webapp/WEB-INF/views/customer/pets" />
       </map>
     </option>
