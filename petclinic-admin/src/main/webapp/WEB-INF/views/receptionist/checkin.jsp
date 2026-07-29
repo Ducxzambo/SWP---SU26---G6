@@ -171,7 +171,7 @@
                     <table class="data-table">
                         <thead>
                         <tr><th>#</th><th>Ca</th><th>Giờ hẹn</th><th>Tên chủ</th>
-                            <th>Thú cưng</th><th>Dịch vụ</th><th>Bác sĩ</th><th>Thao tác</th></tr>
+                            <th>Thú cưng</th><th>Dịch vụ</th><th>Thao tác</th></tr>
                         </thead>
                         <tbody>
                         <c:forEach items="${appointments}" var="appt" varStatus="loop">

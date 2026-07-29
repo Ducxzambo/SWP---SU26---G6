@@ -12,7 +12,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
 /**
- * Refund &gt; Xác nhận đã chuyển khoản (POST-only action, no screen of its own).
+ * Refund: Xác nhận đã chuyển khoản (POST-only action, no screen of its own).
  * Bước 2 của luồng xác nhận: bước 1 (hiện QR) chỉ là hiển thị ở detail.jsp,
  * KHÔNG đổi state gì - chỉ khi staff bấm nút này (sau khi đã tự chuyển
  * khoản bằng app ngân hàng) thì Refund/Invoice mới thực sự được cập nhật.

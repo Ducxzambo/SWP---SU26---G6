@@ -5,7 +5,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lịch Sử Của Tôi – PetClinic</title>
+    <title>Lịch Sử – PetClinic</title>
     <link rel="stylesheet" href="${pageContext.request.contextPath}/css/dashboard.css">
     <style>
         .toolbar { display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; margin-bottom:16px; }
@@ -23,8 +23,8 @@
     <aside class="sidebar">
         <div class="sidebar-logo">🐾 PetClinic</div>
         <nav>
-            <a href="${pageContext.request.contextPath}/vet/examination" class="nav-item">🩺 Hàng chờ khám</a>
-            <a href="${pageContext.request.contextPath}/vet/examination?action=history" class="nav-item active">📜 Lịch sử của tôi</a>
+            <a href="${pageContext.request.contextPath}/vet/examination" class="nav-item">Hàng chờ khám</a>
+            <a href="${pageContext.request.contextPath}/vet/examination?action=history" class="nav-item active">Lịch sử khám</a>
         </nav>
         <div class="sidebar-user">
             👤 ${sessionScope.staff.fullName}
@@ -34,7 +34,7 @@
 
     <main class="main-content">
         <div class="page-header">
-            <h1>📜 Lịch Sử Của Tôi</h1>
+            <h1>Lịch Sử</h1>
             <p class="page-sub">Các ca bạn đã lưu bệnh án xong (lịch hẹn có thể vẫn chờ nhân viên khác hoàn tất)</p>
         </div>
 

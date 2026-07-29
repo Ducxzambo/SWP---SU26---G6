@@ -1,6 +1,7 @@
 package com.petclinic.customer.servlet.booking;
 
 import com.google.gson.JsonObject;
+import com.petclinic.backend.model.Pet;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
@@ -50,6 +51,7 @@ public class NewServlet extends HttpServlet {
             req.setAttribute("navCategories", serviceDAO.findAllCategoriesWithServices());
             req.setAttribute("today", LocalDate.now().toString());
             req.setAttribute("prefillCat", prefillCat != null ? prefillCat : "");
+            req.setAttribute("pets", petDAO.findByCustomerId(customer.getCustomerID()));
             req.setAttribute("resumeData", buildResumeJson(req));
 
             req.getRequestDispatcher("/WEB-INF/views/booking/new.jsp").forward(req, resp);
@@ -59,13 +61,6 @@ public class NewServlet extends HttpServlet {
         }
     }
 
-    /**
-     * Nếu session đang giữ dữ liệu 1 lượt đặt lịch đã nhập dở (vd khách bấm
-     * "Quay lại chỉnh sửa" từ trang confirm, hoặc quay lại giữa chừng), đóng
-     * gói lại thành JSON để JS khôi phục ĐÚNG trạng thái đã chọn trước đó
-     * (thú cưng/category/dịch vụ/vaccine/khung giờ/ghi chú), thay vì bắt đầu
-     * lại từ đầu. Trả về null nếu không có gì để khôi phục.
-     */
     private String buildResumeJson(HttpServletRequest req) {
         HttpSession sess = req.getSession(false);
         if (sess == null || sess.getAttribute("bk_isInpatient") == null) return null;
@@ -75,13 +70,13 @@ public class NewServlet extends HttpServlet {
         JsonObject o = new JsonObject();
         o.addProperty("isInpatient", isInpatient);
         o.addProperty("notes", (String) sess.getAttribute("bk_notes"));
+        Object petIdAttr = sess.getAttribute("bk_petId");
+        o.addProperty("petId", petIdAttr != null ? String.valueOf(petIdAttr) : "");
 
         if (isInpatient) {
             o.addProperty("inpatientDate", (String) sess.getAttribute("bk_iDate"));
             o.addProperty("inpatientPeriod", (String) sess.getAttribute("bk_iPeriod"));
         } else {
-            // bookingPayload la 1 chuoi JSON co san (xem PetBookingRequest) —
-            // gui thang cho client, JS se tu parse lai (khong can dich 2 lan).
             o.addProperty("payload", (String) sess.getAttribute("bk_payload"));
             o.addProperty("slotKey", (String) sess.getAttribute("bk_slotKey"));
         }
@@ -110,12 +105,19 @@ public class NewServlet extends HttpServlet {
         }
     }
 
-    /**
-     * Nội trú — GIỮ NGUYÊN đặt cọc cố định 200.000đ (không thuộc phạm vi bỏ
-     * cọc lần này, vì tổng chi phí nội trú thực tế chỉ biết được khi xuất
-     * viện — ngoài phạm vi codebase này).
-     */
     private void handleStep1PostInpatient(HttpServletRequest req, HttpServletResponse resp, Customer customer) throws Exception {
+        Integer petId;
+        try {
+            petId = resolvePetSelection(req, customer);
+        } catch (IllegalArgumentException e) {
+            forwardStep1Error(req, resp, customer, e.getMessage());
+            return;
+        }
+        if (petId == null) {
+            forwardStep1Error(req, resp, customer, "Vui lòng chọn thú cưng hoặc nhập thông tin thú cưng mới.");
+            return;
+        }
+
         String iDate = req.getParameter("inpatientDate");
         String iPeriod = req.getParameter("inpatientPeriod");
         String notes = req.getParameter("notes");
@@ -129,7 +131,7 @@ public class NewServlet extends HttpServlet {
             return;
         }
 
-        long depositAmount = bookingSvc.computeDeposit(true);
+        long depositAmount = bookingSvc.computeDeposit(BigDecimal.valueOf(200000), true);
 
         HttpSession sess = req.getSession(true);
         sess.setAttribute("bk_isInpatient", true);
@@ -138,6 +140,7 @@ public class NewServlet extends HttpServlet {
         sess.setAttribute("bk_notes", notes);
         sess.setAttribute("bk_total", BigDecimal.valueOf(depositAmount));
         sess.setAttribute("bk_deposit", depositAmount);
+        sess.setAttribute("bk_petId", petId);
 
         req.setAttribute("isInpatient", true);
         req.setAttribute("inpatientDate", iDate);
@@ -146,14 +149,24 @@ public class NewServlet extends HttpServlet {
         req.setAttribute("totalPrice", BigDecimal.valueOf(depositAmount));
         req.setAttribute("depositAmount", depositAmount);
         req.setAttribute("navCategories", serviceDAO.findAllCategoriesWithServices());
+        req.setAttribute("selectedPet", petDAO.findByPetId(petId));
 
         req.getRequestDispatcher("/WEB-INF/views/booking/confirm.jsp").forward(req, resp);
     }
 
-    /**
-     * Khám/Spa/Vaccine.
-     */
     private void handleStep1PostNormal(HttpServletRequest req, HttpServletResponse resp, Customer customer) throws Exception {
+        Integer petId;
+        try {
+            petId = resolvePetSelection(req, customer);
+        } catch (IllegalArgumentException e) {
+            forwardStep1Error(req, resp, customer, e.getMessage());
+            return;
+        }
+        if (petId == null) {
+            forwardStep1Error(req, resp, customer, "Vui lòng chọn thú cưng hoặc nhập thông tin thú cưng mới.");
+            return;
+        }
+
         String bookingPayload = req.getParameter("bookingPayload");
         String slotKey = req.getParameter("slotKey");
         String notes = req.getParameter("notes");
@@ -170,14 +183,12 @@ public class NewServlet extends HttpServlet {
         BookingSelection selection = BookingSelection.parse(bookingPayload);
         int totalItems = selection.getServiceIds().size() + selection.getVaccineIds().size();
         if (totalItems < 1) {
-            forwardStep1Error(req, resp, customer,
-                    "Vui lòng chọn ít nhất 1 dịch vụ hoặc vaccine.");
+            forwardStep1Error(req, resp, customer, "Vui lòng chọn ít nhất 1 dịch vụ hoặc vaccine.");
             return;
         }
 
         Map<Integer, Vaccine> vaccineById = new LinkedHashMap<>();
         for (Vaccine v : vaccineDAO.findAvailable()) vaccineById.put(v.getVaccineID(), v);
-
 
         List<Service> svcs = selection.getServiceIds().isEmpty()
                 ? Collections.emptyList()
@@ -193,8 +204,7 @@ public class NewServlet extends HttpServlet {
         for (Service s : svcs) total = total.add(s.getPrice() != null ? s.getPrice() : BigDecimal.ZERO);
         for (Vaccine v : vaccines) total = total.add(v.getUnitPrice() != null ? v.getUnitPrice() : BigDecimal.ZERO);
 
-        // Khách thanh toán 100% "total".
-        long depositAmount = bookingSvc.computeDeposit(false);
+        long depositAmount = bookingSvc.computeDeposit(total, false);
 
         HttpSession sess = req.getSession(true);
         sess.setAttribute("bk_payload", bookingPayload);
@@ -203,6 +213,7 @@ public class NewServlet extends HttpServlet {
         sess.setAttribute("bk_notes", notes);
         sess.setAttribute("bk_total", total);
         sess.setAttribute("bk_deposit", depositAmount);
+        sess.setAttribute("bk_petId", petId);
 
         req.setAttribute("services", svcs);
         req.setAttribute("vaccines", vaccines);
@@ -212,8 +223,64 @@ public class NewServlet extends HttpServlet {
         req.setAttribute("totalPrice", total);
         req.setAttribute("depositAmount", depositAmount);
         req.setAttribute("navCategories", serviceDAO.findAllCategoriesWithServices());
+        req.setAttribute("selectedPet", petDAO.findByPetId(petId));
 
         req.getRequestDispatcher("/WEB-INF/views/booking/confirm.jsp").forward(req, resp);
+    }
+
+    /**
+     * "petId" (existing pet, must belong to this customer) or a "newPetName" +
+     * optional species/breed/gender/dateOfBirth to create a brand-new pet on the
+     * fly — mirrors ExaminationService.createPetAndCheckIn, just triggered by
+     * the customer at booking time instead of the receptionist at check-in.
+     * Returns null when neither an existing pet nor new-pet info was supplied.
+     */
+    private Integer resolvePetSelection(HttpServletRequest req, Customer customer) throws Exception {
+        String petIdParam = req.getParameter("petId");
+        if (petIdParam != null && !petIdParam.isBlank()) {
+            int pid;
+            try {
+                pid = Integer.parseInt(petIdParam.trim());
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException("Thú cưng không hợp lệ.");
+            }
+            Pet existing = petDAO.findByPetId(pid);
+            if (existing == null || existing.getCustomerID() != customer.getCustomerID()) {
+                throw new IllegalArgumentException("Thú cưng không hợp lệ.");
+            }
+            return pid;
+        }
+
+        String petName = req.getParameter("newPetName");
+        if (petName == null || petName.isBlank()) {
+            return null;
+        }
+
+        Pet pet = new Pet();
+        pet.setCustomerID(customer.getCustomerID());
+        pet.setName(petName.trim());
+
+        String species = req.getParameter("newPetSpecies");
+        pet.setSpeciesName(species != null && !species.isBlank() ? species.trim() : "Chưa rõ");
+
+        String breed = req.getParameter("newPetBreed");
+        pet.setBreedName(breed != null && !breed.isBlank() ? breed.trim() : "Chưa rõ");
+
+        String gender = req.getParameter("newPetGender");
+        pet.setGender(gender != null && !gender.isBlank() ? gender : "Unknown");
+
+        String dobStr = req.getParameter("newPetDob");
+        if (dobStr != null && !dobStr.isBlank()) {
+            try {
+                LocalDate dob = LocalDate.parse(dobStr.trim());
+                if (!dob.isAfter(LocalDate.now())) pet.setDateOfBirth(dob);
+            } catch (Exception ignored) {
+                // Ngày sinh không hợp lệ - bỏ qua, không chặn luồng đặt lịch.
+            }
+        }
+
+        int newId = petDAO.insert(pet);
+        return newId > 0 ? newId : null;
     }
 
 

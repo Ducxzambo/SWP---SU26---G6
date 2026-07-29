@@ -10,6 +10,7 @@
   <title>Thú cưng của tôi – PetClinic</title>
   <link rel="stylesheet" href="${ctx}/css/main.css">
   <link rel="stylesheet" href="${ctx}/css/pets.css">
+  <link rel="stylesheet" href="${ctx}/css/customer-dashboard.css">
 </head>
 <body>
 <%@ include file="/WEB-INF/views/common/header.jsp" %>
@@ -22,6 +23,20 @@
       <p>Quản lý hồ sơ và lịch sử khám của tất cả thú cưng</p>
     </div>
   </div>
+  <c:if test="${not empty pets}">
+    <div class="db-metric-grid" style="margin-bottom:20px;grid-template-columns:repeat(2,1fr);max-width:600px;">
+      <div class="db-metric-card">
+        <div class="db-metric-label">Tổng thú cưng</div>
+        <div class="db-metric-num">${totalPets}</div>
+        <span class="db-metric-tag gray">Đã đăng ký</span>
+      </div>
+      <div class="db-metric-card">
+        <div class="db-metric-label">Tổng lượt khám hoàn tất</div>
+        <div class="db-metric-num">${totalVisits}</div>
+        <span class="db-metric-tag green">Đã hoàn thành</span>
+      </div>
+    </div>
+  </c:if>
 
   <c:choose>
     <c:when test="${empty pets}">

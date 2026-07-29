@@ -13,6 +13,7 @@ import com.petclinic.backend.service.PetService;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -77,7 +78,13 @@ public class PetServlet extends HttpServlet {
             throws Exception {
         List<Pet> pets = petDAO.findByCustomer(customer.getCustomerID());
         setCommonAttrs(req, customer);
+
+        int totalVisits = 0;
+        for (Pet p : pets) totalVisits += p.getDoneAppointments();
+
         req.setAttribute("pets", pets);
+        req.setAttribute("totalPets", pets.size());
+        req.setAttribute("totalVisits", totalVisits);
         req.getRequestDispatcher("/WEB-INF/views/customer/pets/list.jsp").forward(req, resp);
     }
 
@@ -91,18 +98,54 @@ public class PetServlet extends HttpServlet {
         if (pet == null || pet.getCustomerID() != customer.getCustomerID()) {
             resp.sendError(404, "Không tìm thấy thú cưng."); return;
         }
-        List<Appointment> appointments = appointmentDAO.findByPet(id);
 
-        Map<Integer, MedicalRecord> medicalMap = petSvc.getMedicalRecordsByPet(id);
+        List<Appointment> appointments = appointmentDAO.findByPet(id);
         Map<Integer, VaccinationRecord> vaccineMap = petSvc.getVaccinationRecordsByPet(id);
-        Map<Integer, GroomingRecord> groomingMap = petSvc.getGroomingRecordsByPet(id);
+
+        LocalDate today = LocalDate.now();
+        Appointment firstDone = null, lastDone = null, nextUpcoming = null;
+        int doneCount = 0, cancelledCount = 0, noShowCount = 0;
+
+        for (Appointment a : appointments) {
+            if (a.getAppointmentDate() == null) continue;
+            if ("Done".equals(a.getStatus())) {
+                doneCount++;
+                if (firstDone == null || a.getAppointmentDate().isBefore(firstDone.getAppointmentDate())) firstDone = a;
+                if (lastDone == null || a.getAppointmentDate().isAfter(lastDone.getAppointmentDate())) lastDone = a;
+            } else if ("Cancelled".equals(a.getStatus())) {
+                cancelledCount++;
+            } else if ("NoShow".equals(a.getStatus())) {
+                noShowCount++;
+            }
+            boolean active = "Pending".equals(a.getStatus()) || "Confirmed".equals(a.getStatus()) || "InProgress".equals(a.getStatus());
+            if (active && !a.getAppointmentDate().isBefore(today)) {
+                if (nextUpcoming == null || a.getAppointmentDate().isBefore(nextUpcoming.getAppointmentDate())) nextUpcoming = a;
+            }
+        }
+
+        VaccinationRecord latestVaccine = null, nextDueVaccine = null;
+        for (VaccinationRecord vr : vaccineMap.values()) {
+            if (vr.getAdministeredDate() != null
+                    && (latestVaccine == null || vr.getAdministeredDate().isAfter(latestVaccine.getAdministeredDate()))) {
+                latestVaccine = vr;
+            }
+            if (vr.getNextDueDate() != null && !vr.getNextDueDate().isBefore(today)
+                    && (nextDueVaccine == null || vr.getNextDueDate().isBefore(nextDueVaccine.getNextDueDate()))) {
+                nextDueVaccine = vr;
+            }
+        }
 
         setCommonAttrs(req, customer);
-        req.setAttribute("pet",          pet);
-        req.setAttribute("appointments", appointments);
-        req.setAttribute("medicalMap",   medicalMap);
-        req.setAttribute("vaccineMap",   vaccineMap);
-        req.setAttribute("groomingMap",  groomingMap);
+        req.setAttribute("pet",            pet);
+        req.setAttribute("doneCount",      doneCount);
+        req.setAttribute("cancelledCount", cancelledCount);
+        req.setAttribute("noShowCount",    noShowCount);
+        req.setAttribute("vaccineCount",   vaccineMap.size());
+        req.setAttribute("firstDone",      firstDone);
+        req.setAttribute("lastDone",       lastDone);
+        req.setAttribute("nextUpcoming",   nextUpcoming);
+        req.setAttribute("latestVaccine",  latestVaccine);
+        req.setAttribute("nextDueVaccine", nextDueVaccine);
         req.getRequestDispatcher("/WEB-INF/views/customer/pets/profile.jsp").forward(req, resp);
     }
 
@@ -165,10 +208,23 @@ public class PetServlet extends HttpServlet {
     // ── Helpers ───────────────────────────────────────────────────────────────
     private void applyEditableFields(Pet pet, HttpServletRequest req) {
         pet.setName(trim(req.getParameter("name")));
+
+        String species = trim(req.getParameter("speciesName"));
+        if (!species.isEmpty()) pet.setSpeciesName(species);
+
+        pet.setBreedName(trim(req.getParameter("breedName")));
+
+        String gender = req.getParameter("gender");
+        if (gender != null && !gender.isBlank()) pet.setGender(gender);
+
         String dob = trim(req.getParameter("dateOfBirth"));
         if (!dob.isEmpty()) {
             try { pet.setDateOfBirth(LocalDate.parse(dob, ISO)); } catch (Exception ignored) {}
+        } else {
+            pet.setDateOfBirth(null);
         }
+        // weight KHÔNG được set ở đây — pet.getWeight() giữ nguyên giá trị đã
+        // load từ DB, nên PetDAO.update() sẽ ghi lại đúng giá trị cũ, không đổi.
     }
 
     private String validate(Pet pet) {

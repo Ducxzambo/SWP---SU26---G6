@@ -120,10 +120,10 @@
               <span class="chevron">▾</span>
             </button>
             <div class="nav-profile-panel" id="navProfilePanel">
-              <a href="${ctx}/profile" class="nav-profile-item">👤 Hồ sơ của tôi</a>
+              <a href="${ctx}/profile" class="nav-profile-item">Hồ sơ của tôi</a>
               <div class="nav-profile-divider"></div>
               <form action="${ctx}/auth/logout" method="post" style="margin:0;">
-                <button type="submit" class="nav-profile-item nav-profile-item-danger">🚪 Đăng xuất</button>
+                <button type="submit" class="nav-profile-item nav-profile-item-danger">Đăng xuất</button>
               </form>
             </div>
           </div>

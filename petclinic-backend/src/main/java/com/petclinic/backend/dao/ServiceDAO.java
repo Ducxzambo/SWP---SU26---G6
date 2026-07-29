@@ -33,19 +33,19 @@ public class ServiceDAO {
         return cats;
     }
 
-    /**
-     * Tên các nhóm dịch vụ KHÔNG được phép chọn qua booking wizard của khách
-     */
-    private static final java.util.Set<String> BOOKING_EXCLUDED_CATEGORY_NAMES =
-            java.util.Set.of("Điều trị", "Chẩn đoán");
+//    /**
+//     * Tên các nhóm dịch vụ KHÔNG được phép chọn qua booking wizard của khách
+//     */
+//    private static final java.util.Set<String> BOOKING_EXCLUDED_CATEGORY_NAMES =
+//            java.util.Set.of("Điều trị", "Chẩn đoán");
 
     /**
      * Danh sách category dùng cho booking wizard của khách
      */
     public List<ServiceCategory> findBookableCategoriesWithServices() throws SQLException {
         List<ServiceCategory> cats = findAllCategoriesWithServices();
-        cats.removeIf(c -> c.getCategoryID() == BookingService.INPATIENT_CATEGORY_ID
-                || BOOKING_EXCLUDED_CATEGORY_NAMES.contains(c.getName()));
+        cats.removeIf(c -> c.getCategoryID() == BookingService.INPATIENT_CATEGORY_ID);
+//                || BOOKING_EXCLUDED_CATEGORY_NAMES.contains(c.getName()));
         return cats;
     }
 

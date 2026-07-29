@@ -97,9 +97,10 @@ public class StaffAuthServlet extends HttpServlet {
             case "Groomer":
                 resp.sendRedirect(ctx + "/groomer/session");
                 break;
-            case "Admin": case "Manager":
+            case "Manager":
                 resp.sendRedirect(ctx + "/manager/inventory");
                 break;
+            case "Admin":
             default:
                 resp.sendRedirect(ctx + "/");
         }

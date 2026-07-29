@@ -28,10 +28,7 @@ public class PayOSClient {
 
     /**
      * Tạo link thanh toán PayOS - dùng chung cho CẢ khách hàng (booking online)
-     * VÀ lễ tân (thu tiền hóa đơn tại quầy). Khác biệt duy nhất giữa 2
-     * luồng là returnUrl/cancelUrl để PaymentWebhookServlet biết đường quay về
-     * đúng ngữ cảnh (trang chi tiết lịch hẹn của khách, hay trang hóa đơn của
-     * lễ tân) — phần gọi PayOS API bên dưới giữ NGUYÊN, không tách logic riêng.
+     * VÀ lễ tân (thu tiền hóa đơn tại quầy).
      *
      * @param source  "customer" (mặc định) hoặc "staff:checkin"/"staff:history"
      *                (định danh lễ tân đang ở tab nào để quay về đúng chỗ).

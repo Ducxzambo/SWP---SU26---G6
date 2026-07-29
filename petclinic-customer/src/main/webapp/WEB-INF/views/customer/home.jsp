@@ -1,5 +1,6 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
 <c:set var="ctx"      value="${pageContext.request.contextPath}"/>
 <c:set var="customer" value="${sessionScope.customer}"/>
 <!DOCTYPE html>
@@ -9,113 +10,145 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PetClinic – Trang của bạn</title>
   <link rel="stylesheet" href="${ctx}/css/main.css">
-
+  <link rel="stylesheet" href="${ctx}/css/customer-dashboard.css">
 </head>
 <body>
 
 <%@ include file="/WEB-INF/views/common/header.jsp" %>
 
-<main class="main-content">
+<main class="main-content" style="max-width:1240px;margin:0 auto;padding:28px 24px 60px;">
 
-  <section class="customer-hero">
-    <h1>Xin chào, ${customer.fullName}!</h1>
-    <p>Quản lý thú cưng và lịch khám của bạn một cách dễ dàng</p>
-    <a href="${ctx}/booking/new" class="customer-hero-cta">
-      <span class="cta-icon">➕</span>
-      <span>
-        <strong>Đặt lịch khám mới</strong>
-        <small>Chọn dịch vụ, thú cưng và khung giờ phù hợp</small>
-      </span>
+  <div class="db-topbar">Trang của bạn<c:if test="${not empty customer}"> / <strong>${customer.fullName}</strong></c:if></div>
+
+  <div class="db-welcome">
+    <h1>Xin chào, ${customer.fullName}! <span class="db-welcome-badge">KHÁCH HÀNG</span></h1>
+    <p>Theo dõi lịch khám, thú cưng và thông báo của bạn tại một nơi duy nhất.</p>
+  </div>
+
+  <div class="db-metric-grid">
+    <div class="db-metric-card">
+      <div class="db-metric-label">Lịch hẹn sắp tới</div>
+      <div class="db-metric-num">${upcomingCount}</div>
+      <span class="db-metric-tag green">Đang chờ</span>
+      <span class="db-metric-sub">trong tổng ${totalAppointments} lịch hẹn</span>
+    </div>
+    <div class="db-metric-card">
+      <div class="db-metric-label">Thú cưng của bạn</div>
+      <div class="db-metric-num">${totalPets}</div>
+      <span class="db-metric-tag gray">Đã đăng ký</span>
+      <span class="db-metric-sub">hồ sơ thú cưng</span>
+    </div>
+    <div class="db-metric-card">
+      <div class="db-metric-label">Đã hoàn thành</div>
+      <div class="db-metric-num">${doneCount}</div>
+      <span class="db-metric-tag green">Hoàn tất</span>
+      <span class="db-metric-sub">lượt khám / chăm sóc</span>
+    </div>
+    <div class="db-metric-card">
+      <div class="db-metric-label">Thông báo chưa đọc</div>
+      <div class="db-metric-num">${unreadCount}</div>
+      <c:choose>
+        <c:when test="${unreadCount > 0}"><span class="db-metric-tag amber">Mới</span></c:when>
+        <c:otherwise><span class="db-metric-tag gray">Đã đọc hết</span></c:otherwise>
+      </c:choose>
+      <span class="db-metric-sub">cập nhật gần đây</span>
+    </div>
+  </div>
+
+  <div class="db-section-head">⚡ Truy Cập Nhanh</div>
+  <div class="db-quick-grid">
+    <a href="${ctx}/booking/new" class="db-quick-card">
+      <div class="db-quick-icon">➕</div><span>Đặt lịch khám mới</span>
     </a>
-  </section>
+    <a href="${ctx}/pets" class="db-quick-card">
+      <div class="db-quick-icon"></div><span>Thú cưng của tôi</span>
+    </a>
+    <a href="${ctx}/appointments" class="db-quick-card">
+      <div class="db-quick-icon"></div><span>Lịch khám</span>
+    </a>
+    <a href="${ctx}/notifications" class="db-quick-card">
+      <div class="db-quick-icon"></div>
+      <span>Thông báo<c:if test="${unreadCount > 0}"> (${unreadCount})</c:if></span>
+    </a>
+  </div>
 
-  <!-- Recent notifications preview -->
-  <section class="section" style="padding-top:40px;padding-bottom:32px;">
-    <div style="max-width:900px;margin:0 auto;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;gap:12px;flex-wrap:wrap;">
-        <h2 style="font-family:'Playfair Display',serif;font-size:22px;color:var(--green-900);min-width:0;overflow-wrap:break-word;">
-          Thông báo gần đây
-          <c:if test="${unreadCount > 0}">
-            <span style="background:var(--green-500);color:#fff;border-radius:12px;
-                  padding:2px 10px;font-size:13px;font-family:'DM Sans',sans-serif;
-                  font-weight:600;margin-left:8px;">${unreadCount} mới</span>
-          </c:if>
-        </h2>
-        <a href="${ctx}/notifications"
-           style="font-size:13.5px;color:var(--green-500);font-weight:500;flex-shrink:0;">
-          Xem tất cả →
-        </a>
+  <div class="db-section-head">Tổng Quan Lịch Hẹn</div>
+  <div class="db-split">
+
+    <div class="db-panel">
+      <div class="db-panel-head">
+        <h3>Phân bố lịch hẹn theo trạng thái</h3>
+        <a href="${ctx}/appointments">Xem tất cả →</a>
       </div>
+      <div class="db-panel-sub">Toàn bộ lịch hẹn của bạn, phân theo trạng thái xử lý</div>
 
-      <div id="homeNotifList">
-        <div style="text-align:center;padding:32px;color:var(--warm-gray);font-size:14px;">
-          Đang tải thông báo...
-        </div>
+      <c:choose>
+        <c:when test="${totalAppointments == 0}">
+          <div class="db-empty-mini">Bạn chưa có lịch hẹn nào. Hãy đặt lịch đầu tiên!</div>
+        </c:when>
+        <c:otherwise>
+          <c:forEach var="entry" items="${statusDist}">
+            <c:if test="${entry.value > 0}">
+              <div class="db-bar-row">
+                <div class="db-bar-label">${entry.key}</div>
+                <div class="db-bar-track">
+                  <div class="db-bar-fill" style="width:${entry.value * 100 / maxDist}%;">${entry.value} lịch</div>
+                </div>
+              </div>
+            </c:if>
+          </c:forEach>
+        </c:otherwise>
+      </c:choose>
+    </div>
+
+    <div class="db-panel">
+      <div class="db-panel-head">
+        <h3>Lịch hẹn gần đây</h3>
+        <a href="${ctx}/appointments">Xem tất cả →</a>
+      </div>
+      <div class="db-panel-sub">5 lượt gần nhất</div>
+
+      <div class="db-recent-list">
+        <c:forEach var="a" items="${recentAppointments}">
+          <a href="${ctx}/appointments/detail?id=${a.appointmentID}" style="text-decoration:none;color:inherit;">
+            <div class="db-recent-item">
+              <div class="db-recent-avatar">🐾</div>
+              <div class="db-recent-body">
+                <div class="db-recent-title">${a.serviceName}</div>
+                <div class="db-recent-sub">${a.formattedAppointmentDate}<c:if test="${not empty a.petName}"> · ${a.petName}</c:if></div>
+              </div>
+              <span class="db-recent-status db-status-${fn:toLowerCase(a.status)}">${a.status}</span>
+            </div>
+          </a>
+        </c:forEach>
+        <c:if test="${empty recentAppointments}">
+          <div class="db-empty-mini">Chưa có lịch hẹn nào.</div>
+        </c:if>
       </div>
     </div>
-  </section>
 
-  <!-- Services — kèm mô tả ngắn cho từng nhóm dịch vụ -->
-  <section class="section" style="padding-top:0;background:#fff;">
-    <div class="section-title" style="margin-bottom:8px;">Dịch vụ của chúng tôi</div>
-    <div class="section-subtitle">Đặt lịch nhanh theo danh mục</div>
-    <div class="card-grid">
-      <c:forEach var="cat" items="${navCategories}">
-        <div class="feature-card" style="text-align:left;">
-          <div class="icon-wrap">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M4.5 3v6.5a4.5 4.5 0 0 0 9 0V3"/>
-              <path d="M13.5 12v2.5a5.5 5.5 0 0 1-11 0V12"/>
-              <circle cx="18.5" cy="15.5" r="2.5"/>
-              <path d="M16.3 15.5a2.5 2.5 0 0 1-2.8-2.5"/>
-            </svg>
-          </div>
-          <h3>${cat.name}</h3>
-          <p style="margin-bottom:12px;">${cat.description}</p>
-          <div style="display:flex;flex-wrap:wrap;gap:6px;">
-<%--            <c:forEach var="svc" items="${cat.services}">--%>
-<%--              <a href="${ctx}/booking/new?prefillCategory=${cat.categoryID}&prefillService=${svc.serviceID}"--%>
-<%--                 style="padding:5px 12px;background:var(--green-50);border:1px solid var(--green-100);--%>
-<%--                        border-radius:20px;font-size:12.5px;color:var(--green-700);font-weight:500;--%>
-<%--                        transition:var(--transition);overflow-wrap:break-word;max-width:100%;"--%>
-<%--                 onmouseover="this.style.background='var(--green-100)'"--%>
-<%--                 onmouseout="this.style.background='var(--green-50)'">--%>
-<%--                ${svc.name}--%>
-<%--              </a>--%>
-<%--            </c:forEach>--%>
-          </div>
-        </div>
-      </c:forEach>
-    </div>
-  </section>
+  </div>
+
+<%--  <div class="db-section-head">Dịch Vụ Của Chúng Tôi</div>--%>
+<%--  <div class="card-grid">--%>
+<%--    <c:forEach var="cat" items="${navCategories}">--%>
+<%--      <div class="feature-card" style="text-align:left;">--%>
+<%--        <div class="icon-wrap">--%>
+<%--          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">--%>
+<%--            <path d="M4.5 3v6.5a4.5 4.5 0 0 0 9 0V3"/>--%>
+<%--            <path d="M13.5 12v2.5a5.5 5.5 0 0 1-11 0V12"/>--%>
+<%--            <circle cx="18.5" cy="15.5" r="2.5"/>--%>
+<%--            <path d="M16.3 15.5a2.5 2.5 0 0 1-2.8-2.5"/>--%>
+<%--          </svg>--%>
+<%--        </div>--%>
+<%--        <h3>${cat.name}</h3>--%>
+<%--        <p style="margin-bottom:12px;">${cat.description}</p>--%>
+<%--      </div>--%>
+<%--    </c:forEach>--%>
+<%--  </div>--%>
 
 </main>
 
 <%@ include file="/WEB-INF/views/common/footer.jsp" %>
-
-<script>
-
-fetch('${ctx}/notifications/api?limit=5')
-  .then(r => r.json())
-  .then(data => {
-    const el = document.getElementById('homeNotifList');
-    if (!data || data.length === 0) {
-      el.innerHTML = '<div style="text-align:center;padding:24px;color:var(--warm-gray);font-size:14px;">Chưa có thông báo nào.</div>';
-      return;
-    }
-    el.innerHTML = data.map(n => {
-      const unreadBorder = !n.isRead ? 'border-left:3px solid var(--green-500);' : '';
-      return '<div style="background:#fff;border:1px solid var(--border);border-radius:10px;' +
-             'padding:14px 18px;margin-bottom:10px;overflow-wrap:break-word;' + unreadBorder + '">' +
-               '<div style="font-weight:500;font-size:14px;margin-bottom:4px;">' + escHtml(n.title) + '</div>' +
-               '<div style="font-size:13px;color:var(--warm-gray);">' + escHtml(n.body || '') + '</div>' +
-             '</div>';
-    }).join('');
-  })
-  .catch(() => {
-    document.getElementById('homeNotifList').innerHTML =
-      '<div style="text-align:center;padding:24px;color:var(--warm-gray);">Không thể tải thông báo.</div>';
-  });
-</script>
 </body>
 </html>

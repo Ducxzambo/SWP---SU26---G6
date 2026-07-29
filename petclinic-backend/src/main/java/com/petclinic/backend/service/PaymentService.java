@@ -14,12 +14,6 @@ public class PaymentService {
         return createPaymentLink(invoiceId, appointmentId, amountVnd, description, isFullPayment, "customer", null);
     }
 
-    /**
-     * Overload dùng chung cho luồng thu tiền hóa đơn của LỄ TÂN (nút
-     * "Chuyển khoản" ở trang tổng hợp hóa đơn), tái sử dụng NGUYÊN vẹn phần
-     * gọi PayOSClient phía dưới — chỉ khác source/staffId để callback
-     * (PaymentWebhookServlet) biết quay về đúng ngữ cảnh.
-     */
     public String createPaymentLink(int invoiceId, int appointmentId, long amountVnd, String description,
                                     boolean isFullPayment, String source, Integer staffId) throws Exception {
         if (amountVnd <= 0) {

@@ -33,11 +33,6 @@ import java.util.*;
  *      moi categoryId khac (Kham, Phau thuat, Vaccine) -> Vet (roleId 3)
  *
  *  Chi Confirmed/InProgress/Done moi tinh vao load. Pending khong tinh.
- *
- * ─────────────────────────────────────────────────────────────────────────
- *  MODEL BOOKING (N-N qua AppointmentServices): 1 appointment = 1 pet +
- *  1 slot, nhieu dich vu.
- * ─────────────────────────────────────────────────────────────────────────
  */
 public class BookingService {
 
@@ -62,13 +57,8 @@ public class BookingService {
     public static final LocalTime INPATIENT_AFTERNOON_START = LocalTime.of(13, 30);
     public static final LocalTime INPATIENT_AFTERNOON_END   = LocalTime.of(17, 30);
 
-    /**
-     * Tien coc CO DINH — CHI con ap dung cho Noi tru. Booking thuong KHONG
-     * con coc, khach luon thanh toan 100% tong chi phi.
-     */
-    public static final long DEPOSIT_INPATIENT = 200_000L;
-    public static final long DEPOSIT_NORMAL = 0L;
-
+    public static final long DEPOSIT_INPATIENT = 200000;
+    public static final double DEPOSIT_RATIO_NORMAL = 0.5;
 
     public static final int GROOMING_CATEGORY_ID  = 3;
     public static final int VACCINE_CATEGORY_ID   = 4;
@@ -192,13 +182,11 @@ public class BookingService {
         return result;
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    //  APPOINTMENT CREATION — NOI TRU
-    // ─────────────────────────────────────────────────────────────────────────
     public int createInpatientAppointment(int customerId,
                                           int serviceId,
                                           String inpatientDate,
-                                          String inpatientPeriod) throws Exception {
+                                          String inpatientPeriod,
+                                          Integer petId) throws Exception {
         DateTimeFormatter df = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
         LocalDate date = LocalDate.parse(inpatientDate, df);
@@ -213,20 +201,15 @@ public class BookingService {
                             + " không tồn tại hoặc đã ngừng hoạt động). Vui lòng liên hệ quản trị viên để thêm ít nhất 1 dịch vụ (IsActive=1) cho nhóm này.");
         }
 
-        // Inpatient khong khop 1 ca co dinh nao nen de SlotShift = null
-        int apptId = insertAppointmentRow(customerId, date, start, end, null);
+        int apptId = insertAppointmentRow(customerId, date, start, end, null, petId);
         if (apptId <= 0) return -1;
 
         BigDecimal price = svc.getPrice() != null ? svc.getPrice() : BigDecimal.ZERO;
         appointmentServiceDAO.insert(apptId, serviceId, price);
         return apptId;
     }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    //  APPOINTMENT CREATION — 1 appointment = 1 pet + NHIEU dich vu + 1 slot
-    // ─────────────────────────────────────────────────────────────────────────
     public int createNormalAppointment(int customerId, BookingSelection booking,
-                                       String slotKey) throws Exception {
+                                       String slotKey, Integer petId) throws Exception {
         if (booking == null || booking.isEmpty()) {
             throw new IllegalArgumentException("Vui lòng chọn ít nhất 1 dịch vụ hoặc vaccine.");
         }
@@ -240,11 +223,9 @@ public class BookingService {
         LocalTime end   = start.plusMinutes(SLOT_MINUTES);
         Integer   shift = slotShiftOf(start);
 
-        int apptId = insertAppointmentRow(customerId, date, start, end, shift);
+        int apptId = insertAppointmentRow(customerId, date, start, end, shift, petId);
         if (apptId <= 0) return -1;
 
-        // Moi dich vu duoc snapshot gia hien tai (Service.Price) tai thoi
-        // diem dat lich — khong doi ke ca khi Service.Price thay doi sau nay.
         if (!booking.getServiceIds().isEmpty()) {
             List<Service> svcs = serviceDAO.findByIds(booking.getServiceIds());
             for (Service svc : svcs) {
@@ -265,10 +246,11 @@ public class BookingService {
     }
 
     private int insertAppointmentRow(int customerId, LocalDate date,
-                                     LocalTime start, LocalTime end, Integer slotShift) throws Exception {
+                                     LocalTime start, LocalTime end,
+                                     Integer slotShift, Integer petId) throws Exception {
         Appointment a = new Appointment();
         a.setCustomerID(customerId);
-        a.setPetID(null);
+        a.setPetID(petId);
         a.setAppointmentDate(date);
         a.setStartTime(start);
         a.setEndTime(end);
@@ -281,12 +263,9 @@ public class BookingService {
     //  DEPOSIT
     // ─────────────────────────────────────────────────────────────────────────
 
-    /**
-     * Tien coc:
-     *   - Noi tru:     DEPOSIT_INPATIENT (200.000d) — phi tam ung nhap vien.
-     *   - Binh thuong: 0 (khach thanh toan 100% tong chi phi ngay khi dat lich).
-     */
-    public long computeDeposit(boolean isInpatient) {
-        return isInpatient ? DEPOSIT_INPATIENT : 0L;
+    public long computeDeposit(BigDecimal totalPrice, boolean isInpatient) {
+        if (isInpatient) return DEPOSIT_INPATIENT;
+        if (totalPrice == null) return 0;
+        return Math.max(1, Math.round(totalPrice.doubleValue() * DEPOSIT_RATIO_NORMAL));
     }
 }

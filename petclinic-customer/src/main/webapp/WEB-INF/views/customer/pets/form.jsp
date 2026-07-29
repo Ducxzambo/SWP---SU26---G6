@@ -50,7 +50,7 @@
         <div class="form-row">
           <div class="form-group">
             <label>Loài</label>
-            <select name="speciesName" class="form-control" disabled>
+            <select name="speciesName" class="form-control">
               <option value="">-- Chọn loài --</option>
               <c:forEach var="sp" items="${['Chó','Mèo','Chim','Thỏ','Cá','Khác']}">
                 <option value="${sp}" ${not empty p and p.speciesName eq sp ? 'selected' : ''}>${sp}</option>
@@ -59,7 +59,7 @@
           </div>
           <div class="form-group">
             <label>Giống</label>
-            <input type="text" name="breedName" class="form-control" disabled
+            <input type="text" name="breedName" class="form-control"
                    placeholder="VD: Poodle, Corgi, Ba Tư..."
                    value="${not empty p ? p.breedName : ''}">
           </div>
@@ -68,7 +68,7 @@
         <div class="form-row">
           <div class="form-group">
             <label>Giới tính</label>
-            <select name="gender" class="form-control" disabled>
+            <select name="gender" class="form-control">
               <option value="Unknown" ${empty p or p.gender eq 'Unknown' ? 'selected' : ''}>Không rõ</option>
               <option value="Male"    ${not empty p and p.gender eq 'Male'    ? 'selected' : ''}>Đực</option>
               <option value="Female"  ${not empty p and p.gender eq 'Female'  ? 'selected' : ''}>Cái</option>
@@ -82,15 +82,7 @@
           </div>
         </div>
         <div class="form-hint">
-          Loài, giống, giới tính và cân nặng không thể chỉnh sửa tại đây — vui lòng liên hệ phòng khám nếu cần cập nhật.
-        </div>
-
-        <div class="form-group">
-          <label>Ngày sinh</label>
-          <input type="date" name="dateOfBirth" class="form-control"
-                 max="${pageContext.request.getAttribute('today')}"
-                 value="${not empty p and p.dateOfBirth != null ? p.dateOfBirth : ''}">
-          <div class="form-hint">Dùng để tính tuổi và nhắc lịch vaccine</div>
+          Cân nặng chỉ được cập nhật bởi bác sĩ trong quá trình khám và không thể chỉnh sửa tại đây.
         </div>
 
         <div class="form-actions">

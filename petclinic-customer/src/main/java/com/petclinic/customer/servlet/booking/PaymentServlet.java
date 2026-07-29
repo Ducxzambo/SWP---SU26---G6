@@ -61,10 +61,8 @@ public class PaymentServlet extends HttpServlet {
         long deposit = ((Number) sess.getAttribute("pay_deposit")).longValue();
         boolean isInpatient = Boolean.TRUE.equals(sess.getAttribute("pay_inpatient"));
 
-        // Booking thường KHÔNG còn lựa chọn đặt cọc — luôn thanh toán 100%
-        // tổng chi phí, bất kể payType gửi lên là gì (phòng vệ thêm ở tầng
-        // server, vì payment.jsp giờ chỉ còn render 1 lựa chọn cho trường
-        // hợp này). Nội trú giữ nguyên chỉ có lựa chọn đặt cọc cố định.
+        // Booking thường KHÔNG còn lựa chọn đặt cọc - luôn thanh toán 100%
+        // tổng chi phí, bất kể payType gửi lên là gì. Nội trú giữ nguyên chỉ có lựa chọn đặt cọc cố định.
         boolean isFullPayment = isInpatient ? "full".equals(payType) : true;
         long amountVnd = isFullPayment ? total.longValue() : deposit;
         String desc = "PetClinic " + invoiceId;

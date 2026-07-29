@@ -16,7 +16,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
 /**
- * Refund &gt; Chi tiết yêu cầu hoàn tiền.
+ * Refund: Chi tiết yêu cầu hoàn tiền.
  * Hiển thị Refund + Invoice/InvoiceItems/Payments của appointment tương ứng.
  * Với refund đang Requested, còn hiện thêm ảnh VietQR + 2 action (xác nhận/
  * từ chối) - các action này POST sang RefundProcessServlet/RefundRejectServlet

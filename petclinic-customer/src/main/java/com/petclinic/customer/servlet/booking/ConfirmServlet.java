@@ -1,5 +1,6 @@
 package com.petclinic.customer.servlet.booking;
 
+import com.petclinic.backend.dao.PetDAO;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
@@ -23,6 +24,7 @@ public class ConfirmServlet extends HttpServlet {
     private final VaccineDAO vaccineDAO = new VaccineDAO();
     private final BookingService bookingSvc = new BookingService();
     private final PaymentService paymentSvc = new PaymentService();
+    private final PetDAO petDAO = new PetDAO();
 
     // ── GET ───────────────────────────────────────────────────────────────────
 
@@ -38,6 +40,11 @@ public class ConfirmServlet extends HttpServlet {
                 return;
             }
 
+            Integer petId = (Integer) sess.getAttribute("bk_petId");
+            if (petId != null) {
+                req.setAttribute("selectedPet", petDAO.findByPetId(petId));
+            }
+
             boolean isInpatient = (Boolean) sess.getAttribute("bk_isInpatient");
             if (isInpatient) {
                 boolean isMorning = "morning".equals(sess.getAttribute("bk_iPeriod"));
@@ -48,7 +55,7 @@ public class ConfirmServlet extends HttpServlet {
             }
             else {
                 // services/vaccines gom TẤT CẢ dịch vụ + vaccine đã chọn cho lượt
-                // đặt lịch này (danh sách, không giới hạn 1 mục) — hiển thị đầy
+                // đặt lịch này (danh sách, không giới hạn 1 mục) - hiển thị đầy
                 // đủ ở confirm.jsp.
                 String bookingPayload = (String) sess.getAttribute("bk_payload");
                 BookingSelection selection = BookingSelection.parse(bookingPayload);
@@ -103,10 +110,10 @@ public class ConfirmServlet extends HttpServlet {
             String notes = (String) sess.getAttribute("bk_notes");
             BigDecimal total = (BigDecimal) sess.getAttribute("bk_total");
             long deposit = ((Number) sess.getAttribute("bk_deposit")).longValue();
+            Integer petId = (Integer) sess.getAttribute("bk_petId");
 
             int apptId;
             int invoiceId;
-
 
             if (isInpatient) {
                 String iDate = (String) sess.getAttribute("bk_iDate");
@@ -120,8 +127,7 @@ public class ConfirmServlet extends HttpServlet {
                     resp.sendRedirect(req.getContextPath() + "/booking/new");
                     return;
                 }
-                apptId = bookingSvc.createInpatientAppointment(customer.getCustomerID(), inpatientServiceId, iDate, iPeriod);
-
+                apptId = bookingSvc.createInpatientAppointment(customer.getCustomerID(), inpatientServiceId, iDate, iPeriod, petId);
                 if (apptId <= 0) {
                     sess.setAttribute("flashError", "Không thể tạo lịch hẹn. Vui lòng thử lại.");
                     resp.sendRedirect(req.getContextPath() + "/booking/new");
@@ -145,7 +151,7 @@ public class ConfirmServlet extends HttpServlet {
                 // 1 appointment cho NHIỀU dịch vụ/vaccine đã chọn.
                 // AppointmentServices được ghi bên trong createNormalAppointment
                 // (1 dòng/dịch vụ thực sự chọn; riêng Vaccine chỉ 1 dòng đại diện).
-                apptId = bookingSvc.createNormalAppointment(customer.getCustomerID(), selection, slotKey);
+                apptId = bookingSvc.createNormalAppointment(customer.getCustomerID(), selection, slotKey, petId);
 
                 if (apptId <= 0) {
                     sess.setAttribute("flashError", "Không thể tạo lịch hẹn. Vui lòng thử lại.");
@@ -198,7 +204,7 @@ public class ConfirmServlet extends HttpServlet {
     }
     private void clearBookingSession(HttpSession sess) {
         for (String k : new String[]{"bk_payload", "bk_petIds", "bk_slotKey", "bk_isInpatient",
-                "bk_iDate", "bk_iPeriod", "bk_notes", "bk_total", "bk_deposit"}) {
+                "bk_iDate", "bk_iPeriod", "bk_notes", "bk_total", "bk_deposit", "bk_petId"}) {
             sess.removeAttribute(k);
         }
     }

@@ -245,7 +245,7 @@
           </c:if>
           <c:if test="${groomingRecord.flagForVet}">
             <div class="detail-block" style="border-left:3px solid var(--warm-gray);padding-left:12px;">
-              <div class="detail-block-label" style="color:#b45309;">⚠ Được đánh dấu cần bác sĩ thú y kiểm tra</div>
+              <div class="detail-block-label" style="color:#b45309;">Được đánh dấu cần bác sĩ thú y kiểm tra</div>
               <c:if test="${not empty groomingRecord.flagReason}">
                 <div class="detail-block-text">${groomingRecord.flagReason}</div>
               </c:if>

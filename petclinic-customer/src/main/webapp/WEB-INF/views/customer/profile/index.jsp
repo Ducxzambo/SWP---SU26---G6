@@ -58,7 +58,7 @@
       <%-- Card: Thông tin cá nhân --%>
       <div class="account-card">
         <div class="account-card-head">
-          <h2>👤 Họ và tên</h2>
+          <h2>Họ và tên</h2>
         </div>
         <div class="account-card-body">
           <c:if test="${errorSection == 'name'}">
@@ -80,7 +80,7 @@
       <%-- Card: Số điện thoại --%>
       <div class="account-card">
         <div class="account-card-head">
-          <h2>📱 Số điện thoại</h2>
+          <h2>Số điện thoại</h2>
           <c:choose>
             <c:when test="${empty customer.phone}">
               <span class="account-badge account-badge-missing">Chưa cập nhật</span>
@@ -113,7 +113,7 @@
       <%-- Card: Email — fix cứng, chỉ cho thiết lập một lần ══════════ --%>
       <div class="account-card account-card-full">
         <div class="account-card-head">
-          <h2>✉️ Email</h2>
+          <h2>Email</h2>
           <c:choose>
             <c:when test="${empty customer.email}">
               <span class="account-badge account-badge-missing">Chưa cập nhật</span>
@@ -174,7 +174,7 @@
       <%-- Card: Đổi mật khẩu — không cần mật khẩu hiện tại ══════════ --%>
       <div class="account-card account-card-full">
         <div class="account-card-head">
-          <h2>🔒 Đổi mật khẩu</h2>
+          <h2>Đổi mật khẩu</h2>
         </div>
         <div class="account-card-body">
           <c:if test="${errorSection == 'password'}">

@@ -35,8 +35,6 @@
     </c:if>
   </div>
 
-  <!-- Booking thường: CHỈ còn 1 lựa chọn thanh toán toàn bộ (đã bỏ đặt cọc
-       50.000đ). Nội trú: giữ nguyên chỉ có lựa chọn đặt cọc cố định. -->
   <div class="pay-options">
 
     <!-- Full payment (booking thường) -->

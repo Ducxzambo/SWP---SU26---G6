@@ -16,7 +16,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 /**
- * Refund &gt; Tạo yêu cầu mới (staff tự khởi tạo, ngoài luồng huỷ lịch).
+ * Refund: Tạo yêu cầu mới .
  * 2 bước dùng chung 1 servlet, phân biệt bằng sự có mặt của "appointmentId":
  *   - GET  không có appointmentId  → bước 1: chọn appointment (Cancelled/
  *     NoShow/Done), có tìm kiếm theo tên khách/thú cưng.

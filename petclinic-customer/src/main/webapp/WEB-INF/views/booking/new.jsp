@@ -47,6 +47,64 @@
           </div>
         </div>
 
+        <div class="bk-panel">
+          <div class="bk-panel-head"><span class="bk-step-num">2</span> Thú cưng của bạn</div>
+          <div class="bk-panel-body">
+
+            <c:if test="${empty pets}">
+              <div class="bk-alert bk-alert--info" style="margin-bottom:14px;">
+                Bạn chưa có thú cưng nào trong hệ thống. Vui lòng nhập thông tin thú cưng bên dưới.
+              </div>
+            </c:if>
+
+            <c:if test="${not empty pets}">
+              <div class="chip-grid" id="petChipGrid" style="margin-bottom:12px;">
+                <c:forEach var="p" items="${pets}">
+                  <label class="chip pet-chip">
+                    <input type="radio" name="petId" value="${p.petID}" style="display:none;" onchange="onPetRadioChange(this)">
+                    <c:out value="${p.name}"/>
+                    <span class="chip-sub"><c:out value="${p.speciesName}"/><c:if test="${not empty p.breedName}"> · <c:out value="${p.breedName}"/></c:if></span>
+                  </label>
+                </c:forEach>
+              </div>
+            </c:if>
+
+            <span class="new-pet-toggle" id="newPetToggleBtn" onclick="toggleNewPetForm()"
+                  style="font-size:13px;color:var(--green-500);cursor:pointer;font-weight:500;">
+      + Thêm thú cưng mới
+    </span>
+
+            <div id="newPetFieldsWrap" style="display:${empty pets ? '' : 'none'};margin-top:14px;">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+                <div class="form-field">
+                  <label class="field-label">Tên thú cưng <span style="color:var(--red-err)">*</span></label>
+                  <input type="text" id="newPetName" name="newPetName" class="field-input" placeholder="VD: Mochi">
+                </div>
+                <div class="form-field">
+                  <label class="field-label">Ngày sinh</label>
+                  <input type="date" id="newPetDob" name="newPetDob" class="field-input" max="${today}">
+                </div>
+                <div class="form-field">
+                  <label class="field-label">Loài</label>
+                  <input type="text" id="newPetSpecies" name="newPetSpecies" class="field-input" placeholder="VD: Chó, Mèo">
+                </div>
+                <div class="form-field">
+                  <label class="field-label">Giống</label>
+                  <input type="text" id="newPetBreed" name="newPetBreed" class="field-input" placeholder="VD: Poodle">
+                </div>
+                <div class="form-field">
+                  <label class="field-label">Giới tính</label>
+                  <select id="newPetGender" name="newPetGender" class="field-input">
+                    <option value="">Không rõ</option>
+                    <option value="Male">Đực</option>
+                    <option value="Female">Cái</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div id="normalModePanels">
           <div class="bk-panel" id="petConfigPanel">
             <div class="bk-panel-head"><span class="bk-step-num">2</span> Chọn dịch vụ
@@ -119,6 +177,11 @@
           <div class="sum-section-body" id="sumSvcs"></div>
         </div>
 
+        <div id="sumPetSection" class="sum-section" style="display:none;">
+          <div class="sum-section-label">Thú cưng</div>
+          <div class="sum-section-body" id="sumPet"></div>
+        </div>
+
         <div id="sumSlotSection" class="sum-section" style="display:none;">
           <div class="sum-section-label">Thời gian</div>
           <div class="sum-section-body" id="sumSlot"></div>
@@ -148,6 +211,22 @@
   // giua chung), du lieu da chon truoc do van con trong session - JS se
   // dung du lieu nay de khoi phuc dung trang thai, khong bat dau lai tu dau.
   window.BOOKING_RESUME = ${not empty resumeData ? resumeData : 'null'};
+</script>
+<script>
+  window.onPetRadioChange = function (radio) {
+    document.querySelectorAll('.pet-chip').forEach(c => c.classList.remove('selected'));
+    radio.closest('.pet-chip').classList.add('selected');
+    document.getElementById('newPetFieldsWrap').style.display = 'none';
+  };
+  window.toggleNewPetForm = function () {
+    const wrap = document.getElementById('newPetFieldsWrap');
+    const show = wrap.style.display === 'none';
+    wrap.style.display = show ? '' : 'none';
+    if (show) {
+      document.querySelectorAll('input[name="petId"]').forEach(r => r.checked = false);
+      document.querySelectorAll('.pet-chip').forEach(c => c.classList.remove('selected'));
+    }
+  };
 </script>
 <script src="${ctx}/js/booking-new.js"></script>
 </body>

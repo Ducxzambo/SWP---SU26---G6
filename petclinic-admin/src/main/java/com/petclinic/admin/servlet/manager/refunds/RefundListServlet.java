@@ -14,7 +14,7 @@ import java.io.IOException;
 import java.util.List;
 
 /**
- * Refund &gt; Yêu cầu hoàn tiền (list screen).
+ * Refund: Yêu cầu hoàn tiền (list screen).
  * Requested luôn hiển thị trước (hàng đợi cần xử lý) - xem RefundDAO.search().
  */
 @WebServlet("/manager/refunds")

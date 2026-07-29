@@ -264,7 +264,7 @@ public class PaymentWebhookServlet extends HttpServlet {
         catch (Exception e) { return -1; }
     }
 
-    /** Tiền cọc cố định — CHỈ còn áp dụng cho Nội trú, booking thường = 0 (không còn cọc). */
+    /** Tiền cọc cố định — CHỈ còn áp dụng cho Nội trú, booking thường = 0. */
     private long computeDeposit(boolean isInpatient) {
         return isInpatient ? BookingService.DEPOSIT_INPATIENT : 0L;
     }

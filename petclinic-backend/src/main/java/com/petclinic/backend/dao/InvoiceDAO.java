@@ -56,7 +56,7 @@ public class InvoiceDAO {
 
     /**
      * Thêm 1 InvoiceItem MỚI phát sinh SAU khi invoice đã tồn tại (vd thuốc kê
-     * đơn, dịch vụ chẩn đoán/điều trị chọn thêm lúc khám — BP-04/05), đồng thời
+     * đơn, dịch vụ chẩn đoán/điều trị chọn thêm lúc khám), đồng thời
      * CỘNG DỒN LineTotal của dòng đó vào Invoices.TotalAmount (không recompute
      * lại từ đầu, để không đè mất phụ thu OT Fee đã cộng riêng trước đó qua
      * applyOvertimeFeeIfApplicable — fee này KHÔNG có dòng InvoiceItems tương ứng).

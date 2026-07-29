@@ -19,13 +19,11 @@ import java.io.IOException;
 import java.math.BigDecimal;
 
 /**
- * BP-04 — Màn hình tổng hợp hóa đơn dùng chung cho 2 điểm vào của Lễ tân:
- *
- *  1. Ngay sau khi "Tạo & Check-in" walk-in thành công (CheckInServlet) —
+ *  1. Ngay sau khi "Tạo & Check-in" walk-in thành công (CheckInServlet) -
  *     amount phải thu = TOÀN BỘ TotalAmount (chưa thu gì).
- *  2. Ngay sau khi xác nhận "Hoàn tất" ở Lịch sử (AppointmentHistoryServlet) —
+ *  2. Ngay sau khi xác nhận "Hoàn tất" ở Lịch sử (AppointmentHistoryServlet) -
  *     amount phải thu = TotalAmount hiện tại (có thể đã lớn hơn do vet/groomer
- *     phát sinh thêm chi phí thuốc/xét nghiệm — xem InvoiceSyncService) TRỪ
+ *     phát sinh thêm chi phí thuốc/xét nghiệm - xem InvoiceSyncService) TRỪ
  *     đi phần đã thu từ trước (nếu có).
  *
  * GET  /receptionist/invoice?invoiceId=X&from=checkin|history → hiển thị
@@ -130,10 +128,10 @@ public class InvoiceServlet extends HttpServlet {
 
             } else if ("bank".equals(action)) {
                 // Tái sử dụng NGUYÊN vẹn PaymentService/PayOSClient của luồng
-                // booking online của khách hàng — chỉ khác source="staff:{from}"
+                // booking online của khách hàng - chỉ khác source="staff:{from}"
                 // + staffId để callback (PaymentWebhookServlet) biết quay về
                 // đúng trang hóa đơn của lễ tân thay vì trang khách hàng.
-                String description = "Thanh toan hoa don " + invoiceId;
+                String description = "Invoice " + invoiceId;
                 String source = "staff:" + from;
                 String checkoutUrl = paymentService.createPaymentLink(
                         invoiceId, invoice.getAppointmentID(), amountDue.longValue(),

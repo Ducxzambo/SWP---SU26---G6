@@ -57,7 +57,7 @@
       <div class="profile-stat-lbl">Đã hoàn thành</div>
     </div>
     <div class="profile-stat-card">
-      <div class="profile-stat-num">${vaccines.size()}</div>
+      <div class="profile-stat-num">${vaccineCount}</div>
       <div class="profile-stat-lbl">Vaccine đã tiêm</div>
     </div>
     <div class="profile-stat-card">
@@ -73,71 +73,77 @@
     </div>
   </div>
 
-  <%-- ── Medical history timeline ────────────────────────────── --%>
+  <%-- ── Cột mốc & thống kê chung (thay cho liệt kê toàn bộ lịch sử) ─────── --%>
   <div class="profile-section">
     <div class="profile-section-head">
-      Lịch sử khám bệnh
-      <span style="margin-left:auto;font-size:12.5px;color:var(--warm-gray);font-weight:400;">
-        ${appointments.size()} lần
-      </span>
+      Cột mốc &amp; Thống kê
+      <span style="margin-left:auto;font-size:12px;color:var(--warm-gray);font-weight:400;">
+      ${cancelledCount} huỷ · ${noShowCount} vắng mặt
+    </span>
     </div>
-    <div class="profile-section-body">
-      <c:choose>
-        <c:when test="${empty appointments}">
-          <div style="padding:28px;text-align:center;color:var(--warm-gray);font-size:14px;">
-            Chưa có lịch sử khám bệnh.
-            <a href="${ctx}/booking/new"
-               style="color:var(--green-500);font-weight:500;margin-left:4px;">Đặt lịch ngay</a>
-          </div>
-        </c:when>
-        <c:otherwise>
-          <div class="timeline">
-            <c:forEach var="a" items="${appointments}" varStatus="vs">
-              <div class="timeline-item">
-                <%-- Dot + line --%>
-                <div class="timeline-dot-wrap">
-                  <div class="timeline-dot ${fn:toLowerCase(a.status)}"></div>
-                  <c:if test="${!vs.last}"><div class="timeline-line"></div></c:if>
-                </div>
-                <%-- Content --%>
-                <div class="timeline-content">
-                  <div class="timeline-service">${a.serviceName}</div>
-                  <div class="timeline-meta">
-                    <span>${a.formattedAppointmentDate}</span>
-                    <span>${a.formattedStartTime} – ${a.formattedEndTime}</span>
-                    <c:if test="${not empty a.staffName}">
-                      <span>${a.staffName}</span>
-                    </c:if>
-                    <span class="status-badge status-${fn:toLowerCase(a.status)}"
-                          style="padding:2px 8px;font-size:11px;">${a.status}</span>
-                  </div>
-<%--                  &lt;%&ndash; Medical summary if exists &ndash;%&gt;--%>
-<%--                  <c:if test="${not empty medicalMap[a.appointmentID]}">--%>
-<%--                    <c:set var="me" value="${medicalMap[a.appointmentID]}"/>--%>
-<%--                    <div class="timeline-summary"><strong>Chẩn đoán:</strong> ${me.diagnosis}</div>--%>
-<%--                  </c:if>--%>
+    <div class="profile-section-body" style="padding:18px 20px;">
+      <div class="milestone-list">
 
-<%--                  &lt;%&ndash; Grooming summary if exists &ndash;%&gt;--%>
-<%--                  <c:if test="${not empty groomingMap[a.appointmentID]}">--%>
-<%--                    <c:set var="gr" value="${groomingMap[a.appointmentID]}"/>--%>
-<%--                    <div class="timeline-summary"><strong>Tình trạng:</strong> ${gr.coatCondition}</div>--%>
-<%--                  </c:if>--%>
-
-<%--                  &lt;%&ndash; Vaccine summary if exists &ndash;%&gt;--%>
-<%--                  <c:if test="${not empty vaccineMap[a.appointmentID]}">--%>
-<%--                    <c:set var="vc" value="${vaccineMap[a.appointmentID]}"/>--%>
-<%--                    <div class="timeline-summary"><strong>Ngày tiêm:</strong> ${vc.formattedAdministeredDate}</div>--%>
-<%--                  </c:if>--%>
-                  <a href="${ctx}/appointments/detail?id=${a.appointmentID}"
-                     class="timeline-link" style="margin-top:6px;display:inline-block;">
-                    Xem chi tiết
-                  </a>
-                </div>
-              </div>
-            </c:forEach>
+        <c:if test="${not empty firstDone}">
+          <div class="milestone-item">
+            <div class="milestone-icon">🎉</div>
+            <div class="milestone-body">
+              <div class="milestone-title">Lần khám đầu tiên</div>
+              <div class="milestone-sub">${firstDone.serviceName} · ${firstDone.formattedAppointmentDate}</div>
+            </div>
+            <a href="${ctx}/appointments/detail?id=${firstDone.appointmentID}" class="milestone-link">Xem →</a>
           </div>
-        </c:otherwise>
-      </c:choose>
+        </c:if>
+
+        <c:if test="${not empty lastDone}">
+          <div class="milestone-item">
+            <div class="milestone-icon">🩺</div>
+            <div class="milestone-body">
+              <div class="milestone-title">Lần khám gần nhất</div>
+              <div class="milestone-sub">${lastDone.serviceName} · ${lastDone.formattedAppointmentDate}</div>
+            </div>
+            <a href="${ctx}/appointments/detail?id=${lastDone.appointmentID}" class="milestone-link">Xem →</a>
+          </div>
+        </c:if>
+
+        <c:if test="${not empty latestVaccine}">
+          <div class="milestone-item">
+            <div class="milestone-icon">💉</div>
+            <div class="milestone-body">
+              <div class="milestone-title">Mũi tiêm gần nhất</div>
+              <div class="milestone-sub">${latestVaccine.vaccineName} · ${latestVaccine.formattedAdministeredDate}</div>
+            </div>
+          </div>
+        </c:if>
+
+        <c:if test="${not empty nextDueVaccine}">
+          <div class="milestone-item">
+            <div class="milestone-icon">⏰</div>
+            <div class="milestone-body">
+              <div class="milestone-title">Vaccine sắp đến hạn</div>
+              <div class="milestone-sub">${nextDueVaccine.vaccineName} · nhắc lại ${nextDueVaccine.formattedNextDueDate}</div>
+            </div>
+          </div>
+        </c:if>
+
+        <c:if test="${not empty nextUpcoming}">
+          <div class="milestone-item">
+            <div class="milestone-icon">📅</div>
+            <div class="milestone-body">
+              <div class="milestone-title">Lịch hẹn sắp tới</div>
+              <div class="milestone-sub">${nextUpcoming.serviceName} · ${nextUpcoming.formattedAppointmentDate}</div>
+            </div>
+            <a href="${ctx}/appointments/detail?id=${nextUpcoming.appointmentID}" class="milestone-link">Xem →</a>
+          </div>
+        </c:if>
+
+        <c:if test="${empty firstDone and empty lastDone and empty latestVaccine and empty nextDueVaccine and empty nextUpcoming}">
+          <div class="db-empty-mini" style="color:var(--warm-gray);text-align:center;padding:24px 0;font-size:13px;">
+            Chưa có cột mốc nào được ghi nhận.
+          </div>
+        </c:if>
+
+      </div>
     </div>
   </div>
 

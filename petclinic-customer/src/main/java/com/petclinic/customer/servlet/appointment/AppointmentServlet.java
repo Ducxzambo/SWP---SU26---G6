@@ -18,6 +18,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -39,6 +40,8 @@ import java.util.Map;
 })
 public class AppointmentServlet extends HttpServlet {
 
+    private static final int PAGE_SIZE = 8;
+
     private final AppointmentDAO apptDAO    = new AppointmentDAO();
     private final MedicalRecordDAO mrDAO      = new MedicalRecordDAO();
     private final GroomingRecordDAO groomingDAO    = new GroomingRecordDAO();
@@ -48,6 +51,7 @@ public class AppointmentServlet extends HttpServlet {
     private final ReviewDAO reviewDAO  = new ReviewDAO();
     private final NotificationDAO notiDAO    = new NotificationDAO();
     private final RefundDAO refundDAO  = new RefundDAO();
+    private final PetDAO petDAO      = new PetDAO();
     private final BookingService bookingSvc = new BookingService();
 
     // ── GET ───────────────────────────────────────────────────────────────────
@@ -86,9 +90,20 @@ public class AppointmentServlet extends HttpServlet {
     // ══════════════════════════════════════════════════════════════════════════
     //  LIST
     // ══════════════════════════════════════════════════════════════════════════
+
     private void handleList(HttpServletRequest req, HttpServletResponse resp, Customer customer)
             throws Exception {
         List<Appointment> all = apptDAO.findByCustomer(customer.getCustomerID());
+
+        // ── Lọc theo thú cưng TRƯỚC khi phân trang/hiển thị ──────────────────
+        Integer petFilter = parseNullableId(req.getParameter("petId"));
+        if (petFilter != null) {
+            List<Appointment> filtered = new ArrayList<>();
+            for (Appointment a : all) {
+                if (a.getPetID() != null && a.getPetID().equals(petFilter)) filtered.add(a);
+            }
+            all = filtered;
+        }
 
         List<Appointment> upcoming = new ArrayList<>();
         List<Appointment> history  = new ArrayList<>();
@@ -104,13 +119,67 @@ public class AppointmentServlet extends HttpServlet {
             else                          history.add(a);
         }
 
-        req.setAttribute("upcoming",      upcoming);
-        req.setAttribute("history",       history);
-        req.setAttribute("navCategories", serviceDAO.findAllCategoriesWithServices());
+        String view = "calendar".equals(req.getParameter("view")) ? "calendar" : "list";
+
+        if ("calendar".equals(view)) {
+            // Calendar cần TOÀN BỘ tập đã lọc theo pet (không phân trang).
+            req.setAttribute("calendarJson", appointmentsToJson(all));
+        } else {
+            int upTotalPages   = Math.max(1, (int) Math.ceil(upcoming.size() / (double) PAGE_SIZE));
+            int histTotalPages = Math.max(1, (int) Math.ceil(history.size()  / (double) PAGE_SIZE));
+            int upPage   = Math.min(Math.max(1, parsePage(req.getParameter("upPage"))), upTotalPages);
+            int histPage = Math.min(Math.max(1, parsePage(req.getParameter("histPage"))), histTotalPages);
+
+            req.setAttribute("upcoming",  paginate(upcoming, upPage, PAGE_SIZE));
+            req.setAttribute("history",   paginate(history, histPage, PAGE_SIZE));
+            req.setAttribute("upPage",    upPage);
+            req.setAttribute("histPage",  histPage);
+            req.setAttribute("upTotalPages",   upTotalPages);
+            req.setAttribute("histTotalPages", histTotalPages);
+        }
+
+        req.setAttribute("view",             view);
+        req.setAttribute("petFilter",        petFilter);
+        req.setAttribute("pets",             petDAO.findByCustomerId(customer.getCustomerID()));
+        req.setAttribute("upcomingCount",    upcoming.size());
+        req.setAttribute("historyCount",     history.size());
+        req.setAttribute("navCategories",    serviceDAO.findAllCategoriesWithServices());
         req.setAttribute("unreadCount",
                 new NotificationDAO().countUnread(customer.getCustomerID()));
         req.getRequestDispatcher("/WEB-INF/views/customer/appointments/appointment.jsp")
                 .forward(req, resp);
+    }
+
+    private List<Appointment> paginate(List<Appointment> list, int page, int pageSize) {
+        int from = (page - 1) * pageSize;
+        if (from >= list.size() || from < 0) return new ArrayList<>();
+        return list.subList(from, Math.min(from + pageSize, list.size()));
+    }
+
+    private int parsePage(String s) {
+        try { return Math.max(1, Integer.parseInt(s)); } catch (Exception e) { return 1; }
+    }
+
+    private Integer parseNullableId(String s) {
+        if (s == null || s.isBlank()) return null;
+        try { return Integer.parseInt(s.trim()); } catch (Exception e) { return null; }
+    }
+
+    private String appointmentsToJson(List<Appointment> list) {
+        JsonArray arr = new JsonArray();
+        for (Appointment a : list) {
+            if (a.getAppointmentDate() == null) continue;
+            JsonObject o = new JsonObject();
+            o.addProperty("id", a.getAppointmentID());
+            o.addProperty("date", a.getAppointmentDate().toString());
+            o.addProperty("startTime", a.getFormattedStartTime());
+            o.addProperty("endTime", a.getFormattedEndTime());
+            o.addProperty("service", a.getServiceName());
+            o.addProperty("pet", a.getPetName() != null ? a.getPetName() : "");
+            o.addProperty("status", a.getStatus());
+            arr.add(o);
+        }
+        return arr.toString();
     }
 
     // ══════════════════════════════════════════════════════════════════════════
@@ -353,7 +422,7 @@ public class AppointmentServlet extends HttpServlet {
 
         boolean isInpatient = appt.getStartTime() != null && appt.getEndTime() != null
                 && Duration.between(appt.getStartTime(), appt.getEndTime()).toMinutes() >= 240;
-        long deposit = bookingSvc.computeDeposit(isInpatient);
+        long deposit = bookingSvc.computeDeposit(invoice.getTotalAmount(), isInpatient);
         BigDecimal payableTotal = invoice.getTotalAmount();
         if (isInpatient && (payableTotal == null || payableTotal.signum() <= 0)) {
             payableTotal = BigDecimal.valueOf(deposit);

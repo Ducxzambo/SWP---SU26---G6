@@ -61,7 +61,7 @@ public class RefundService {
     /**
      * Xác nhận ĐÃ CHUYỂN KHOẢN xong (bước 2, sau khi staff quét QR ở bước 1
      * và tự thực hiện chuyển khoản bằng app ngân hàng của họ). Cập nhật
-     * Refund → Processed, Invoice → Refunded/PartiallyRefunded tuỳ số tiền
+     * Refund -> Processed, Invoice -> Refunded/PartiallyRefunded tuỳ số tiền
      * hoàn có phủ hết tổng đã thu hay không, rồi gửi email cho khách.
      */
     public void confirmProcessed(int refundId, int staffId) throws Exception {
@@ -74,7 +74,7 @@ public class RefundService {
         boolean updated = refundDAO.markProcessed(refundId, staffId);
         if (!updated) {
             throw new IllegalStateException(
-                    "Yêu cầu này vừa được xử lý (có thể ở tab khác) — vui lòng tải lại trang.");
+                    "Yêu cầu này vừa được xử lý - vui lòng tải lại trang.");
         }
 
         Invoice invoice = invoiceDAO.findByAppointment(refund.getAppointmentID());
@@ -103,7 +103,7 @@ public class RefundService {
         boolean updated = refundDAO.markRejected(refundId, staffId, rejectReason.trim());
         if (!updated) {
             throw new IllegalStateException(
-                    "Yêu cầu này vừa được xử lý (có thể ở tab khác) — vui lòng tải lại trang.");
+                    "Yêu cầu này vừa được xử lý - vui lòng tải lại trang.");
         }
 
         refund.setStatus("Rejected");

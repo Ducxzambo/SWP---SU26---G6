@@ -26,6 +26,24 @@
 
   <div class="confirm-box">
     <div class="confirm-box-head">Thông tin đặt lịch</div>
+    <c:if test="${not empty selectedPet}">
+      <div class="confirm-box-head" style="background:var(--green-50);color:var(--text-dark);font-size:14px;border-top:1px solid var(--border);">
+        Thú cưng
+      </div>
+      <table class="confirm-table">
+        <tr>
+          <td>Tên</td>
+          <td><strong><c:out value="${selectedPet.name}"/></strong></td>
+        </tr>
+        <tr>
+          <td>Loài / Giống</td>
+          <td>
+            <c:out value="${selectedPet.speciesName}"/>
+            <c:if test="${not empty selectedPet.breedName}"> / <c:out value="${selectedPet.breedName}"/></c:if>
+          </td>
+        </tr>
+      </table>
+    </c:if>
 
     <c:choose>
       <c:when test="${isInpatient}">
