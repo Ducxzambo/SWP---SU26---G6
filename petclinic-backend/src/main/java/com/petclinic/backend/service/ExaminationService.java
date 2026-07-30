@@ -361,7 +361,6 @@ public class ExaminationService {
         return finalizeAppointment(appointmentID, null);
     }
 
-    /** Overload cho phép lấy ra danh sách category còn thiếu (để hiển thị chi tiết). */
     public FinalizeResult finalizeAppointment(int appointmentID, List<String> outMissingCategories) throws SQLException {
         Appointment appt = appointmentDAO.findById(appointmentID);
         if (appt == null) return FinalizeResult.NOT_FOUND;
@@ -375,6 +374,13 @@ public class ExaminationService {
         }
 
         boolean updated = appointmentDAO.finalizeAppointment(appointmentID);
+        if (updated) {
+            try {
+                new InvoiceDAO().recomputeStatusForAppointment(appointmentID);
+            } catch (SQLException e) {
+                // Không để lỗi đồng bộ trạng thái hoá đơn làm hỏng việc hoàn tất lịch hẹn.
+            }
+        }
         return updated ? FinalizeResult.SUCCESS : FinalizeResult.WRONG_STATUS;
     }
 }

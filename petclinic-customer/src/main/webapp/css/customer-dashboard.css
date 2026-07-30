@@ -131,24 +131,41 @@
 .cal-cell-today { background: var(--green-50); }
 .cal-cell-day { font-size: 12.5px; font-weight: 700; margin-bottom: 4px; }
 .cal-chip {
-    display: block; font-size: 11px; padding: 2px 6px; margin-bottom: 2px; border-radius: 5px;
-    background: var(--green-100); color: var(--green-900); text-decoration: none;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 11px; padding: 2px 6px; margin-bottom: 2px; border-radius: 5px;
+    text-decoration: none; line-height: 1.35; border: 1px solid transparent;
 }
-.cal-more { font-size: 10.5px; color: var(--warm-gray); margin-top: 2px; }
+.cal-chip.db-status-pending    { background:#fff3cd; color:#856404; }
+.cal-chip.db-status-confirmed  { background:#d1ecf1; color:#0c5460; }
+.cal-chip.db-status-inprogress { background:#d4edda; color:#155724; }
+.cal-chip.db-status-done       { background:#d4edda; color:#155724; }
+.cal-chip.db-status-cancelled  { background:#f8d7da; color:#721c24; }
+.cal-chip.db-status-noshow     { background:#e2e3e5; color:#383d41; }
 
-.cal-week-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
-.cal-week-col { border-right: 1px solid var(--border); padding: 10px 8px; min-height: 260px; }
-.cal-week-col:last-child { border-right: none; }
-.cal-week-col-head { text-align: center; font-size: 12.5px; font-weight: 700; color: var(--text-mid); margin-bottom: 10px; }
-.cal-week-col-head span { font-weight: 400; color: var(--warm-gray); font-size: 11.5px; }
-.cal-week-empty { font-size: 12px; color: var(--warm-gray); text-align: center; margin-top: 20px; }
 .cal-week-item {
-    display: block; background: var(--green-50); border: 1px solid var(--green-100);
-    border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; font-size: 12px;
-    color: var(--text-dark); text-decoration: none;
+    display: block; border-radius: 8px; padding: 8px 10px; margin-bottom: 8px;
+    font-size: 12px; text-decoration: none; border: 1px solid transparent;
 }
-.cal-week-pet { color: var(--warm-gray); font-size: 11px; }
+.cal-week-item.db-status-pending    { background:#fff3cd; color:#856404; border-color:#ffe28a; }
+.cal-week-item.db-status-confirmed  { background:#d1ecf1; color:#0c5460; border-color:#bee5eb; }
+.cal-week-item.db-status-inprogress { background:#d4edda; color:#155724; border-color:#c3e6cb; }
+.cal-week-item.db-status-done       { background:#d4edda; color:#155724; border-color:#c3e6cb; }
+.cal-week-item.db-status-cancelled  { background:#f8d7da; color:#721c24; border-color:#f5c6cb; }
+.cal-week-item.db-status-noshow     { background:#e2e3e5; color:#383d41; border-color:#d6d8db; }
+.cal-week-pet { font-size: 11px; opacity: .8; }
+
+.cal-week-service {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.3;
+}
 
 .cal-day-list { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
 .cal-day-item {
@@ -161,6 +178,24 @@
 .cal-day-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 13.5px; }
 .cal-day-body span { font-size: 12px; color: var(--warm-gray); }
 .cal-day-empty { padding: 40px; text-align: center; color: var(--warm-gray); font-size: 14px; }
+
+/* replace the old .cal-more rule with: */
+.cal-more { font-size: 9.5px; font-weight: 500; color: var(--warm-gray); margin-top: 1px; }
+
+/* new: date-jump input in the calendar toolbar */
+.cal-jump-wrap { display: flex; align-items: center; gap: 6px; margin-left: 12px; }
+.cal-jump-wrap label { font-size: 12.5px; color: var(--warm-gray); white-space: nowrap; }
+.cal-jump-input {
+    border: 1.5px solid var(--border); border-radius: 8px; padding: 6px 10px;
+    font-family: 'DM Sans', sans-serif; font-size: 13px; color: var(--text-dark);
+    background: #fff; outline: none; transition: var(--transition);
+}
+.cal-jump-input:focus { border-color: var(--green-500); }
+
+@media (max-width: 700px) {
+    .cal-nav { flex-wrap: wrap; }
+    .cal-jump-wrap { margin-left: 0; margin-top: 6px; width: 100%; }
+}
 
 @media (max-width: 700px) {
     .cal-grid-body { grid-auto-rows: minmax(70px, auto); }

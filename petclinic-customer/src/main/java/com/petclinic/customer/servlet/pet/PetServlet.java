@@ -1,21 +1,22 @@
 package com.petclinic.customer.servlet.pet;
 
+import com.petclinic.backend.dao.*;
+import com.petclinic.backend.dto.PetTimelineEvent;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
-import com.petclinic.backend.dao.AppointmentDAO;
-import com.petclinic.backend.dao.NotificationDAO;
-import com.petclinic.backend.dao.PetDAO;
-import com.petclinic.backend.dao.ServiceDAO;
 import com.petclinic.backend.model.*;
 import com.petclinic.backend.service.PetService;
 
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * URL map:
@@ -34,10 +35,16 @@ public class PetServlet extends HttpServlet {
     private final AppointmentDAO appointmentDAO = new AppointmentDAO();
     private final ServiceDAO serviceDAO     = new ServiceDAO();
     private final NotificationDAO notifDAO      = new NotificationDAO();
+    private final VaccinationRecordDAO vaccinationRecordDAO = new VaccinationRecordDAO();
+    private final MedicalRecordDAO medicalRecordDAO = new MedicalRecordDAO();
 
     private final PetService petSvc = new PetService();
 
     private static final DateTimeFormatter ISO = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+
+    // "Tai kham: yyyy-MM-dd" là chuỗi ExaminationService.saveMedicalRecord() append
+// vào TreatmentPlan khi vet nhập ngày tái khám — xem examination-detail.jsp field followUpDate.
+    private static final Pattern FOLLOWUP_PATTERN = Pattern.compile("Tai kham:\\s*(\\d{4}-\\d{2}-\\d{2})");
 
     // ── GET ───────────────────────────────────────────────────────────────────
     @Override
@@ -100,11 +107,14 @@ public class PetServlet extends HttpServlet {
         }
 
         List<Appointment> appointments = appointmentDAO.findByPet(id);
-        Map<Integer, VaccinationRecord> vaccineMap = petSvc.getVaccinationRecordsByPet(id);
+        List<VaccinationRecord> vaccineRecords = vaccinationRecordDAO.findByPet(id);
+        List<MedicalRecord> medicalRecords = medicalRecordDAO.findByPet(id);
 
         LocalDate today = LocalDate.now();
         Appointment firstDone = null, lastDone = null, nextUpcoming = null;
         int doneCount = 0, cancelledCount = 0, noShowCount = 0;
+
+        List<PetTimelineEvent> timeline = new ArrayList<>();
 
         for (Appointment a : appointments) {
             if (a.getAppointmentDate() == null) continue;
@@ -112,10 +122,15 @@ public class PetServlet extends HttpServlet {
                 doneCount++;
                 if (firstDone == null || a.getAppointmentDate().isBefore(firstDone.getAppointmentDate())) firstDone = a;
                 if (lastDone == null || a.getAppointmentDate().isAfter(lastDone.getAppointmentDate())) lastDone = a;
+                timeline.add(new PetTimelineEvent(a.getAppointmentDate(), PetTimelineEvent.Type.DONE,
+                        a.getServiceName(), a.getAppointmentID()));
             } else if ("Cancelled".equals(a.getStatus())) {
                 cancelledCount++;
             } else if ("NoShow".equals(a.getStatus())) {
                 noShowCount++;
+            } else if ("Confirmed".equals(a.getStatus())) {
+                timeline.add(new PetTimelineEvent(a.getAppointmentDate(), PetTimelineEvent.Type.CONFIRMED,
+                        a.getServiceName(), a.getAppointmentID()));
             }
             boolean active = "Pending".equals(a.getStatus()) || "Confirmed".equals(a.getStatus()) || "InProgress".equals(a.getStatus());
             if (active && !a.getAppointmentDate().isBefore(today)) {
@@ -124,10 +139,13 @@ public class PetServlet extends HttpServlet {
         }
 
         VaccinationRecord latestVaccine = null, nextDueVaccine = null;
-        for (VaccinationRecord vr : vaccineMap.values()) {
-            if (vr.getAdministeredDate() != null
-                    && (latestVaccine == null || vr.getAdministeredDate().isAfter(latestVaccine.getAdministeredDate()))) {
-                latestVaccine = vr;
+        for (VaccinationRecord vr : vaccineRecords) {
+            if (vr.getAdministeredDate() != null) {
+                timeline.add(new PetTimelineEvent(vr.getAdministeredDate(), PetTimelineEvent.Type.VACCINE,
+                        vr.getVaccineName(), vr.getAppointmentID()));
+                if (latestVaccine == null || vr.getAdministeredDate().isAfter(latestVaccine.getAdministeredDate())) {
+                    latestVaccine = vr;
+                }
             }
             if (vr.getNextDueDate() != null && !vr.getNextDueDate().isBefore(today)
                     && (nextDueVaccine == null || vr.getNextDueDate().isBefore(nextDueVaccine.getNextDueDate()))) {
@@ -135,17 +153,34 @@ public class PetServlet extends HttpServlet {
             }
         }
 
+        for (MedicalRecord mr : medicalRecords) {
+            if (mr.getTreatmentPlan() == null) continue;
+            Matcher m = FOLLOWUP_PATTERN.matcher(mr.getTreatmentPlan());
+            while (m.find()) {
+                try {
+                    LocalDate followUp = LocalDate.parse(m.group(1));
+                    timeline.add(new PetTimelineEvent(followUp, PetTimelineEvent.Type.FOLLOWUP,
+                            "Tái khám", mr.getAppointmentID()));
+                } catch (Exception ignored) {
+                    // Ngày tái khám lưu sai định dạng — bỏ qua, không chặn hiển thị timeline.
+                }
+            }
+        }
+
+        timeline.sort(java.util.Comparator.comparing(PetTimelineEvent::getDate));
+
         setCommonAttrs(req, customer);
         req.setAttribute("pet",            pet);
         req.setAttribute("doneCount",      doneCount);
         req.setAttribute("cancelledCount", cancelledCount);
         req.setAttribute("noShowCount",    noShowCount);
-        req.setAttribute("vaccineCount",   vaccineMap.size());
+        req.setAttribute("vaccineCount",   vaccineRecords.size());
         req.setAttribute("firstDone",      firstDone);
         req.setAttribute("lastDone",       lastDone);
         req.setAttribute("nextUpcoming",   nextUpcoming);
         req.setAttribute("latestVaccine",  latestVaccine);
         req.setAttribute("nextDueVaccine", nextDueVaccine);
+        req.setAttribute("timeline",       timeline);
         req.getRequestDispatcher("/WEB-INF/views/customer/pets/profile.jsp").forward(req, resp);
     }
 

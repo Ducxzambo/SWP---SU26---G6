@@ -30,6 +30,23 @@
     function pad(n) { return n < 10 ? '0' + n : '' + n; }
     function fmtKey(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
 
+    /**
+     * Cộng/trừ tháng AN TOÀN — tránh lỗi kinh điển của JS Date: nếu ngày hiện
+     * tại là 29/30/31 và tháng đích không có đủ số ngày đó, setMonth() sẽ
+     * "tràn" sang tháng kế tiếp (VD 31/1 + 1 tháng => 3/3 thay vì 28/2), khiến
+     * cursor bị lệch — đây chính là nguyên nhân gây hiển thị sai khi chuyển
+     * sang xem theo TUẦN sau khi đã bấm chuyển tháng nhiều lần ở view Tháng.
+     */
+    function addMonthsSafe(date, delta) {
+        const d = new Date(date);
+        const day = d.getDate();
+        d.setDate(1);
+        d.setMonth(d.getMonth() + delta);
+        const daysInMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+        d.setDate(Math.min(day, daysInMonth));
+        return d;
+    }
+
     function render() {
         root.innerHTML =
             '<div class="cal-toolbar">' +
@@ -38,6 +55,10 @@
             '<button type="button" class="cal-btn cal-today" id="calToday">Hôm nay</button>' +
             '<button type="button" class="cal-btn" id="calNext">›</button>' +
             '<span class="cal-label" id="calLabel"></span>' +
+            '<span class="cal-jump-wrap">' +
+            '<label for="calJumpPicker">Đi tới ngày:</label>' +
+            '<input type="date" id="calJumpPicker" class="cal-jump-input">' +
+            '</span>' +
             '</div>' +
             '<div class="cal-view-switch">' +
             '<button type="button" class="cal-mode-btn" data-mode="month">Tháng</button>' +
@@ -57,15 +78,30 @@
             cursor = new Date(); cursor.setHours(0, 0, 0, 0); render();
         };
 
+        // ── Datepicker: nhảy thẳng tới 1 ngày bất kỳ, thay vì bấm mũi tên nhiều lần ──
+        const jumpInput = document.getElementById('calJumpPicker');
+        if (jumpInput) {
+            jumpInput.value = fmtKey(cursor);
+            jumpInput.onchange = function () { jumpToDate(jumpInput.value); };
+        }
+
         if (mode === 'month') renderMonth();
         else if (mode === 'week') renderWeek();
         else renderDay();
     }
 
     function step(dir) {
-        if (mode === 'month') cursor.setMonth(cursor.getMonth() + dir);
+        if (mode === 'month') cursor = addMonthsSafe(cursor, dir);
         else if (mode === 'week') cursor.setDate(cursor.getDate() + dir * 7);
         else cursor.setDate(cursor.getDate() + dir);
+        render();
+    }
+
+    function jumpToDate(dateStr) {
+        if (!dateStr) return;
+        const parts = dateStr.split('-').map(Number);
+        if (parts.length !== 3 || parts.some(isNaN)) return;
+        cursor = new Date(parts[0], parts[1] - 1, parts[2]);
         render();
     }
 
@@ -129,12 +165,17 @@
             const evts = eventsByDate[key] || [];
             html += '<div class="cal-week-col' + (key === todayKey ? ' cal-cell-today' : '') + '">';
             html += '<div class="cal-week-col-head">' + DOW[d.getDay()] + '<br><span>' + pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '</span></div>';
-            if (!evts.length) html += '<div class="cal-week-empty">—</div>';
-            evts.forEach(function (e) {
-                html += '<a href="' + CTX + '/appointments/detail?id=' + e.id + '" class="cal-week-item ' + (STATUS_CLASS[e.status] || '') + '">' +
-                    '<strong>' + (e.startTime || '') + '</strong><br>' + escHtml(e.service) +
-                    (e.pet ? '<br><span class="cal-week-pet">' + escHtml(e.pet) + '</span>' : '') + '</a>';
-            });
+            if (!evts.length) {
+                html += '<div class="cal-week-empty">—</div>';
+            } else {
+                // Không giới hạn số lượng — mỗi lịch hẹn hiển thị đầy đủ 1 thẻ riêng.
+                evts.forEach(function (e) {
+                    html += '<a href="' + CTX + '/appointments/detail?id=' + e.id + '" class="cal-week-item ' + (STATUS_CLASS[e.status] || '') + '">' +
+                        '<strong>' + (e.startTime || '') + '</strong><br>' +
+                        '<span class="cal-week-service">' + escHtml(e.service) + '</span>' +
+                        (e.pet ? '<br><span class="cal-week-pet">' + escHtml(e.pet) + '</span>' : '') + '</a>';
+                });
+            }
             html += '</div>';
         }
         html += '</div>';

@@ -375,15 +375,25 @@ public class InvoiceDAO {
         BigDecimal amountPaid   = sumAmountPaid(c, invoiceId);
         BigDecimal initialTotal = sumInvoiceItems(c, invoiceId);
         BigDecimal currentTotal;
-        try (PreparedStatement ps = c.prepareStatement("SELECT TotalAmount FROM Invoices WHERE InvoiceID = ?")) {
+        String apptStatus = null;
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT i.TotalAmount, a.Status AS ApptStatus " +
+                        "FROM Invoices i JOIN Appointments a ON a.AppointmentID = i.AppointmentID " +
+                        "WHERE i.InvoiceID = ?")) {
             ps.setInt(1, invoiceId);
             try (ResultSet rs = ps.executeQuery()) {
-                currentTotal = rs.next() ? rs.getBigDecimal(1) : BigDecimal.ZERO;
+                if (rs.next()) {
+                    currentTotal = rs.getBigDecimal("TotalAmount");
+                    apptStatus = rs.getString("ApptStatus");
+                } else {
+                    currentTotal = BigDecimal.ZERO;
+                }
             }
         }
         if (currentTotal == null) currentTotal = BigDecimal.ZERO;
 
-        String status = deriveStatus(amountPaid, initialTotal, currentTotal);
+        boolean appointmentDone = "Done".equals(apptStatus);
+        String status = deriveStatus(amountPaid, initialTotal, currentTotal, appointmentDone);
 
         try (PreparedStatement ps = c.prepareStatement("UPDATE Invoices SET Status = ? WHERE InvoiceID = ?")) {
             ps.setString(1, status);
@@ -392,15 +402,45 @@ public class InvoiceDAO {
         }
     }
 
-    private String deriveStatus(BigDecimal amountPaid, BigDecimal initialTotal, BigDecimal currentTotal) {
+    /**
+     * "PrePaid" khi đã thanh toán đủ NHƯNG lịch hẹn CHƯA hoàn tất (đặt cọc/thanh
+     * toán trước khi khám). "Paid" khi đã thanh toán đủ VÀ lịch hẹn đã Done —
+     * đây là điểm sửa lỗi chính: trước đây chỉ dựa vào "tổng tiền có tăng lên
+     * hay không" nên 1 invoice đã thanh toán 100% từ lúc đặt lịch (không phát
+     * sinh thêm chi phí khi khám) sẽ bị kẹt mãi ở "PrePaid", không bao giờ lên
+     * "Paid" dù ca khám đã xong và tiền đã thu đủ.
+     */
+    private String deriveStatus(BigDecimal amountPaid, BigDecimal initialTotal,
+                                BigDecimal currentTotal, boolean appointmentDone) {
         if (amountPaid == null || amountPaid.compareTo(BigDecimal.ZERO) <= 0) return "Unpaid";
         boolean coversCurrent = amountPaid.compareTo(currentTotal) >= 0;
         boolean coversInitial = initialTotal != null && amountPaid.compareTo(initialTotal) >= 0;
-        boolean totalGrew     = initialTotal != null && currentTotal.compareTo(initialTotal) > 0;
-        if (coversCurrent && !totalGrew) return "PrePaid"; // thanh toán 100% khi đặt lịch
-        if (coversCurrent) return "Paid";                  // đã thanh toán hết cả phần phát sinh sau này
-        if (coversInitial) return "PrePaid";                // đủ tổng ban đầu, nhưng tổng hiện tại đã tăng thêm (còn thiếu phần phát sinh)
+        if (coversCurrent) return appointmentDone ? "Paid" : "PrePaid";
+        if (coversInitial) return "PrePaid"; // đủ tổng ban đầu, còn thiếu phần phát sinh sau
         return "Unpaid";
+    }
+
+    /**
+     * Tính lại Status cho invoice gắn với appointment này — gọi ngay khi
+     * appointment chuyển sang Done (xem ExaminationService.finalizeAppointment),
+     * để 1 invoice đã "PrePaid" từ lúc đặt lịch được chuyển đúng thành "Paid"
+     * ngay khi ca khám hoàn tất, thay vì chờ một khoản thanh toán MỚI (có thể
+     * không bao giờ xảy ra) mới kích hoạt recomputeAndUpdateStatus().
+     */
+    public void recomputeStatusForAppointment(int appointmentId) throws SQLException {
+        try (Connection c = DBConnection.getConnection()) {
+            Integer invoiceId = null;
+            try (PreparedStatement ps = c.prepareStatement(
+                    "SELECT InvoiceID FROM Invoices WHERE AppointmentID = ?")) {
+                ps.setInt(1, appointmentId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) invoiceId = rs.getInt(1);
+                }
+            }
+            if (invoiceId != null) {
+                recomputeAndUpdateStatus(c, invoiceId);
+            }
+        }
     }
 
     private BigDecimal sumAmountPaid(Connection c, int invoiceId) throws SQLException {
