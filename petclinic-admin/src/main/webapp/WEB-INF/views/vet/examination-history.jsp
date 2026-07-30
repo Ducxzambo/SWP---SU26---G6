@@ -34,7 +34,7 @@
 
     <main class="main-content">
         <div class="page-header">
-            <h1>📜 Lịch Sử Của Tôi</h1>
+            <h1>Lịch Sử Của Tôi</h1>
             <p class="page-sub">Các ca bạn đã lưu bệnh án xong (lịch hẹn có thể vẫn chờ nhân viên khác hoàn tất)</p>
         </div>
 

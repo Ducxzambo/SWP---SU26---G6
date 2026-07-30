@@ -60,7 +60,7 @@
         <div class="sidebar-logo">🐾 PetClinic</div>
         <nav>
             <a href="${pageContext.request.contextPath}/vet/examination" class="nav-item active">Hàng chờ khám</a>
-            <a href="${pageContext.request.contextPath}/vet/examination?action=history" class="nav-item">Lịch sử khám</a>
+            <a href="${pageContext.request.contextPath}/vet/examination?action=history" class="nav-item">Lịch sử</a>
         </nav>
         <div class="sidebar-user">
              ${sessionScope.staff.fullName}
