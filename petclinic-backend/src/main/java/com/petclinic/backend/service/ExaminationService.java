@@ -287,8 +287,7 @@ public class ExaminationService {
         LocalDate d = date == null ? LocalDate.now() : date;
         List<Appointment> result = appointmentDAO.findStaffQueue(vetID, d, CAT_LAB_TEST, "MedicalRecords");
         mergeDistinctById(result, appointmentDAO.findStaffQueue(vetID, d, CAT_TREATMENT, "MedicalRecords"));
-        mergeDistinctById(result, appointmentDAO.findUnassignedArrived(d, CAT_LAB_TEST, "MedicalRecords"));
-        mergeDistinctById(result, appointmentDAO.findUnassignedArrived(d, CAT_TREATMENT, "MedicalRecords"));
+        mergeDistinctById(result, appointmentDAO.findStaffQueue(vetID, d, "Khám & Điều Trị Bệnh", "MedicalRecords"));
         return result;
     }
 
@@ -302,6 +301,7 @@ public class ExaminationService {
         List<Appointment> result = appointmentDAO.findStaffCompletedToday(vetID, d, CAT_LAB_TEST, "MedicalRecords");
         List<Appointment> treatDone = appointmentDAO.findStaffCompletedToday(vetID, d, CAT_TREATMENT, "MedicalRecords");
         mergeDistinctById(result, treatDone);
+        mergeDistinctById(result, appointmentDAO.findStaffCompletedToday(vetID, d, "Khám & Điều Trị Bệnh", "MedicalRecords"));
         return result;
     }
 
