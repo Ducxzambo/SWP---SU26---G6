@@ -13,7 +13,7 @@
 <div class="auth-card">
 
   <div class="auth-header">
-    <div class="logo"><span class="paw">🐾</span>Pet<span>Clinic</span></div>
+    <div class="logo"><span class="paw"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="7" cy="8" r="2"/><circle cx="12" cy="5" r="2"/><circle cx="17" cy="8" r="2"/><path d="M12 11c-3 0-5 2-5 5 0 2 1 3 3 2l2-1 2 1c2 1 3 0 3-2 0-3-2-5-5-5z"/></svg></span>Pet<span>Clinic</span></div>
     <h2>Khôi phục mật khẩu</h2>
   </div>
 
@@ -44,7 +44,7 @@
       <div class="form-group">
         <label for="email">Email</label>
         <div class="input-wrap">
-          <span class="input-icon">✉</span>
+          <span class="input-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></span>
           <input type="email" id="email" name="email" class="form-control"
                  placeholder="email@example.com"
                  autocomplete="username" required autofocus>

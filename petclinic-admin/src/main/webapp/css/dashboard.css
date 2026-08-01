@@ -186,6 +186,17 @@ body {
     flex-shrink: 0;
     line-height: 1.5;
 }
+.alert-icon svg, .input-icon svg, .empty-icon svg, .pay-opt-icon svg, .pay-qr-note-icon svg, .result-icon svg {
+    width: 1em;
+    height: 1em;
+    display: inline-block;
+    vertical-align: middle;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
 
 .alert-success {
     background: var(--green-100);

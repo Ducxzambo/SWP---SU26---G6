@@ -21,7 +21,7 @@
     <c:when test="${not empty invoice and (invoice.status eq 'Paid' or invoice.status eq 'PrePaid')}">
 
       <!-- SUCCESS -->
-      <div class="result-icon result-icon--success">✓</div>
+      <div class="result-icon result-icon--success"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg></div>
       <h1 class="result-title result-title--success">Thanh toán thành công!</h1>
       <c:if test="${not empty receipt}">
         <div class="result-card" style="margin-bottom:20px;">

@@ -44,15 +44,6 @@
       <span class="db-metric-tag green">Hoàn tất</span>
       <span class="db-metric-sub">lượt khám / chăm sóc</span>
     </div>
-    <div class="db-metric-card">
-      <div class="db-metric-label">Thông báo chưa đọc</div>
-      <div class="db-metric-num">${unreadCount}</div>
-      <c:choose>
-        <c:when test="${unreadCount > 0}"><span class="db-metric-tag amber">Mới</span></c:when>
-        <c:otherwise><span class="db-metric-tag gray">Đã đọc hết</span></c:otherwise>
-      </c:choose>
-      <span class="db-metric-sub">cập nhật gần đây</span>
-    </div>
   </div>
 
   <div class="db-section-head">Truy Cập Nhanh</div>
@@ -65,10 +56,6 @@
     </a>
     <a href="${ctx}/appointments" class="db-quick-card">
       <div class="db-quick-icon"></div><span>Lịch khám</span>
-    </a>
-    <a href="${ctx}/notifications" class="db-quick-card">
-      <div class="db-quick-icon"></div>
-      <span>Thông báo<c:if test="${unreadCount > 0}"> (${unreadCount})</c:if></span>
     </a>
   </div>
 

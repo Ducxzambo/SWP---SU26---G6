@@ -21,8 +21,6 @@ public class PaymentWebhookServlet extends HttpServlet {
     private static final Logger LOG = Logger.getLogger(PaymentWebhookServlet.class.getName());
 
     private final PaymentService paymentSvc     = new PaymentService();
-    private final AssignmentService assignmentSvc  = new AssignmentService();
-    private final NotificationService notifSvc      = new NotificationService();
     private final AppointmentDAO appointmentDAO = new AppointmentDAO();
     private final CustomerDAO customerDAO    = new CustomerDAO();
     private final InvoiceDAO invoiceDAO     = new InvoiceDAO();
@@ -118,14 +116,9 @@ public class PaymentWebhookServlet extends HttpServlet {
                         appointmentDAO.updateStatus(apptId, "Confirmed");
                     }
 
-                    assignmentSvc.autoAssign(apptId);
-
                     Appointment freshAppt = appointmentDAO.findById(apptId);
                     Invoice freshInv  = invoiceDAO.findById(invoiceId);
                     if (freshAppt != null && freshInv != null) {
-                        notifSvc.onBookingConfirmed(customer, freshAppt,
-                                freshInv.getTotalAmount(), paidAmount, full);
-
                         try {
                             ReceiptData receipt = receiptService.buildPrepayReceipt(freshInv, freshAppt, customer, full, paidAmount);
                             String pdfUrl = absoluteBaseUrl(req) + req.getContextPath() + "/invoices/pdf?invoiceId=" + invoiceId;
@@ -179,9 +172,6 @@ public class PaymentWebhookServlet extends HttpServlet {
             req.setAttribute("full",          full);
             req.setAttribute("customer",      customer);
             req.setAttribute("navCategories", serviceDAO.findAllCategoriesWithServices());
-            req.setAttribute("unreadCount",
-                    new NotificationDAO().countUnread(customer.getCustomerID()));
-
             req.getRequestDispatcher("/WEB-INF/views/booking/payment-result.jsp")
                     .forward(req, resp);
 
@@ -217,8 +207,6 @@ public class PaymentWebhookServlet extends HttpServlet {
             Customer customer = customerDAO.findById(appt.getCustomerID());
             if (customer == null) return;
 
-            notifSvc.onBookingConfirmed(customer, appt,
-                    invoice.getTotalAmount(), BigDecimal.valueOf(amount), isFull);
         } catch (Exception e) {
             e.printStackTrace();
         }

@@ -24,7 +24,6 @@ public class ExaminationService {
     private final PetDAO           petDAO           = new PetDAO();
     private final StaffDAO         staffDAO         = new StaffDAO();
     private final PaymentService   paymentService   = new PaymentService();
-    private final AssignmentService assignmentSvc = new AssignmentService();
 
     public enum CheckInResult { SUCCESS, NOT_FOUND, WRONG_STATUS, ALREADY_CHECKED_IN, PET_NOT_ASSIGNED }
 
@@ -54,7 +53,6 @@ public class ExaminationService {
         if (!"Confirmed".equals(appt.getStatus())) return CheckInResult.WRONG_STATUS;
         appointmentDAO.assignPet(appointmentID, petID);
         appointmentDAO.updateStatus(appointmentID, "Arrived");
-        assignmentSvc.autoAssign(appointmentID);
         return CheckInResult.SUCCESS;
     }
 

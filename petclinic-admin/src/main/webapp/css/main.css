@@ -443,6 +443,11 @@ img { max-width: 100%; display: block; }
 }
 .feature-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
 .feature-card .icon { font-size: 40px; margin-bottom: 16px; }
+.alert-icon svg, .input-icon svg, .empty-icon svg, .pay-opt-icon svg, .pay-qr-note-icon svg,
+.result-icon svg, .notif-btn > svg, .notif-dropdown-icon svg {
+  width: 1em; height: 1em; display: inline-block; vertical-align: middle; fill: none;
+  stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+}
 .feature-card h3 { font-size: 18px; font-weight: 600; margin-bottom: 10px; color: var(--green-900); }
 .feature-card p  { font-size: 14px; color: var(--warm-gray); line-height: 1.65; }
 

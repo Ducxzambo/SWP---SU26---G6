@@ -8,7 +8,6 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
 import com.petclinic.backend.dao.CustomerDAO;
-import com.petclinic.backend.dao.NotificationDAO;
 import com.petclinic.backend.dao.ServiceDAO;
 import com.petclinic.backend.model.Customer;
 import com.petclinic.backend.service.ProfileService;
@@ -25,7 +24,6 @@ public class ProfileServlet extends HttpServlet {
 
     private final CustomerDAO customerDAO    = new CustomerDAO();
     private final ServiceDAO serviceDAO     = new ServiceDAO();
-    private final NotificationDAO notifDAO       = new NotificationDAO();
     private final ProfileService profileService = new ProfileService();
 
     private static final java.util.regex.Pattern EMAIL_RE =
@@ -293,7 +291,6 @@ public class ProfileServlet extends HttpServlet {
 
     private void setCommonAttrs(HttpServletRequest req, Customer customer) throws Exception {
         req.setAttribute("navCategories", serviceDAO.findAllCategoriesWithServices());
-        req.setAttribute("unreadCount", notifDAO.countUnread(customer.getCustomerID()));
     }
 
     private Customer requireLogin(HttpServletRequest req, HttpServletResponse resp)

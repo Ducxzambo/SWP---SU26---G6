@@ -163,6 +163,11 @@ body {
     line-height: 1.4;
     flex-shrink: 0;
 }
+.alert-icon svg, .input-icon svg, .toggle-pwd svg, .paw svg { width: 1em; height: 1em; display: block; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.input-wrap .input-icon svg { width: 16px; height: 16px; }
+.toggle-pwd svg { width: 18px; height: 18px; }
+.paw { display: inline-flex; vertical-align: -0.12em; }
+.paw svg { width: 1.15em; height: 1.15em; fill: currentColor; stroke: none; }
 
 /* ── Form ────────────────────────────────────────────────────────────────── */
 .form-group {

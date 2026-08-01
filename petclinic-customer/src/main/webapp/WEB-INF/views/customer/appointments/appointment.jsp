@@ -54,15 +54,15 @@
       <h1>Lịch khám của bạn</h1>
       <p>Xem và quản lý tất cả các lịch hẹn</p>
     </div>
-    <a href="${ctx}/booking/new" class="btn-new-booking">➕ Đặt lịch mới</a>
+    <a href="${ctx}/booking/new" class="btn-new-booking"><svg class="btn-inline-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg> Đặt lịch mới</a>
   </div>
 
   <div class="appt-toolbar">
     <div class="view-toggle">
       <a href="${ctx}/appointments?view=list${not empty petFilter ? '&petId='.concat(petFilter) : ''}"
-         class="view-toggle-btn ${view == 'list' ? 'active' : ''}">📋 Danh sách</a>
+         class="view-toggle-btn ${view == 'list' ? 'active' : ''}"><svg class="btn-inline-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="1"/><path d="M8 9h8"/><path d="M8 13h8"/></svg> Danh sách</a>
       <a href="${ctx}/appointments?view=calendar${not empty petFilter ? '&petId='.concat(petFilter) : ''}"
-         class="view-toggle-btn ${view == 'calendar' ? 'active' : ''}">📅 Lịch</a>
+         class="view-toggle-btn ${view == 'calendar' ? 'active' : ''}"><svg class="btn-inline-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4"/><path d="M8 3v4"/><path d="M3 10h18"/></svg> Lịch</a>
     </div>
 
     <form method="get" action="${ctx}/appointments" class="pet-filter-form">
@@ -107,7 +107,7 @@
         <c:choose>
           <c:when test="${empty upcoming}">
             <div class="appt-empty">
-              <div class="appt-empty-icon">📭</div>
+              <div class="appt-empty-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="1"/><path d="M4 14h5l2 3h2l2-3h5"/></svg></div>
               <h3>Chưa có lịch hẹn nào sắp tới</h3>
               <p>Hãy đặt lịch khám để chăm sóc thú cưng của bạn</p>
               <a href="${ctx}/booking/new" class="btn-new-booking" style="display:inline-flex;margin-top:16px;">Đặt lịch ngay</a>
@@ -190,7 +190,7 @@
         <c:choose>
           <c:when test="${empty history}">
             <div class="appt-empty">
-              <div class="appt-empty-icon">🗂</div>
+              <div class="appt-empty-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="1"/><path d="M4 9h16"/><path d="M8 5V3h8v2"/></svg></div>
               <h3>Chưa có lịch sử khám</h3>
               <p>Các lịch hẹn đã hoàn thành hoặc huỷ sẽ hiển thị ở đây</p>
             </div>

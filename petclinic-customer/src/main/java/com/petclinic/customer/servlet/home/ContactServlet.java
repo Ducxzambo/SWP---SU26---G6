@@ -3,7 +3,6 @@ package com.petclinic.customer.servlet.home;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
-import com.petclinic.backend.dao.NotificationDAO;
 import com.petclinic.backend.dao.ServiceDAO;
 import com.petclinic.backend.model.Customer;
 import com.petclinic.backend.service.EmailService;
@@ -14,7 +13,6 @@ import java.io.IOException;
 public class ContactServlet extends HttpServlet {
 
     private final ServiceDAO serviceDAO      = new ServiceDAO();
-    private final NotificationDAO notificationDAO = new NotificationDAO();
     private final EmailService emailService    = new EmailService();
 
     @Override
@@ -79,7 +77,6 @@ public class ContactServlet extends HttpServlet {
         HttpSession session = req.getSession(false);
         if (session != null && session.getAttribute("customer") != null) {
             Customer c = (Customer) session.getAttribute("customer");
-            req.setAttribute("unreadCount", notificationDAO.countUnread(c.getCustomerID()));
             return c;
         }
         return null;

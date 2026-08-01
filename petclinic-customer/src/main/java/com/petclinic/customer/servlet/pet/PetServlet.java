@@ -26,7 +26,6 @@ public class PetServlet extends HttpServlet {
     private final PetDAO petDAO         = new PetDAO();
     private final AppointmentDAO appointmentDAO = new AppointmentDAO();
     private final ServiceDAO serviceDAO     = new ServiceDAO();
-    private final NotificationDAO notifDAO      = new NotificationDAO();
     private final VaccinationRecordDAO vaccinationRecordDAO = new VaccinationRecordDAO();
     private final MedicalRecordDAO medicalRecordDAO = new MedicalRecordDAO();
 
@@ -243,8 +242,6 @@ public class PetServlet extends HttpServlet {
     private void setCommonAttrs(HttpServletRequest req, Customer customer) throws Exception {
         req.setAttribute("navCategories",
                 serviceDAO.findAllCategoriesWithServices());
-        req.setAttribute("unreadCount",
-                notifDAO.countUnread(customer.getCustomerID()));
     }
 
     private Customer requireLogin(HttpServletRequest req, HttpServletResponse resp)

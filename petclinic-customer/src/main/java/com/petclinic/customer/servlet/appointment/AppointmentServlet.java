@@ -40,7 +40,6 @@ public class AppointmentServlet extends HttpServlet {
     private final InvoiceDAO invoiceDAO = new InvoiceDAO();
     private final ServiceDAO serviceDAO = new ServiceDAO();
     private final ReviewDAO reviewDAO  = new ReviewDAO();
-    private final NotificationDAO notiDAO    = new NotificationDAO();
     private final RefundDAO refundDAO  = new RefundDAO();
     private final PetDAO petDAO      = new PetDAO();
     private final BookingService bookingSvc = new BookingService();
@@ -127,8 +126,6 @@ public class AppointmentServlet extends HttpServlet {
         req.setAttribute("upcomingCount",    upcoming.size());
         req.setAttribute("historyCount",     history.size());
         req.setAttribute("navCategories",    serviceDAO.findAllCategoriesWithServices());
-        req.setAttribute("unreadCount",
-                new NotificationDAO().countUnread(customer.getCustomerID()));
         req.getRequestDispatcher("/WEB-INF/views/customer/appointments/appointment.jsp")
                 .forward(req, resp);
     }
@@ -180,7 +177,6 @@ public class AppointmentServlet extends HttpServlet {
         List<VaccinationRecord> vaccinationRecords = vaccinationDAO.findByAppointment(id);
         Invoice invoice = invoiceDAO.findByAppointment(id);
         Review review = reviewDAO.findByAppointment(id);
-        int noti = notiDAO.countUnread( customer.getCustomerID());
 
 
         req.setAttribute("appt",          appt);
@@ -190,7 +186,6 @@ public class AppointmentServlet extends HttpServlet {
         req.setAttribute("invoice",       invoice);
         req.setAttribute("navCategories", serviceDAO.findAllCategoriesWithServices());
         req.setAttribute("review", review);
-        req.setAttribute("unreadCount", noti);
         req.getRequestDispatcher("/WEB-INF/views/customer/appointments/appointment-detail.jsp")
                 .forward(req, resp);
     }
@@ -226,8 +221,6 @@ public class AppointmentServlet extends HttpServlet {
         req.setAttribute("slotsJson",    slotsToJson(slots));
         req.setAttribute("today",        LocalDate.now().toString());
         req.setAttribute("navCategories", serviceDAO.findAllCategoriesWithServices());
-        req.setAttribute("unreadCount",
-                new NotificationDAO().countUnread(customer.getCustomerID()));
         req.getRequestDispatcher("/WEB-INF/views/customer/appointments/appointment-reschedule.jsp")
                 .forward(req, resp);
     }

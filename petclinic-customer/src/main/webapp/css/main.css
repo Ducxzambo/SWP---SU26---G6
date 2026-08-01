@@ -513,6 +513,14 @@ img { max-width: 100%; display: block; }
   transition: var(--transition);
 }
 .icon-wrap svg { width: 26px; height: 26px; }
+.nav-inline-icon { width: 1em; height: 1em; display: inline-block; vertical-align: -0.14em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.alert-icon svg, .input-icon svg, .empty-icon svg, .pets-empty-icon svg, .appt-empty-icon svg,
+.review-empty-icon svg, .pay-opt-icon svg, .pay-qr-note-icon svg, .result-icon svg,
+.notif-btn > svg, .notif-dropdown-icon svg, .db-quick-icon svg, .pet-search-icon svg, .modal-icon svg {
+  width: 1em; height: 1em; display: inline-block; vertical-align: middle; fill: none;
+  stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+}
+.result-icon svg, .empty-icon svg, .pets-empty-icon svg, .appt-empty-icon svg, .review-empty-icon svg { width: 1em; height: 1em; }
 .feature-card:hover .icon-wrap,
 .facility-card:hover .icon-wrap {
   background: var(--green-500);

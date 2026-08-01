@@ -8,7 +8,6 @@ public class PaymentService {
 
     private final InvoiceDAO invoiceDAO = new InvoiceDAO();
     private final PayOSClient payosClient = new PayOSClient();
-    private final AssignmentService assignmentSvc = new AssignmentService();
 
     public String createPaymentLink(int invoiceId, int appointmentId, long amountVnd, String description, boolean isFullPayment) throws Exception {
         return createPaymentLink(invoiceId, appointmentId, amountVnd, description, isFullPayment, "customer", null);
@@ -32,9 +31,6 @@ public class PaymentService {
         int invoiceId = decodeInvoiceId(data.orderCode());
         boolean isFullPayment = decodeIsFullPayment(data.orderCode());
         int apptId = invoiceDAO.confirmPaymentInTransaction(invoiceId, data.amount(), isFullPayment);
-        if (apptId > 0) {
-            assignmentSvc.autoAssign(apptId);
-        }
         return true;
     }
 

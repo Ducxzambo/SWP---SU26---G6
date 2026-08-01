@@ -209,6 +209,8 @@
   color: var(--warm-gray);
 }
 .appt-empty-icon { font-size: 52px; margin-bottom: 16px; }
+.btn-inline-icon { width: 1em; height: 1em; display: inline-block; flex: 0 0 auto; vertical-align: -0.14em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.appt-empty-icon svg { width: 1em; height: 1em; display: block; margin: 0 auto; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .appt-empty h3   { font-size: 18px; color: var(--text-dark); margin-bottom: 8px; }
 .appt-empty p    { font-size: 14px; }
 

@@ -14,7 +14,7 @@
 
   <!-- Header -->
   <div class="auth-header">
-    <div class="logo"><span class="paw">🐾</span>Pet<span>Clinic</span></div>
+    <div class="logo"><span class="paw"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="7" cy="8" r="2"/><circle cx="12" cy="5" r="2"/><circle cx="17" cy="8" r="2"/><path d="M12 11c-3 0-5 2-5 5 0 2 1 3 3 2l2-1 2 1c2 1 3 0 3-2 0-3-2-5-5-5z"/></svg></span>Pet<span>Clinic</span></div>
     <h2>Đăng nhập tài khoản</h2>
   </div>
 
@@ -24,7 +24,7 @@
     <!-- Flash success (from register / reset password) -->
     <c:if test="${not empty sessionScope.flashSuccess}">
       <div class="alert alert-success">
-        <span class="alert-icon">✓</span>
+        <span class="alert-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg></span>
         <span>${sessionScope.flashSuccess}</span>
       </div>
       <c:remove var="flashSuccess" scope="session"/>
@@ -75,7 +75,7 @@
           <input type="password" id="password" name="password" class="form-control"
                  placeholder="••••••••" autocomplete="current-password" required>
           <button type="button" class="toggle-pwd" id="togglePwd"
-                  onclick="togglePassword('password','togglePwd')" title="Hiện/ẩn mật khẩu">👁</button>
+                  onclick="togglePassword('password','togglePwd')" title="Hiện/ẩn mật khẩu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
         </div>
       </div>
 

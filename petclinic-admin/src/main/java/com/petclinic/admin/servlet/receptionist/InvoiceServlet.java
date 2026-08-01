@@ -3,7 +3,6 @@ package com.petclinic.admin.servlet.receptionist;
 import com.petclinic.backend.dao.*;
 import com.petclinic.backend.dto.ReceiptData;
 import com.petclinic.backend.model.*;
-import com.petclinic.backend.service.AssignmentService;
 import com.petclinic.backend.service.EmailService;
 import com.petclinic.backend.service.PaymentService;
 import com.petclinic.backend.service.ReceiptService;
@@ -22,7 +21,6 @@ public class InvoiceServlet extends HttpServlet {
     private final AppointmentDAO    appointmentDAO     = new AppointmentDAO();
     private final CustomerDAO       customerDAO        = new CustomerDAO();
     private final PaymentService    paymentService     = new PaymentService();
-    private final AssignmentService assignmentService  = new AssignmentService();
     private final ReceiptService    receiptService     = new ReceiptService();
     private final EmailService      emailService       = new EmailService();
 
@@ -156,7 +154,6 @@ public class InvoiceServlet extends HttpServlet {
         BigDecimal change = tendered.subtract(amountDue);
 
         invoiceDAO.insertPayment(invoiceId, amountDue, "Cash", staff.getStaffID());
-        assignmentService.autoAssign(invoice.getAppointmentID());
         session.setAttribute("flashSuccess", "Đã ghi nhận thu tiền mặt " + formatVnd(amountDue) + "đ.");
         afterPaymentSuccess(session, invoiceId, isSettlementStage, true, change);
         resp.sendRedirect(req.getContextPath() + "/receptionist/invoice/receipt?invoiceId=" + invoiceId + "&from=" + from);
@@ -199,7 +196,6 @@ public class InvoiceServlet extends HttpServlet {
 
         // Ghi nhận phần tiền mặt trước
         invoiceDAO.insertPayment(invoiceId, cashPart, "Cash", staff.getStaffID());
-        assignmentService.autoAssign(invoice.getAppointmentID());
 
         // Tạo QR cho đúng phần còn lại
         String description = "Invoice " + invoiceId;

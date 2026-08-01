@@ -21,7 +21,6 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 
-
 @WebServlet("/manager/attendance")
 public class StaffAttendanceServlet extends HttpServlet {
 
@@ -38,19 +37,40 @@ public class StaffAttendanceServlet extends HttpServlet {
 
         try {
             LocalDate date = parseDate(req.getParameter("date"));
-
             autoBackfillAbsences(date);
 
-            List<StaffAttendance> attendance = attendanceDAO.findByDate(date);
-            List<Staff> staffList = staffDAO.findAllVetsGroomers();
             boolean isToday = date.equals(LocalDate.now());
+            int currentShift = AppointmentDAO.shiftOf(LocalTime.now());
+
+            String shiftParam = req.getParameter("shift");
+            String keyword = req.getParameter("q");
+
+            Integer shiftFilter;
+            boolean shiftAutoApplied = false;
+            if (shiftParam != null) {
+                shiftFilter = parseShift(shiftParam);
+            } else if (isToday && currentShift > 0) {
+                shiftFilter = currentShift;
+                shiftAutoApplied = true;
+            } else {
+                shiftFilter = null;
+            }
+
+            List<StaffAttendance> attendance = attendanceDAO.findByDate(date, shiftFilter, keyword);
+            List<Staff> staffList = staffDAO.findAllVetsGroomers();
 
             req.setAttribute("filterDate", date.toString());
             req.setAttribute("today", LocalDate.now().toString());
             req.setAttribute("isToday", isToday);
             req.setAttribute("attendance", attendance);
             req.setAttribute("staffList", staffList);
-            req.setAttribute("currentShift", AppointmentDAO.shiftOf(LocalTime.now()));
+            req.setAttribute("currentShift", currentShift);
+            req.setAttribute("shiftFilter", shiftFilter != null ? shiftFilter.toString() : "");
+            req.setAttribute("shiftAutoApplied", shiftAutoApplied);
+            req.setAttribute("keyword", keyword);
+
+            // Ngày sớm nhất được phép chọn cho form đăng ký nghỉ dài hạn
+            req.setAttribute("minRangeStart", LocalDate.now().plusDays(1).toString());
 
             req.getRequestDispatcher("/WEB-INF/views/manager/shift/attendance.jsp").forward(req, resp);
         } catch (Exception e) {
@@ -77,7 +97,7 @@ public class StaffAttendanceServlet extends HttpServlet {
         }
     }
 
-    // Check-in 1 ca cụ thể - CHỈ cho hôm nay, CHỈ khi ca chưa kết thúc
+    // Check-in 1 ca cụ thể, chỉ khi ca chưa kết thúc
     private void handleCheckInShift(HttpServletRequest req, HttpServletResponse resp)
             throws IOException {
         String redirectDate = req.getParameter("date");
@@ -120,7 +140,7 @@ public class StaffAttendanceServlet extends HttpServlet {
         }
     }
 
-    // Sửa status 1 bản ghi đã có - CHỈ cho phép nếu WorkDate == hôm nay
+    // Sửa status, ch cho ca trong ngày
     private void handleUpdateStatus(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         String redirectDate = req.getParameter("date");
         try {
@@ -156,7 +176,7 @@ public class StaffAttendanceServlet extends HttpServlet {
         }
     }
 
-    // Đăng ký nghỉ dài hạn cho 1 dải ngày -> chuyển sang /manager/capacity
+    // Đăng ký nghỉ dài hạn, bắt đầu từ rangeStart
     private void handleMarkRange(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         try {
             int staffId = Integer.parseInt(req.getParameter("staffId"));
@@ -166,6 +186,14 @@ public class StaffAttendanceServlet extends HttpServlet {
             if (!"Absent".equals(status) && !"OnLeave".equals(status)) status = "OnLeave";
             String notes = req.getParameter("notes");
 
+            LocalDate earliestAllowed = LocalDate.now().plusDays(1);
+            if (from.isBefore(earliestAllowed)) {
+                req.getSession().setAttribute("flashError",
+                        "Chỉ được đăng ký nghỉ dài hạn bắt đầu từ ngày mai (" + earliestAllowed
+                                + ") trở đi, không áp dụng cho hôm nay hoặc quá khứ.");
+                resp.sendRedirect(req.getContextPath() + "/manager/attendance");
+                return;
+            }
             if (to.isBefore(from)) {
                 req.getSession().setAttribute("flashError", "Ngày kết thúc phải sau ngày bắt đầu.");
                 resp.sendRedirect(req.getContextPath() + "/manager/attendance");
@@ -191,7 +219,7 @@ public class StaffAttendanceServlet extends HttpServlet {
     }
 
     private void autoBackfillAbsences(LocalDate date) throws java.sql.SQLException {
-        if (date.isAfter(LocalDate.now())) return; // ngày tương lai, chưa cần xử lý
+        if (date.isAfter(LocalDate.now())) return;
         LocalDateTime now = LocalDateTime.now();
         List<Staff> staffList = staffDAO.findAllVetsGroomers();
         List<Integer> staffIds = new ArrayList<>();
@@ -207,5 +235,15 @@ public class StaffAttendanceServlet extends HttpServlet {
     private LocalDate parseDate(String s) {
         if (s == null || s.isBlank()) return LocalDate.now();
         try { return LocalDate.parse(s); } catch (DateTimeParseException e) { return LocalDate.now(); }
+    }
+
+    private Integer parseShift(String s) {
+        if (s == null || s.isBlank()) return null;
+        try {
+            int v = Integer.parseInt(s.trim());
+            return (v >= 1 && v <= 4) ? v : null;
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 }

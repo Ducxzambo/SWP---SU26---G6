@@ -12,6 +12,18 @@
     <style>
         .inline-status-form { display:flex; gap:6px; align-items:center; }
         .inline-status-form select { font-size:12.5px; padding:4px 6px; }
+        .shift-tabs { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; }
+        .shift-tab {
+            padding:6px 14px; border-radius:20px; font-size:13px; font-weight:500;
+            border:1.5px solid var(--border); background:#fff; cursor:pointer;
+            text-decoration:none; color:var(--text-mid); transition:var(--transition);
+        }
+        .shift-tab:hover  { background:var(--teal-50); border-color:var(--teal-400); }
+        .shift-tab.active { background:var(--teal-700); color:#fff; border-color:var(--teal-700); }
+        .shift-tab .auto-tag { font-size:10.5px; opacity:.85; margin-left:4px; }
+        .attendance-toolbar { display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; margin-bottom:14px; }
+        .attendance-search { display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap; }
+        .row-hidden { display:none !important; }
     </style>
 </head>
 <body>
@@ -23,7 +35,7 @@
         <div class="page-header">
             <h1>Chấm Công Nhân Viên</h1>
             <p class="page-sub">
-                Check-in. Chỉ áp dụng cho các ca trong ngày và trước khi ca kết thúc.
+                Check-in chỉ áp dụng cho các ca trong ngày và trước khi ca kết thúc.
             </p>
         </div>
 
@@ -52,7 +64,7 @@
                                 <option value="3" ${currentShift == 3 ? 'selected' : ''}>Ca 3 (13:30–15:30)</option>
                                 <option value="4" ${currentShift == 4 ? 'selected' : ''}>Ca 4 (15:30–17:30)</option>
                             </select>
-                            </div>
+                        </div>
                         <div class="form-group">
                             <label class="form-label">Ghi chú</label>
                             <input type="text" name="notes" class="form-control no-icon">
@@ -81,12 +93,17 @@
                         <div class="form-row col-2">
                             <div class="form-group">
                                 <label class="form-label">Từ ngày</label>
-                                <input type="date" name="fromDate" class="form-control no-icon" required>
+                                <input type="date" name="fromDate" class="form-control no-icon"
+                                       min="${minRangeStart}" value="${minRangeStart}" required>
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Đến ngày</label>
-                                <input type="date" name="toDate" class="form-control no-icon" required>
+                                <input type="date" name="toDate" class="form-control no-icon"
+                                       min="${minRangeStart}" required>
                             </div>
+                        </div>
+                        <div class="form-hint" style="margin-top:-8px;margin-bottom:14px;">
+                            Chỉ được đăng ký nghỉ bắt đầu từ ngày mai (${minRangeStart}) trở đi.
                         </div>
                         <div class="form-group">
                             <label class="form-label">Loại nghỉ</label>
@@ -112,27 +129,70 @@
 
         </div>
 
-        <form action="${pageContext.request.contextPath}/manager/attendance" method="get"
-              style="display:flex;gap:10px;align-items:flex-end;margin:20px 0;">
-            <div>
-                <label class="form-label">Xem chấm công ngày</label>
-                <input type="date" name="date" value="${filterDate}" class="form-control no-icon"
-                       style="width:180px;" onchange="this.form.submit()">
-            </div>
+        <%-- ── Toolbar: chọn ngày + tìm theo tên (client-side) --%>
+        <div class="attendance-toolbar">
+            <form method="get" action="${pageContext.request.contextPath}/manager/attendance"
+                  style="display:flex;gap:8px;align-items:flex-end;">
+                <div>
+                    <label class="form-label">Xem chấm công ngày</label>
+                    <input type="date" name="date" value="${filterDate}" class="form-control no-icon"
+                           style="width:180px;" onchange="this.form.submit()">
+                </div>
+                <c:if test="${not empty shiftFilter}"><input type="hidden" name="shift" value="${shiftFilter}"></c:if>
+            </form>
 
-        </form>
+            <div class="attendance-search">
+                <label class="form-label" style="margin-bottom:0;">&nbsp;</label>
+                <div class="input-wrap">
+                    <span class="input-icon"></span>
+                    <input type="text" id="staffSearchInput" class="form-control"
+                           placeholder="Tìm theo tên nhân viên..." style="width:220px;">
+                </div>
+            </div>
+        </div>
+
+        <%-- Tab lọc theo ca - tự động chọn ca hiện tại khi xem hôm nay --%>
+        <div class="shift-tabs">
+            <a href="${pageContext.request.contextPath}/manager/attendance?date=${filterDate}"
+               class="shift-tab ${empty shiftFilter ? 'active' : ''}">Tất cả ca</a>
+            <a href="${pageContext.request.contextPath}/manager/attendance?date=${filterDate}&shift=1"
+               class="shift-tab ${shiftFilter == '1' ? 'active' : ''}">
+                Ca 1 (08:00–10:00)
+                <c:if test="${shiftAutoApplied and shiftFilter == '1'}"><span class="auto-tag">(tự động)</span></c:if>
+            </a>
+            <a href="${pageContext.request.contextPath}/manager/attendance?date=${filterDate}&shift=2"
+               class="shift-tab ${shiftFilter == '2' ? 'active' : ''}">
+                Ca 2 (10:00–12:00)
+                <c:if test="${shiftAutoApplied and shiftFilter == '2'}"><span class="auto-tag">(tự động)</span></c:if>
+            </a>
+            <a href="${pageContext.request.contextPath}/manager/attendance?date=${filterDate}&shift=3"
+               class="shift-tab ${shiftFilter == '3' ? 'active' : ''}">
+                Ca 3 (13:30–15:30)
+                <c:if test="${shiftAutoApplied and shiftFilter == '3'}"><span class="auto-tag">(tự động)</span></c:if>
+            </a>
+            <a href="${pageContext.request.contextPath}/manager/attendance?date=${filterDate}&shift=4"
+               class="shift-tab ${shiftFilter == '4' ? 'active' : ''}">
+                Ca 4 (15:30–17:30)
+                <c:if test="${shiftAutoApplied and shiftFilter == '4'}"><span class="auto-tag">(tự động)</span></c:if>
+            </a>
+        </div>
+        <c:if test="${shiftAutoApplied}">
+            <div class="alert alert-info" style="margin-bottom:16px;">
+                Đang tự động lọc theo <strong>ca hiện tại</strong>. Bấm "Tất cả ca" để xem toàn bộ ngày.
+            </div>
+        </c:if>
 
         <div class="card">
             <div class="card-header">
                 <span class="card-title">Chấm công ngày ${filterDate}</span>
-                <span class="text-soft">${fn:length(attendance)} dòng</span>
+                <span class="text-soft" id="attendanceCount">${fn:length(attendance)} dòng</span>
             </div>
             <c:choose>
                 <c:when test="${empty attendance}">
-                    <div class="empty-state"><p>Chưa có dữ liệu chấm công cho ngày này.</p></div>
+                    <div class="empty-state"><p>Không có dữ liệu chấm công phù hợp với bộ lọc hiện tại.</p></div>
                 </c:when>
                 <c:otherwise>
-                    <table class="data-table">
+                    <table class="data-table" id="attendanceTable">
                         <thead>
                         <tr>
                             <th>Nhân viên</th>
@@ -146,7 +206,7 @@
                         </thead>
                         <tbody>
                         <c:forEach items="${attendance}" var="a">
-                            <tr>
+                            <tr data-staffname="${fn:toLowerCase(a.staffName)}">
                                 <td><strong><c:out value="${a.staffName}"/></strong></td>
                                 <td><span class="badge badge-neutral">${a.roleName}</span></td>
                                 <td>
@@ -192,5 +252,28 @@
     </main>
 </div>
 <script src="${pageContext.request.contextPath}/js/dashboard.js"></script>
+<script>
+    (function () {
+        var searchInput = document.getElementById('staffSearchInput');
+        var table = document.getElementById('attendanceTable');
+        var countEl = document.getElementById('attendanceCount');
+        if (!searchInput || !table) return;
+
+        var rows = Array.from(table.querySelectorAll('tbody tr'));
+
+        function applySearch() {
+            var q = (searchInput.value || '').trim().toLowerCase();
+            var visible = 0;
+            rows.forEach(function (row) {
+                var match = !q || (row.dataset.staffname || '').indexOf(q) !== -1;
+                row.classList.toggle('row-hidden', !match);
+                if (match) visible++;
+            });
+            if (countEl) countEl.textContent = visible + ' / ' + rows.length + ' dòng';
+        }
+
+        searchInput.addEventListener('input', applySearch);
+    })();
+</script>
 </body>
 </html>

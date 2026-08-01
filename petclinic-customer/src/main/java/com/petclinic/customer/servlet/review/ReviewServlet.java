@@ -4,7 +4,6 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
 import com.petclinic.backend.dao.AppointmentDAO;
-import com.petclinic.backend.dao.NotificationDAO;
 import com.petclinic.backend.dao.ReviewDAO;
 import com.petclinic.backend.dao.ServiceDAO;
 import com.petclinic.backend.model.Appointment;
@@ -115,8 +114,6 @@ public class ReviewServlet extends HttpServlet {
             HttpSession session = req.getSession(false);
             if (session != null && session.getAttribute("customer") != null) {
                 Customer c = (Customer) session.getAttribute("customer");
-                req.setAttribute("unreadCount",
-                        new NotificationDAO().countUnread(c.getCustomerID()));
             }
 
             req.getRequestDispatcher("/WEB-INF/views/community/reviews.jsp")

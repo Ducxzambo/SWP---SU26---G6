@@ -8,7 +8,6 @@ import com.petclinic.backend.model.Appointment;
 import com.petclinic.backend.model.Customer;
 import com.petclinic.backend.model.Invoice;
 import com.petclinic.backend.model.Staff;
-import com.petclinic.backend.service.AssignmentService;
 import com.petclinic.backend.service.EmailService;
 import com.petclinic.backend.service.PaymentService;
 
@@ -36,7 +35,6 @@ public class PaymentWebhookServlet extends HttpServlet {
 
     private final PaymentService paymentSvc = new PaymentService();
     private final InvoiceDAO invoiceDAO = new InvoiceDAO();
-    private final AssignmentService assignmentSvc = new AssignmentService();
     private final ReceiptService receiptService = new ReceiptService();
     private final EmailService emailService   = new EmailService();
     private final CustomerDAO customerDAO    = new CustomerDAO();
@@ -121,7 +119,6 @@ public class PaymentWebhookServlet extends HttpServlet {
                     if (amountDue.compareTo(BigDecimal.ZERO) > 0) {
                         int attributedStaffId = (staffIdParam != null) ? staffIdParam : staff.getStaffID();
                         invoiceDAO.insertPayment(invoiceId, BigDecimal.valueOf(amount), "BankTransfer", attributedStaffId);
-                        assignmentSvc.autoAssign(invoice.getAppointmentID());
                     }
                 }
                 session.setAttribute("flashSuccess", "Thanh toán chuyển khoản thành công!");

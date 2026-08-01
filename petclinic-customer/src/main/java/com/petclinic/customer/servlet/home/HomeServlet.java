@@ -4,7 +4,6 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
 import com.petclinic.backend.dao.AppointmentDAO;
-import com.petclinic.backend.dao.NotificationDAO;
 import com.petclinic.backend.dao.PetDAO;
 import com.petclinic.backend.dao.ServiceDAO;
 import com.petclinic.backend.model.Appointment;
@@ -21,7 +20,6 @@ import java.util.Map;
 public class HomeServlet extends HttpServlet {
 
     private final ServiceDAO serviceDAO           = new ServiceDAO();
-    private final NotificationDAO notificationDAO = new NotificationDAO();
     private final AppointmentDAO appointmentDAO   = new AppointmentDAO();
     private final PetDAO petDAO                   = new PetDAO();
 
@@ -37,8 +35,6 @@ public class HomeServlet extends HttpServlet {
             Customer customer   = (session != null) ? (Customer) session.getAttribute("customer") : null;
 
             if (customer != null) {
-                req.setAttribute("unreadCount", notificationDAO.countUnread(customer.getCustomerID()));
-
                 List<Appointment> appts = appointmentDAO.findByCustomer(customer.getCustomerID());
                 LocalDate today = LocalDate.now();
 

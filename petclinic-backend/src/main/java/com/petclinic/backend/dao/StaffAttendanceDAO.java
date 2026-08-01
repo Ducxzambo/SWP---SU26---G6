@@ -149,6 +149,31 @@ public class StaffAttendanceDAO {
         }
     }
 
+    public List<StaffAttendance> findByDate(LocalDate date, Integer shift, String keyword) throws SQLException {
+        StringBuilder sql = new StringBuilder(
+                "SELECT a.*, s.FullName AS StaffName, r.RoleName " +
+                        "FROM StaffAttendance a " +
+                        "JOIN Staff s ON s.StaffID = a.StaffID " +
+                        "JOIN Roles r ON r.RoleID = s.RoleID " +
+                        "WHERE a.WorkDate = ? ");
+        if (shift != null) sql.append("AND a.SlotShift = ? ");
+        if (keyword != null && !keyword.isBlank()) sql.append("AND s.FullName LIKE ? ");
+        sql.append("ORDER BY a.SlotShift, s.FullName");
+
+        List<StaffAttendance> list = new ArrayList<>();
+        try (Connection c = DBConnection.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql.toString())) {
+            int idx = 1;
+            ps.setDate(idx++, Date.valueOf(date));
+            if (shift != null) ps.setInt(idx++, shift);
+            if (keyword != null && !keyword.isBlank()) ps.setString(idx++, "%" + keyword.trim() + "%");
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) list.add(mapRow(rs));
+            }
+        }
+        return list;
+    }
+
     private StaffAttendance mapRow(ResultSet rs) throws SQLException {
         StaffAttendance a = new StaffAttendance();
         a.setAttendanceID(rs.getInt("AttendanceID"));
