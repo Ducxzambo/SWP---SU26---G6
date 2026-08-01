@@ -415,7 +415,7 @@
                             <c:otherwise>
                                 <div class="alert alert-warning">
                                     <span class="alert-icon">⚠</span>
-                                    Chưa có danh sách xét nghiệm. Vui lòng chạy script SQL bp02_extend.sql.
+                                    Chưa có danh sách xét nghiệm.
                                 </div>
                             </c:otherwise>
                         </c:choose>

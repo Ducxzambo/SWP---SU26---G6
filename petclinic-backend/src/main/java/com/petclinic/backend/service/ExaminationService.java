@@ -27,7 +27,7 @@ public class ExaminationService {
     private final AssignmentService assignmentSvc = new AssignmentService();
 
     // ══ CHECK-IN ══════════════════════════════════════════════════════════════
-    public enum CheckInResult { SUCCESS, NOT_FOUND, WRONG_STATUS, ALREADY_CHECKED_IN, PET_NOT_ASSIGNED }
+    public enum CheckInResult { SUCCESS, NOT_FOUND, WRONG_STATUS, ALREADY_CHECKED_IN }
 
     /**
      * Check-in đơn thuần: đổi Confirmed → Arrived. KHÔNG còn gán staff kèm theo
@@ -37,7 +37,6 @@ public class ExaminationService {
     public CheckInResult checkIn(int appointmentID) throws SQLException {
         Appointment appt = appointmentDAO.findById(appointmentID);
         if (appt == null)                       return CheckInResult.NOT_FOUND;
-        if (appt.isPetUnassigned()) return CheckInResult.PET_NOT_ASSIGNED;
         if ("Arrived".equals(appt.getStatus())) return CheckInResult.ALREADY_CHECKED_IN;
         if (!"Confirmed".equals(appt.getStatus())) return CheckInResult.WRONG_STATUS;
         appointmentDAO.updateStatus(appointmentID, "Arrived");
@@ -52,44 +51,6 @@ public class ExaminationService {
     /** Gán 1 nhân viên cho TOÀN BỘ dịch vụ thuộc 1 category trong appointment (gán nhanh hàng loạt). */
     public void assignStaffToCategory(int appointmentID, String categoryName, int staffID) throws SQLException {
         appointmentDAO.assignStaffToCategory(appointmentID, categoryName, staffID);
-    }
-
-    /**
-     * Gán pet vào appointment rồi check-in luôn.
-     * Dùng khi lễ tân chọn pet đã có trong hệ thống lúc check-in.
-     */
-    public CheckInResult assignPetAndCheckIn(int appointmentID, int petID) throws SQLException {
-        Appointment appt = appointmentDAO.findById(appointmentID);
-        if (appt == null) return CheckInResult.NOT_FOUND;
-        if (!"Confirmed".equals(appt.getStatus())) return CheckInResult.WRONG_STATUS;
-        appointmentDAO.assignPet(appointmentID, petID);
-        appointmentDAO.updateStatus(appointmentID, "Arrived");
-        assignmentSvc.autoAssign(appointmentID);
-        return CheckInResult.SUCCESS;
-    }
-
-    /**
-     * Tạo pet mới → gán vào appointment → check-in.
-     * Dùng khi lễ tân tạo pet mới lúc check-in.
-     */
-    public CheckInResult createPetAndCheckIn(int appointmentID, int customerID,
-                                             String petName, String species,
-                                             String breed, String gender) throws SQLException {
-        Appointment appt = appointmentDAO.findById(appointmentID);
-        if (appt == null) return CheckInResult.NOT_FOUND;
-        if (!"Confirmed".equals(appt.getStatus())) return CheckInResult.WRONG_STATUS;
-
-        Pet pet = new Pet();
-        pet.setCustomerID(customerID);
-        pet.setName(petName);
-        pet.setSpeciesName(species != null && !species.isBlank() ? species : "Chưa rõ");
-        pet.setBreedName(breed != null && !breed.isBlank() ? breed : "Chưa rõ");
-        pet.setGender(gender);
-        int petID = petDAO.insert(pet);
-
-        appointmentDAO.assignPet(appointmentID, petID);
-        appointmentDAO.updateStatus(appointmentID, "Arrived");
-        return CheckInResult.SUCCESS;
     }
 
     // ══ WALK-IN: LOOKUP CUSTOMER BY PHONE ════════════════════════════════════

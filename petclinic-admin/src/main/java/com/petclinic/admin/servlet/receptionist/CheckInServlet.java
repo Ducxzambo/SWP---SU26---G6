@@ -58,32 +58,6 @@ public class CheckInServlet extends HttpServlet {
                     ? examinationService.searchForCheckIn(keyword, filterDate, null)
                     : examinationService.getConfirmedByDate(filterDate, shiftFilter, null);
 
-            String getAction = req.getParameter("action");
-            if ("loadPets".equals(getAction)) {
-                String cidStr = req.getParameter("customerID");
-                try {
-                    List<Pet> pets = isBlank(cidStr) ? List.of()
-                            : examinationService.getPetsByCustomer(Integer.parseInt(cidStr));
-                    resp.setContentType("application/json;charset=UTF-8");
-                    StringBuilder json = new StringBuilder("[");
-                    for (int i = 0; i < pets.size(); i++) {
-                        Pet p = pets.get(i);
-                        if (i > 0) json.append(",");
-                        json.append("{\"petID\":").append(p.getPetID())
-                                .append(",\"petName\":\"").append(p.getName().replace("\"","\\\"")).append("\"")
-                                .append(",\"speciesName\":\"").append(p.getSpeciesName()!=null?p.getSpeciesName():"").append("\"")
-                                .append(",\"breedName\":\"").append(p.getBreedName()!=null?p.getBreedName():"").append("\"")
-                                .append("}");
-                    }
-                    json.append("]");
-                    resp.getWriter().write(json.toString());
-                } catch (Exception e) {
-                    resp.setStatus(500);
-                    resp.getWriter().write("[]");
-                }
-                return;
-            }
-
             loadFormOptions(req);
 
             boolean isToday = filterDate.equals(LocalDate.now());
@@ -111,7 +85,7 @@ public class CheckInServlet extends HttpServlet {
         }
     }
 
-    // ── POST ──────────────────────────────────────────────────────────────────
+
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
@@ -128,11 +102,8 @@ public class CheckInServlet extends HttpServlet {
         if ("walkinLookup".equals(action)) { handleWalkInLookup(req, resp); return; }
         if ("walkinSubmit".equals(action)) { handleWalkInSubmit(req, resp, session); return; }
         if ("assignStaff".equals(action))  { handleAssignStaff(req, resp, session); return; }
-        // Thêm sau "if ("assignStaff".equals(action))":
-        if ("assignPet".equals(action))       { handleAssignPet(req, resp, session); return; }
-        if ("createPetAndCheckIn".equals(action)) { handleCreatePetAndCheckIn(req, resp, session); return; }
 
-        // ── Check-in bình thường ─────────────────────────────────────────────
+        // Check-in bình thường
         String appointmentIdStr = req.getParameter("appointmentID");
         if (appointmentIdStr == null || appointmentIdStr.isBlank()) {
             session.setAttribute("flashError", "Thiếu mã lịch hẹn.");
@@ -150,9 +121,6 @@ public class CheckInServlet extends HttpServlet {
                         session.setAttribute("flashWarning", "Thú cưng này đã được check-in trước đó.");
                 case WRONG_STATUS ->
                         session.setAttribute("flashWarning", "Lịch hẹn không ở trạng thái Confirmed, không thể check-in.");
-                case PET_NOT_ASSIGNED ->
-                        session.setAttribute("flashError",
-                                "Lịch hẹn này chưa có thú cưng. Vui lòng gán thú cưng trước khi check-in.");
                 default ->
                         session.setAttribute("flashError", "Không tìm thấy lịch hẹn.");
             }
@@ -165,7 +133,7 @@ public class CheckInServlet extends HttpServlet {
         resp.sendRedirect(req.getContextPath() + "/receptionist/checkin");
     }
 
-    // ── Gán staff cho 1 dòng dịch vụ (bảng check-in, dùng dropdown inline) ─────
+    // Gán staff cho 1 dòng dịch vụ (bảng check-in, dùng dropdown inline)
     private void handleAssignStaff(HttpServletRequest req, HttpServletResponse resp, HttpSession session)
             throws IOException {
         String apptServiceIdStr = req.getParameter("appointmentServiceID");
@@ -187,57 +155,6 @@ public class CheckInServlet extends HttpServlet {
         resp.sendRedirect(req.getContextPath() + "/receptionist/checkin");
     }
 
-    /** Lễ tân chọn pet đã có → gán vào appointment → check-in. */
-    private void handleAssignPet(HttpServletRequest req, HttpServletResponse resp,
-                                 HttpSession session) throws IOException {
-        String apptIdStr = req.getParameter("appointmentID");
-        String petIdStr  = req.getParameter("petID");
-        if (isBlank(apptIdStr) || isBlank(petIdStr)) {
-            session.setAttribute("flashError", "Thiếu thông tin gán thú cưng.");
-            resp.sendRedirect(req.getContextPath() + "/receptionist/checkin"); return;
-        }
-        try {
-            CheckInResult result = examinationService.assignPetAndCheckIn(
-                    Integer.parseInt(apptIdStr), Integer.parseInt(petIdStr));
-            if (result == CheckInResult.SUCCESS)
-                session.setAttribute("flashSuccess", "Check-in thành công!");
-            else
-                session.setAttribute("flashError", "Không thể check-in: " + result);
-        } catch (Exception e) {
-            e.printStackTrace();
-            session.setAttribute("flashError", "Lỗi hệ thống: " + e.getMessage());
-        }
-        resp.sendRedirect(req.getContextPath() + "/receptionist/checkin");
-    }
-
-    /** Lễ tân tạo pet mới → gán → check-in. */
-    private void handleCreatePetAndCheckIn(HttpServletRequest req, HttpServletResponse resp,
-                                           HttpSession session) throws IOException {
-        String apptIdStr    = req.getParameter("appointmentID");
-        String customerIdStr = req.getParameter("customerID");
-        String petName      = req.getParameter("petName");
-        if (isBlank(apptIdStr) || isBlank(customerIdStr) || isBlank(petName)) {
-            session.setAttribute("flashError", "Vui lòng nhập đầy đủ thông tin thú cưng.");
-            resp.sendRedirect(req.getContextPath() + "/receptionist/checkin"); return;
-        }
-        try {
-            CheckInResult result = examinationService.createPetAndCheckIn(
-                    Integer.parseInt(apptIdStr),
-                    Integer.parseInt(customerIdStr),
-                    petName.trim(),
-                    req.getParameter("species"),
-                    req.getParameter("breed"),
-                    req.getParameter("gender"));
-            if (result == CheckInResult.SUCCESS)
-                session.setAttribute("flashSuccess", "Đã tạo thú cưng mới và check-in thành công!");
-            else
-                session.setAttribute("flashError", "Không thể check-in: " + result);
-        } catch (Exception e) {
-            e.printStackTrace();
-            session.setAttribute("flashError", "Lỗi hệ thống: " + e.getMessage());
-        }
-        resp.sendRedirect(req.getContextPath() + "/receptionist/checkin");
-    }
 
     // ── WALK-IN Bước 1: tra số điện thoại ──────────────────────────────────────
     private void handleWalkInLookup(HttpServletRequest req, HttpServletResponse resp)

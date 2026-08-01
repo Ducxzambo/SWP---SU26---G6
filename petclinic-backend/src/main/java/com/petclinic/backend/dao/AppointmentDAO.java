@@ -310,8 +310,7 @@ public class AppointmentDAO {
         try (Connection c = DBConnection.getConnection();
              PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setInt(1, a.getCustomerID());
-            if (a.getPetID() != null) ps.setInt(2, a.getPetID());
-            else ps.setNull(2, Types.INTEGER);
+            ps.setInt(2, a.getPetID());
             ps.setDate(3, Date.valueOf(a.getAppointmentDate()));
             ps.setTime(4, Time.valueOf(a.getStartTime()));
             ps.setTime(5, Time.valueOf(a.getEndTime()));
@@ -678,8 +677,7 @@ public class AppointmentDAO {
         Appointment a = new Appointment();
         a.setAppointmentID(rs.getInt("AppointmentID"));
         a.setCustomerID(rs.getInt("CustomerID"));
-        int pid = rs.getInt("PetID");
-        a.setPetID(rs.wasNull() ? null : pid);
+        a.setPetID(rs.getInt("PetID"));
         Date d = rs.getDate("AppointmentDate"); if (d != null) a.setAppointmentDate(d.toLocalDate());
         Time st = rs.getTime("StartTime");       if (st != null) a.setStartTime(st.toLocalTime());
         Time et = rs.getTime("EndTime");         if (et != null) a.setEndTime(et.toLocalTime());
