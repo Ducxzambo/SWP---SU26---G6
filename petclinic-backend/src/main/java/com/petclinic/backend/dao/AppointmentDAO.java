@@ -140,7 +140,7 @@ public class AppointmentDAO {
     }
 
 
-    // ── Walk-in ───────────────────────────────────────────────────────────────
+    // Walk-in
     public int createWalkIn(int customerID, int petID, List<Integer> serviceIDs,
                             List<java.math.BigDecimal> unitPrices,
                             List<Integer> staffIDs) throws SQLException {
@@ -192,7 +192,7 @@ public class AppointmentDAO {
         }
     }
 
-    /** Thêm 1 dịch vụ vào appointment đã tồn tại, kèm staff phụ trách tùy chọn. */
+    // Thêm 1 dịch vụ vào appointment đã tồn tại + staff phụ trách
     public void addServiceToAppointment(int appointmentID, int serviceID,
                                         java.math.BigDecimal unitPrice, Integer staffID) throws SQLException {
         String sql = "INSERT INTO AppointmentServices(AppointmentID, ServiceID, UnitPrice, AssignedStaffID) VALUES (?,?,?,?)";
@@ -204,9 +204,7 @@ public class AppointmentDAO {
         }
     }
 
-    // ── Gán nhân viên phụ trách theo TỪNG DÒNG dịch vụ ──────────────────────────
-
-    /** Gán 1 nhân viên cho 1 dòng dịch vụ cụ thể (AppointmentServiceID). */
+    // Gán nhân viên phụ trách theo từng dòng dịch vụ
     public void assignStaffToService(int appointmentServiceID, int staffID) throws SQLException {
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(
@@ -215,7 +213,7 @@ public class AppointmentDAO {
         }
     }
 
-    /** Gán 1 nhân viên cho MỌI dịch vụ thuộc 1 category trong 1 appointment (gán hàng loạt lúc check-in). */
+    // Gán 1 nhân viên cho mọi dịch vụ thuộc 1 category trong 1 appointment (gán hàng loạt lúc check-in).
     public void assignStaffToCategory(int appointmentID, String categoryName, int staffID) throws SQLException {
         String sql = "UPDATE aps SET aps.AssignedStaffID = ? " +
                 "FROM AppointmentServices aps " +
@@ -229,13 +227,7 @@ public class AppointmentDAO {
         }
     }
 
-    // ── Vet queue (BP-02) ───────────────────────────────────────────────────────
-
-
-    /**
-     * Arrived/InProgress appointments có ít nhất 1 dòng service ĐANG GÁN cho staffID
-     * và thuộc categoryFilter. Dùng cho hàng chờ của bác sĩ/groomer.
-     */
+    // Vet queue (BP-02)
     public List<Appointment> findStaffQueue(int staffID, LocalDate date, String categoryFilter,
                                             String excludeIfRecordExistsIn) throws SQLException {
         StringBuilder sql = new StringBuilder(
@@ -255,7 +247,6 @@ public class AppointmentDAO {
             sql.append("AND NOT EXISTS (SELECT 1 FROM ").append(excludeIfRecordExistsIn)
                     .append(" rec WHERE rec.AppointmentID = a.AppointmentID) ");
         }
-        // Gọi trực tiếp bí danh StatusOrder đã khai báo ở SELECT vào ORDER BY
         sql.append("ORDER BY StatusOrder, a.SlotShift, a.StartTime");
 
         try (Connection conn = DBConnection.getConnection();
@@ -268,29 +259,7 @@ public class AppointmentDAO {
             return list;
         }
     }
-
-    /** Overload không loại trừ gì — giữ tương thích cho nơi chưa cần logic mới. */
-    public List<Appointment> findStaffQueue(int staffID, LocalDate date, String categoryFilter) throws SQLException {
-        return findStaffQueue(staffID, date, categoryFilter, null);
-    }
-
-
-
-    public void assignVet(int appointmentID, int vetID) throws SQLException {
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement("UPDATE Appointments SET AssignedStaffID=? WHERE AppointmentID=?")) {
-            ps.setInt(1, vetID); ps.setInt(2, appointmentID); ps.executeUpdate();
-        }
-    }
-
-    public void assignGroomer(int appointmentID, int groomerID) throws SQLException {
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement("UPDATE Appointments SET AssignedStaffID=? WHERE AppointmentID=?")) {
-            ps.setInt(1, groomerID); ps.setInt(2, appointmentID); ps.executeUpdate();
-        }
-    }
-
-    // ── Helpers ───────────────────────────────────────────────────────────────
+    //  Helpers
     private List<Appointment> mapList(ResultSet rs) throws SQLException {
         List<Appointment> list = new ArrayList<>();
         while (rs.next()) list.add(mapRow(rs));
@@ -298,11 +267,8 @@ public class AppointmentDAO {
     }
 
 
-    // ── Insert ────────────────────────────────────────────────────────────────
+    //  Insert
 
-    /**
-     * Tao 1 dong Appointments
-     */
     public int insert(Appointment a) throws SQLException {
         String sql = "INSERT INTO Appointments "
                 + "(CustomerID, PetID, AppointmentDate, StartTime, EndTime, Status, SlotShift) "
@@ -335,11 +301,6 @@ public class AppointmentDAO {
         }
     }
 
-    /**
-     * Arrived appointments có ÍT NHẤT 1 dòng service thuộc categoryFilter CHƯA gán staff
-     * (AssignedStaffID IS NULL) — dùng cho self-assign (groomer tự nhận ca).
-     * excludeIfRecordExistsIn: cùng ý nghĩa như ở findStaffQueue.
-     */
     public List<Appointment> findUnassignedArrived(LocalDate date, String categoryFilter,
                                                    String excludeIfRecordExistsIn) throws SQLException {
         StringBuilder sql = new StringBuilder(
@@ -369,12 +330,6 @@ public class AppointmentDAO {
         }
     }
 
-    /** Overload không loại trừ gì — giữ tương thích cho nơi chưa cần logic mới. */
-    public List<Appointment> findUnassignedArrived(LocalDate date, String categoryFilter) throws SQLException {
-        return findUnassignedArrived(date, categoryFilter, null);
-    }
-
-    /** Các ca đã hoàn thành (Done) có dịch vụ thuộc categoryFilter, gán cho staffID, trong 1 ngày — kèm RecordID. */
     public List<Appointment> findStaffCompletedToday(int staffID, LocalDate date, String categoryFilter,
                                                      String recordTable) throws SQLException {
         String sql =
@@ -411,13 +366,7 @@ public class AppointmentDAO {
         }
     }
 
-    // ── Lịch sử lịch hẹn (Receptionist) + Hoàn tất lịch hẹn ─────────────────────
-
-    /**
-     * TOÀN BỘ lịch hẹn trong 1 ngày (mọi trạng thái: Arrived/InProgress/Done/
-     * Cancelled/NoShow), lọc theo shift tùy chọn — dùng cho tab "Lịch sử" của
-     * lễ tân, khác tab "Check-in" (chỉ hiện Confirmed).
-     */
+    //  Lịch sử lịch hẹn (Receptionist) + Hoàn tất lịch hẹn
     public List<Appointment> findAppointmentHistory(LocalDate date, Integer shift) throws SQLException {
         StringBuilder sql = new StringBuilder(
                 "SELECT a.AppointmentID,a.CustomerID,a.PetID," +
@@ -442,12 +391,7 @@ public class AppointmentDAO {
         }
     }
 
-    /**
-     * Kiểm tra MỌI category dịch vụ trong appointment đã có record tương ứng
-     * chưa (MedicalRecords cho Chẩn đoán/Điều trị, GroomingRecords cho
-     * Grooming). Trả về danh sách category CÒN THIẾU record (rỗng = đã đủ).
-     */
-
+    //Kiểm tra mọi category dịch vụ trong appointment đã có record tương ứng chưa
     public List<String> findMissingRecordCategories(int appointmentID) throws SQLException {
         String sql =
                 "SELECT DISTINCT sc.Name AS CategoryName " +
@@ -473,11 +417,7 @@ public class AppointmentDAO {
         }
     }
 
-    /**
-     * Lễ tân xác nhận hoàn tất lịch hẹn: chuyển Status → Done.
-     * Chỉ thực thi UPDATE thuần — việc kiểm tra "đã đủ record chưa" nằm ở tầng
-     * Service (findMissingRecordCategories), gọi trước khi gọi method này.
-     */
+    //Lễ tân xác nhận hoàn tất lịch hẹn: chuyển Status -> Done.
     public boolean finalizeAppointment(int appointmentID) throws SQLException {
         String sql = "UPDATE Appointments SET Status='Done' WHERE AppointmentID=? AND Status IN ('Arrived','InProgress')";
         try (Connection conn = DBConnection.getConnection();
@@ -487,8 +427,7 @@ public class AppointmentDAO {
         }
     }
 
-    // ── Queries ───────────────────────────────────────────────────────────────
-
+    // Queries
     public Appointment findById(int appointmentID) throws SQLException {
         Appointment appt = new Appointment();
         String sql = "SELECT a.AppointmentID,a.CustomerID,a.PetID," +
@@ -543,11 +482,6 @@ public class AppointmentDAO {
         return list;
     }
 
-
-    /**
-     * Count confirmed appointments for ALL services in the same role-group
-     * (Groomer or Vet) trong CUNG 1 ca (SlotShift) cua ngay do.
-     */
     public int countConfirmedInSlotByRoleGroup(LocalDate date, int slotShift, int roleId)
             throws SQLException {
         // roleId: 4 = Groomer, 3 = Vet
@@ -576,10 +510,6 @@ public class AppointmentDAO {
         }
     }
 
-    /**
-     * Find active appointments (Pending/Confirmed) whose appointment date/time
-     * has already passed — used by the overdue scheduler.
-     */
     public List<Appointment> findOverdueActive() throws SQLException {
         String sql = "SELECT a.*, p.Name AS PetName "
                 + "FROM Appointments a "
@@ -597,7 +527,6 @@ public class AppointmentDAO {
         return list;
     }
 
-    /** Mark appointment as NoShow (Absent). */
     public void markNoShow(int appointmentId) throws SQLException {
         String sql = "UPDATE Appointments SET Status = 'NoShow' WHERE AppointmentID = ?";
         try (Connection c = DBConnection.getConnection();
@@ -607,8 +536,7 @@ public class AppointmentDAO {
         }
     }
 
-    /** Find all customers with overdue appointments (for email join). */
-    public List<Appointment> findOverdueOlderThan24h() throws SQLException {
+     public List<Appointment> findOverdueOlderThan24h() throws SQLException {
         String sql = "SELECT a.*, p.Name AS PetName "
                 + "FROM Appointments a "
                 + "LEFT JOIN Pets p ON a.PetID = p.PetID "
@@ -626,7 +554,6 @@ public class AppointmentDAO {
     }
 
 
-    /** Cap nhat slot moi + SlotShift tuong ung. */
     public void updateSlot(int appointmentId, LocalDate date, LocalTime start, LocalTime end)
             throws SQLException {
         String sql = "UPDATE Appointments SET AppointmentDate=?, StartTime=?, EndTime=?, SlotShift=? "
@@ -643,7 +570,6 @@ public class AppointmentDAO {
         }
     }
 
-    /** Cancel: cap nhat status va luu ly do huy vao CancelReason (KHONG dung Notes goc cua khach). */
     public void cancel(int appointmentId, String reason) throws SQLException {
         String sql = "UPDATE Appointments SET Status='Cancelled', CancelReason=? "
                 + "WHERE AppointmentID=?";
@@ -655,12 +581,7 @@ public class AppointmentDAO {
         }
     }
 
-    // ── Attach helper ─────────────────────────────────────────────────────────
-
-    /**
-     * Nap danh sach AppointmentServices cho 1 nhom appointment CUNG LUC
-     * (1 query thay vi N+1), roi gan vao tung Appointment tuong ung.
-     */
+    // helpers
     private void attachServicesAndVaccines(List<Appointment> list) throws SQLException {
         if (list == null || list.isEmpty()) return;
         List<Integer> ids = list.stream().map(Appointment::getAppointmentID).collect(Collectors.toList());
@@ -672,8 +593,7 @@ public class AppointmentDAO {
         }
     }
 
-    // ── Mapping ───────────────────────────────────────────────────────────────
-
+    // Mapping
     private Appointment mapRow(ResultSet rs) throws SQLException {
         Appointment a = new Appointment();
         a.setAppointmentID(rs.getInt("AppointmentID"));
@@ -696,7 +616,7 @@ public class AppointmentDAO {
         return a;
     }
 
-    /** Gán pet vào appointment (dùng khi lễ tân check-in online booking chưa có pet). */
+    // Gán pet vào appointment (dùng khi lễ tân check-in online booking chưa có pet).
     public void assignPet(int appointmentID, int petID) throws SQLException {
         String sql = "UPDATE Appointments SET PetID=? WHERE AppointmentID=?";
         try (Connection conn = DBConnection.getConnection();
@@ -764,16 +684,7 @@ public class AppointmentDAO {
         return item;
     }
 
-    /**
-     * Tim appointment TREN TOAN HE THONG (khong loc theo 1 customer) theo
-     * danh sach Status - dung cho man hinh staff "chon appointment de tao
-     * yeu cau hoan tien" (RefundCreateServlet), chi cho Cancelled/NoShow/
-     * Done. Khac voi findByCustomer/findByPet, method nay set san
-     * CustomerName (join Customers) vi day la man hinh staff xem NHIEU
-     * khach cung luc nen can biet appointment la cua ai. KHONG goi
-     * attachServicesAndVaccines() - man hinh chon chi can thong tin tong
-     * quat de nhan dien dung appointment, chua can chi tiet tung dich vu.
-     */
+    // Tìm appointment theo danh sách Status
     public List<Appointment> findByStatuses(List<String> statuses, String keyword) throws SQLException {
         if (statuses == null || statuses.isEmpty()) return new ArrayList<>();
 

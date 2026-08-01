@@ -23,39 +23,36 @@
       <!-- SUCCESS -->
       <div class="result-icon result-icon--success">✓</div>
       <h1 class="result-title result-title--success">Thanh toán thành công!</h1>
+      <c:if test="${not empty receipt}">
+        <div class="result-card" style="margin-bottom:20px;">
+          <div class="result-row" style="background:var(--green-900);">
+            <span style="color:#fff;font-weight:700;">${receipt.documentLabel}</span>
+            <strong style="color:var(--green-400);">${receipt.invoiceCode}</strong>
+          </div>
+          <div class="result-row"><span>Tổng số lượng</span><strong>${receipt.totalQuantity}</strong></div>
+          <div class="result-row"><span>Tổng tiền hàng</span>
+            <strong><fmt:formatNumber value="${receipt.subTotal}" type="number" groupingUsed="true"/>đ</strong></div>
+          <div class="result-row"><span>Chiết khấu</span>
+            <strong><fmt:formatNumber value="${receipt.discountAmount}" type="number" groupingUsed="true"/>đ</strong></div>
+          <div class="result-row"><span>Đã trả (${receipt.paidStatusLabel})</span>
+            <strong><fmt:formatNumber value="${receipt.paidAmount}" type="number" groupingUsed="true"/>đ</strong></div>
+          <div class="result-row"><span>Còn phải thanh toán vào ngày ${receipt.remainingDueDate}</span>
+            <strong><fmt:formatNumber value="${receipt.remainingAmount}" type="number" groupingUsed="true"/>đ</strong></div>
+          <div class="result-row"><span>Ghi chú</span><strong>${receipt.note}</strong></div>
+        </div>
+        <div style="text-align:center;margin-bottom:20px;">
+          <a href="${ctx}/invoices/pdf?invoiceId=${receipt.invoiceIdRaw}" target="_blank" class="btn-result-secondary">
+            Xem / Tải hóa đơn PDF
+          </a>
+        </div>
+      </c:if>
+
       <p class="result-subtitle">
         <c:choose>
           <c:when test="${full}">Bạn đã thanh toán toàn bộ chi phí.</c:when>
           <c:otherwise>Tiền cọc đã được xác nhận. Chi phí thực tế sẽ được tính khi xuất viện.</c:otherwise>
         </c:choose>
       </p>
-
-      <div class="result-card">
-        <div class="result-row"><span>Mã lịch hẹn</span><strong>#${appt.appointmentID}</strong></div>
-        <div class="result-row"><span>Dịch vụ</span><strong>${appt.serviceName}</strong></div>
-        <c:if test="${not empty appt.petName}">
-          <div class="result-row"><span>Thú cưng</span><strong>${appt.petName}</strong></div>
-        </c:if>
-        <div class="result-row"><span>Thời gian</span>
-          <%--
-            Sửa lỗi: bản gốc dùng
-              ${appt.appointmentDate.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"))}
-            Cú pháp này KHÔNG hợp lệ trong JSP EL — EL không cho phép gọi static
-            method (DateTimeFormatter.ofPattern) hay method chain kiểu Java thuần.
-            Điều này sẽ gây lỗi runtime (PropertyNotFoundException / ELException),
-            khiến trang bị lỗi 500. Sửa lại dùng đúng các getter "formatted..."
-            mà model Appointment đã cung cấp sẵn, nhất quán với các JSP khác trong
-            cùng dự án (xem appointments.jsp, appointment-detail.jsp).
-          --%>
-          <strong>${appt.formattedAppointmentDate} lúc ${appt.formattedStartTime}</strong>
-        </div>
-        <div class="result-row"><span>Trạng thái</span>
-          <span class="status-badge status-confirmed">Đã xác nhận</span>
-        </div>
-        <div class="result-row"><span>Thanh toán</span>
-          <strong><fmt:formatNumber value="${invoice.totalAmount}" type="number" groupingUsed="true"/>₫</strong>
-        </div>
-      </div>
 
       <div class="result-email-note">
         Hóa đơn và thông tin lịch hẹn đã được gửi vào email của bạn.

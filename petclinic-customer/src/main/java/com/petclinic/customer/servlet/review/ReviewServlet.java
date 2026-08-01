@@ -15,11 +15,6 @@ import com.petclinic.backend.model.ServiceCategory;
 import java.io.IOException;
 import java.util.List;
 
-/**
- * URL map:
- *   POST /reviews/submit   — customer submits review after Done appointment
- *   GET  /community        — public review wall (guest + customer)
- */
 @WebServlet(urlPatterns = {"/reviews/submit", "/community"})
 public class ReviewServlet extends HttpServlet {
 
@@ -27,7 +22,6 @@ public class ReviewServlet extends HttpServlet {
     private final AppointmentDAO appointmentDAO = new AppointmentDAO();
     private final ServiceDAO serviceDAO     = new ServiceDAO();
 
-    // ── POST /reviews/submit ──────────────────────────────────────────────────
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
@@ -44,7 +38,6 @@ public class ReviewServlet extends HttpServlet {
         String comment = req.getParameter("comment");
         boolean pub    = "on".equals(req.getParameter("isPublic"));
 
-        // Validate
         if (apptId <= 0 || rating < 1 || rating > 5) {
             session.setAttribute("flashError", "Dữ liệu đánh giá không hợp lệ.");
             resp.sendRedirect(req.getContextPath() + "/appointments/detail?id=" + apptId);
@@ -52,7 +45,6 @@ public class ReviewServlet extends HttpServlet {
         }
 
         try {
-            // Ownership + status check
             Appointment appt = appointmentDAO.findById(apptId);
             if (appt == null || appt.getCustomerID() != customer.getCustomerID()
                     || !"Done".equals(appt.getStatus())) {
@@ -84,12 +76,10 @@ public class ReviewServlet extends HttpServlet {
         resp.sendRedirect(req.getContextPath() + "/appointments/detail?id=" + apptId);
     }
 
-    // ── GET /community ────────────────────────────────────────────────────────
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
 
-        // Filters from query params
         int    categoryId  = parseId(req.getParameter("categoryId"));
         int    serviceId   = parseId(req.getParameter("serviceId"));
         int    staffId       = parseId(req.getParameter("staffId"));
@@ -103,7 +93,6 @@ public class ReviewServlet extends HttpServlet {
             List<ServiceCategory> categories = serviceDAO.findAllCategoriesWithServices();
             List<String>          species    = reviewDAO.findPublicSpecies();
 
-            // Aggregate stats
             double avgAll = reviews.stream().mapToInt(Review::getRating).average().orElse(0);
             long   count  = reviews.size();
 

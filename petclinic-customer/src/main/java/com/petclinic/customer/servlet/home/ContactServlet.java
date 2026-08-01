@@ -10,14 +10,6 @@ import com.petclinic.backend.service.EmailService;
 
 import java.io.IOException;
 
-/**
- * URL map:
- *   GET  /contact — hiển thị thông tin liên hệ + form gửi tin nhắn
- *   POST /contact — xử lý form, gửi email thông báo nội bộ (KHÔNG lưu DB —
- *                   schema hiện tại (script2.sql) chưa có bảng ContactMessages
- *                   và theo yêu cầu không tạo bảng mới, nên dùng email làm
- *                   kênh truyền tải duy nhất, tận dụng EmailService có sẵn)
- */
 @WebServlet(urlPatterns = {"/contact"})
 public class ContactServlet extends HttpServlet {
 
@@ -33,7 +25,6 @@ public class ContactServlet extends HttpServlet {
             req.setAttribute("navCategories", serviceDAO.findAllCategoriesWithServices());
             Customer customer = attachCustomerContext(req);
 
-            // Điền sẵn tên/email/SĐT nếu khách đã đăng nhập, để form đỡ phải gõ lại
             if (customer != null) {
                 req.setAttribute("prefillName",  customer.getFullName());
                 req.setAttribute("prefillEmail", customer.getEmail());
@@ -72,10 +63,6 @@ public class ContactServlet extends HttpServlet {
         }
 
         try {
-            // Không có bảng ContactMessages trong schema hiện tại (script2.sql)
-            // và yêu cầu không tạo bảng mới, nên gửi email nội bộ là kênh
-            // ghi nhận duy nhất. EmailService gửi bất đồng bộ (fire-and-forget)
-            // nên không chặn phản hồi cho người dùng dù SMTP có chậm/lỗi.
             emailService.sendContactNotification(fullName, email, phone, subject, message);
 
             session.setAttribute("flashSuccess",

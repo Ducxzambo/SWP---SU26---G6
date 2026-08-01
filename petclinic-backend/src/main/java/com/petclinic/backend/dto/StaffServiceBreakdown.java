@@ -2,10 +2,6 @@ package com.petclinic.backend.dto;
 
 import java.math.BigDecimal;
 
-/**
- * One row of "which services has this staff member actually completed" -
- * shown on the Staff Detail screen underneath the headline metrics.
- */
 public class StaffServiceBreakdown {
     private String serviceName;
     private int completedCount;

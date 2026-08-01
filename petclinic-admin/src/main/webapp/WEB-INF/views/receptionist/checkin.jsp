@@ -421,10 +421,10 @@
                         <label class="form-label">Họ và tên khách <span class="required">*</span></label>
                         <input type="text" name="fullName" class="form-control no-icon" placeholder="VD: Nguyễn Văn A" required>
                     </div>
-<%--                    <div class="form-group">--%>
-<%--                        <label class="form-label">Email <span class="required">*</span></label>--%>
-<%--                        <input type="text" name="email" class="form-control no-icon" placeholder="VD: abc@example.com" required>--%>
-<%--                    </div>--%>
+                    <div class="form-group">
+                        <label class="form-label">Email <span class="required">*</span></label>
+                       <input type="text" name="email" class="form-control no-icon" placeholder="VD: abc@example.com" required>
+                    </div>
                     <div class="form-group">
                         <label class="form-label">Tên thú cưng <span class="required">*</span></label>
                         <input type="text" name="petName" class="form-control no-icon" placeholder="VD: Mochi" required>

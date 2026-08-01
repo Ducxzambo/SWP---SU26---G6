@@ -14,13 +14,7 @@ import com.petclinic.backend.model.Notification;
 import java.io.IOException;
 import java.util.List;
 
-/**
- * URL map:
- *   GET  /notifications            → trang full notification center
- *   GET  /notifications/api        → JSON list (dùng bởi header bell dropdown)
- *   GET  /notifications/count      → JSON { "unread": N }
- *   POST /notifications/mark-read  → đánh dấu đã đọc (1 hoặc tất cả)
- */
+
 @WebServlet(urlPatterns = {
         "/notifications",
         "/notifications/api",

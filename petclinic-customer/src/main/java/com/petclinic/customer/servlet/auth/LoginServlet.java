@@ -13,7 +13,6 @@ public class LoginServlet extends HttpServlet {
 
     private final AuthService authService = new AuthService();
 
-    // ── GET: show login page ─────────────────────────────────────────────────
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
@@ -47,16 +46,14 @@ public class LoginServlet extends HttpServlet {
         req.getRequestDispatcher("/WEB-INF/views/auth/login.jsp").forward(req, resp);
     }
 
-    // ── POST: process login ──────────────────────────────────────────────────
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
 
         req.setCharacterEncoding("UTF-8");
-        String identifier  = req.getParameter("identifier");   // email or phone
+        String identifier  = req.getParameter("identifier");
         String password    = req.getParameter("password");
-        String rememberMe  = req.getParameter("rememberMe");   // "on" if checked
-
+        String rememberMe  = req.getParameter("rememberMe");
         if (identifier == null || identifier.isBlank() ||
             password   == null || password.isBlank()) {
             forwardWithError(req, resp, "Vui lòng nhập đầy đủ thông tin.");
@@ -70,12 +67,10 @@ public class LoginServlet extends HttpServlet {
                 return;
             }
 
-            // Create session
             HttpSession session = req.getSession(true);
             session.setAttribute("customer", customer);
             session.setMaxInactiveInterval(60 * 60 * 8); // 8 hours
 
-            // Remember-Me: set cookie with DB token
             if ("on".equals(rememberMe)) {
                 String token = authService.createRememberMeToken(customer.getCustomerID());
                 Cookie cookie = new Cookie("rememberMe", token);
@@ -85,8 +80,6 @@ public class LoginServlet extends HttpServlet {
                 resp.addCookie(cookie);
             }
 
-            // Redirect to profile page if contact info incomplete, else to originally
-            // requested page or home
             redirectAfterAuth(req, resp, session, customer);
 
         } catch (Exception e) {
@@ -95,10 +88,6 @@ public class LoginServlet extends HttpServlet {
         }
     }
 
-    /**
-     * Nếu tài khoản thiếu email hoặc số điện thoại, bắt buộc chuyển đến trang
-     * profile để hoàn thiện thông tin trước khi vào các trang khác.
-     */
     private void redirectAfterAuth(HttpServletRequest req, HttpServletResponse resp,
                                     HttpSession session, Customer customer) throws IOException {
         if (isEmpty(customer.getEmail()) || isEmpty(customer.getPhone())) {

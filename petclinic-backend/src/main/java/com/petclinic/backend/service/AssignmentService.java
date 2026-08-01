@@ -12,20 +12,6 @@ import java.time.LocalDate;
 import java.util.*;
 import java.util.logging.Logger;
 
-/**
- * Tu dong gan nhan vien phu trach cho tung dich vu (AppointmentServices) cua
- * 1 appointment, goi SAU KHI thanh toan thanh cong (xem PaymentService).
- *
- * 1 appointment nay co the gom NHIEU dich vu thuoc NHIEU nhom vai tro khac
- * nhau (vd vua Grooming vua Kham/Vaccine trong cung 1 lich hen) — moi nhom
- * vai tro (Groomer/Vet) duoc gan CHUNG 1 nhan vien it tai nhat cho TAT CA
- * cac dich vu thuoc nhom do trong appointment (1 vet lo het cac dich vu Vet,
- * 1 groomer lo het cac dich vu Grooming), khong gan rieng le tung dich vu.
- *
- * Dich vu thuoc category "Dich vu noi tru" (INPATIENT_CATEGORY_ID) KHONG
- * duoc auto-assign (giu nguyen quy tac cu — nhan su noi tru duoc sap xep
- * thu cong, ngoai pham vi tinh nang nay).
- */
 public class AssignmentService {
 
     private static final Logger LOG = Logger.getLogger(AssignmentService.class.getName());

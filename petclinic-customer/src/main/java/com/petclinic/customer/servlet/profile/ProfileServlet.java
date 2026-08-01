@@ -16,18 +16,6 @@ import com.petclinic.backend.service.ProfileService;
 import java.io.IOException;
 import java.sql.SQLException;
 
-/**
- * URL map:
- *   GET  /profile               → show account/profile page
- *   POST /profile/name          → update full name
- *   POST /profile/phone         → update phone number
- *   POST /profile/email         → step 1: validate new email + send OTP
- *                                  (only allowed while account has no email yet — locked once set)
- *   GET  /profile/email/verify  → show OTP form for pending email change
- *   POST /profile/email/verify  → step 2: verify OTP + apply new email
- *   POST /profile/email/resend  → resend OTP for pending email change (JSON)
- *   POST /profile/password      → change password (no current-password check required)
- */
 @WebServlet(urlPatterns = {
         "/profile", "/profile/name", "/profile/phone",
         "/profile/email", "/profile/email/verify", "/profile/email/resend",
@@ -45,7 +33,6 @@ public class ProfileServlet extends HttpServlet {
     private static final java.util.regex.Pattern PHONE_RE =
             java.util.regex.Pattern.compile("^0\\d{9}$");
 
-    // ── GET ──────────────────────────────────────────────────────────────────
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
@@ -60,7 +47,6 @@ public class ProfileServlet extends HttpServlet {
         } catch (Exception e) { e.printStackTrace(); throw new ServletException(e); }
     }
 
-    // ── POST ─────────────────────────────────────────────────────────────────
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
@@ -86,17 +72,11 @@ public class ProfileServlet extends HttpServlet {
         } catch (Exception e) { e.printStackTrace(); throw new ServletException(e); }
     }
 
-    // ══════════════════════════════════════════════════════════════════════════
-    //  SHOW PAGE
-    // ══════════════════════════════════════════════════════════════════════════
     private void handleShow(HttpServletRequest req, HttpServletResponse resp, Customer customer)
             throws Exception {
         renderProfile(req, resp, customer, null, null, null, null, null);
     }
 
-    // ══════════════════════════════════════════════════════════════════════════
-    //  UPDATE FULL NAME
-    // ══════════════════════════════════════════════════════════════════════════
     private void handleUpdateName(HttpServletRequest req, HttpServletResponse resp, Customer customer)
             throws Exception {
         String fullName = trim(req.getParameter("fullName"));
@@ -110,9 +90,6 @@ public class ProfileServlet extends HttpServlet {
         resp.sendRedirect(req.getContextPath() + "/profile");
     }
 
-    // ══════════════════════════════════════════════════════════════════════════
-    //  UPDATE PHONE
-    // ══════════════════════════════════════════════════════════════════════════
     private void handleUpdatePhone(HttpServletRequest req, HttpServletResponse resp, Customer customer)
             throws Exception {
         String phone = trim(req.getParameter("phone"));
@@ -139,9 +116,8 @@ public class ProfileServlet extends HttpServlet {
         resp.sendRedirect(req.getContextPath() + "/profile");
     }
 
-    // ══════════════════════════════════════════════════════════════════════════
+
     //  EMAIL CHANGE – Step 1: validate + send OTP to new email
-    // ══════════════════════════════════════════════════════════════════════════
     private void handleInitiateEmailChange(HttpServletRequest req, HttpServletResponse resp, Customer customer)
             throws Exception {
         String newEmail = trim(req.getParameter("newEmail"));
@@ -182,9 +158,7 @@ public class ProfileServlet extends HttpServlet {
         resp.sendRedirect(req.getContextPath() + "/profile/email/verify");
     }
 
-    // ══════════════════════════════════════════════════════════════════════════
     //  EMAIL CHANGE – show OTP form
-    // ══════════════════════════════════════════════════════════════════════════
     private void handleShowVerifyEmail(HttpServletRequest req, HttpServletResponse resp, Customer customer)
             throws Exception {
         HttpSession session = req.getSession(false);
@@ -198,9 +172,7 @@ public class ProfileServlet extends HttpServlet {
         req.getRequestDispatcher("/WEB-INF/views/customer/profile/verify-email.jsp").forward(req, resp);
     }
 
-    // ══════════════════════════════════════════════════════════════════════════
     //  EMAIL CHANGE – Step 2: verify OTP + apply
-    // ══════════════════════════════════════════════════════════════════════════
     private void handleCompleteEmailChange(HttpServletRequest req, HttpServletResponse resp, Customer customer)
             throws Exception {
         HttpSession session = req.getSession(false);
@@ -248,9 +220,7 @@ public class ProfileServlet extends HttpServlet {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════════════════
     //  EMAIL CHANGE – resend OTP (JSON)
-    // ══════════════════════════════════════════════════════════════════════════
     private void handleResendEmailOtp(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         HttpSession session = req.getSession(false);
         String pending = session != null ? (String) session.getAttribute("pendingEmailChange") : null;
@@ -260,9 +230,7 @@ public class ProfileServlet extends HttpServlet {
         resp.getWriter().write("{\"ok\":" + ok + "}");
     }
 
-    // ══════════════════════════════════════════════════════════════════════════
     //  CHANGE PASSWORD
-    // ══════════════════════════════════════════════════════════════════════════
     private void handleChangePassword(HttpServletRequest req, HttpServletResponse resp, Customer customer)
             throws Exception {
         String newPassword     = req.getParameter("newPassword");
@@ -296,8 +264,7 @@ public class ProfileServlet extends HttpServlet {
         }
     }
 
-    // ── Helpers ──────────────────────────────────────────────────────────────
-
+    // Helpers
     private void renderProfile(HttpServletRequest req, HttpServletResponse resp, Customer customer,
                                 String errorMsg, String errorSection,
                                 String nameInput, String phoneInput, String newEmailInput)
@@ -344,7 +311,6 @@ public class ProfileServlet extends HttpServlet {
     private boolean isEmpty(String s) { return s == null || s.isBlank(); }
     private String  trim(String s)    { return s != null ? s.trim() : ""; }
 
-    /** Chữ cái đầu tên hiển thị trên avatar sidebar của trang profile. */
     private String avatarInitial(String fullName) {
         if (fullName == null || fullName.isBlank()) return "?";
         return fullName.trim().substring(0, 1).toUpperCase();

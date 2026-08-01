@@ -14,18 +14,6 @@ import java.util.List;
 import java.util.concurrent.*;
 import java.util.logging.Logger;
 
-/**
- * Background scheduler that runs every 15 minutes:
- *
- *  1. Find Pending/Confirmed appointments whose EndTime has passed TODAY:
- *     → Send "missed appointment" email notification to the customer.
- *
- *  2. Of those, find ones that passed more than 24 hours ago:
- *     → Change status to 'NoShow' (Absent).
- *
- * Note: Tomcat may restart → schedule is in-memory only.
- * For production, use a DB-persisted job queue (e.g. Quartz).
- */
 @WebListener
 public class AppointmentStatusJob implements ServletContextListener {
 
@@ -45,7 +33,6 @@ public class AppointmentStatusJob implements ServletContextListener {
             return t;
         });
 
-        // Run once 1 minute after startup, then every 12 hours
         scheduler.scheduleAtFixedRate(this::runCheck, 1, 12*60, TimeUnit.MINUTES);
         LOG.info("[AppointmentStatusJob] Scheduler started.");
     }
@@ -67,17 +54,12 @@ public class AppointmentStatusJob implements ServletContextListener {
         }
     }
 
-    /**
-     * Step 1: appointments that just passed their end time (overdue, not yet absent).
-     * Send email notification. Only notify once — check that status is still Pending/Confirmed
-     * and endTime has passed but is within the last 24h.
-     */
+
     private void checkOverdue() {
         try {
             List<Appointment> overdue = appointmentDAO.findOverdueActive();
             for (Appointment appt : overdue) {
                 LocalDateTime endDt = LocalDateTime.of(appt.getAppointmentDate(), appt.getEndTime());
-                // Only notify if missed within last 24h (so we don't spam repeat emails)
                 if (endDt.isAfter(LocalDateTime.now().minusHours(24))) {
                     try {
                         Customer c = customerDAO.findById(appt.getCustomerID());
@@ -95,10 +77,6 @@ public class AppointmentStatusJob implements ServletContextListener {
         }
     }
 
-    /**
-     * Step 2: appointments that passed end time by more than 24 hours.
-     * Change status to 'NoShow'.
-     */
     private void checkAbsent() {
         try {
             List<Appointment> absent = appointmentDAO.findOverdueOlderThan24h();

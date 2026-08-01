@@ -15,7 +15,7 @@
 
 <div class="booking-wrap">
   <div class="booking-header">
-    <h1>Đặt lịch khám mới</h1>
+    <h1>Đặt lịch khám mới </h1>
     <p>Chọn các dịch vụ và khung giờ phù hợp</p>
   </div>
 

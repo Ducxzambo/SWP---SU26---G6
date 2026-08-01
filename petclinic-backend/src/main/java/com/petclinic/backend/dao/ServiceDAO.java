@@ -11,8 +11,7 @@ import java.util.List;
 
 public class ServiceDAO {
 
-    // ── Categories ────────────────────────────────────────────────────────────
-
+    // categories
     public List<ServiceCategory> findAllCategories() throws SQLException {
         String sql = "SELECT * FROM ServiceCategories ORDER BY Name";
         List<ServiceCategory> list = new ArrayList<>();
@@ -24,7 +23,6 @@ public class ServiceDAO {
         return list;
     }
 
-    /** Load all categories each with their active services populated. */
     public List<ServiceCategory> findAllCategoriesWithServices() throws SQLException {
         List<ServiceCategory> cats = findAllCategories();
         for (ServiceCategory cat : cats) {
@@ -33,15 +31,6 @@ public class ServiceDAO {
         return cats;
     }
 
-//    /**
-//     * Tên các nhóm dịch vụ KHÔNG được phép chọn qua booking wizard của khách
-//     */
-//    private static final java.util.Set<String> BOOKING_EXCLUDED_CATEGORY_NAMES =
-//            java.util.Set.of("Điều trị", "Chẩn đoán");
-
-    /**
-     * Danh sách category dùng cho booking wizard của khách
-     */
     public List<ServiceCategory> findBookableCategoriesWithServices() throws SQLException {
         List<ServiceCategory> cats = findAllCategoriesWithServices();
         cats.removeIf(c -> c.getCategoryID() == BookingService.INPATIENT_CATEGORY_ID);
@@ -49,19 +38,12 @@ public class ServiceDAO {
         return cats;
     }
 
-    /**
-     * Service "đại diện" đầu tiên đang active của 1 category — dùng cho các
-     * category chỉ cần MỘT dòng AppointmentServices duy nhất để đánh dấu
-     * (Vaccine, Dịch vụ nội trú)
-     */
     public Service findFirstActiveByCategory(int categoryId) throws SQLException {
         List<Service> list = findByCategory(categoryId);
         return list.isEmpty() ? null : list.get(0);
     }
 
-    // ── Services ──────────────────────────────────────────────────────────────
-
-    /** All active services under a given category name. */
+    // services
     public List<Service> findByCategory(String categoryName) throws SQLException {
         String sql = """
                 SELECT s.ServiceID, s.Name, s.Price, s.DurationMinutes, s.IsActive,
@@ -118,8 +100,7 @@ public class ServiceDAO {
         return list;
     }
 
-    // ── Mapping ───────────────────────────────────────────────────────────────
-
+    // Mapping
     private ServiceCategory mapCategory(ResultSet rs) throws SQLException {
         return new ServiceCategory(rs.getInt("CategoryID"), rs.getString("Name"));
     }
@@ -154,23 +135,10 @@ public class ServiceDAO {
 
     // ── Staff capacity helpers ────────────────────────────────────────────────
 
-    /** RoleID rule: Groomer (4) handles ServiceCategoryID=3; Vet (3) handles everything else. */
     public static int roleIdForCategory(int categoryId) {
         return categoryId == 3 ? 4 : 3;
     }
 
-    public int countStaffByRoleId(int roleId) throws SQLException {
-        String sql = "SELECT COUNT(*) FROM Staff WHERE RoleID = ? AND IsActive = 1";
-        try (Connection c = DBConnection.getConnection();
-             PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setInt(1, roleId);
-            try (ResultSet rs = ps.executeQuery()) {
-                return rs.next() ? Math.max(1, rs.getInt(1)) : 1;
-            }
-        }
-    }
-
-    /** All active services across all categories (for general dropdowns, e.g. walk-in). */
     public List<Service> findAllActive() throws SQLException {
         String sql = """
                 SELECT s.ServiceID, s.Name, s.Price, s.DurationMinutes, s.IsActive,
@@ -188,12 +156,10 @@ public class ServiceDAO {
         }
     }
 
-    /** All active diagnostic (xét nghiệm) services. */
     public List<Service> findLabTests() throws SQLException {
         return findByCategory("Chẩn đoán");
     }
 
-    /** All active treatment plan services. */
     public List<Service> findTreatmentPlans() throws SQLException {
         return findByCategory("Điều trị");
     }

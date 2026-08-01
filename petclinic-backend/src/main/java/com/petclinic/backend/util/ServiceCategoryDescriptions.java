@@ -3,16 +3,6 @@ package com.petclinic.backend.util;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/**
- * Cung cấp đoạn mô tả ngắn cho từng nhóm dịch vụ (ServiceCategory) để hiển thị
- * trên trang /home và /services, giúp khách hàng hiểu rõ hơn về từng hạng mục
- * thay vì chỉ thấy tên nhóm và danh sách dịch vụ trần trụi.
- *
- * Vì bảng ServiceCategories trong CSDL không có cột mô tả riêng, lớp này dùng
- * cách khớp từ khoá trên tên nhóm (không phân biệt hoa/thường) để trả về nội
- * dung phù hợp nhất; nếu không khớp mẫu nào, trả về mô tả mặc định chung chung
- * để trang không bao giờ hiển thị trống.
- */
 public final class ServiceCategoryDescriptions {
 
     private ServiceCategoryDescriptions() {}
@@ -68,7 +58,6 @@ public final class ServiceCategoryDescriptions {
             "Đội ngũ bác sĩ và kỹ thuật viên tận tâm của chúng tôi luôn sẵn sàng tư vấn và chăm sóc " +
             "chu đáo cho thú cưng của bạn ở hạng mục dịch vụ này.";
 
-    /** Trả về mô tả phù hợp nhất dựa trên tên nhóm dịch vụ; không bao giờ trả về null. */
     public static String describe(String categoryName) {
         if (categoryName == null || categoryName.isBlank()) return DEFAULT_DESCRIPTION;
         String lower = categoryName.toLowerCase();

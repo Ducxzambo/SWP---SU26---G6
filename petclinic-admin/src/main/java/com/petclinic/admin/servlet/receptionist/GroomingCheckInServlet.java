@@ -16,12 +16,6 @@ import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
 import java.util.List;
 
-/**
- * BP-03 Step 1 — Receptionist grooming check-in.
- *
- * GET  /receptionist/grooming-checkin → danh sách Confirmed có dịch vụ Grooming
- * POST /receptionist/grooming-checkin → check-in (Confirmed → Arrived), gán groomer tùy chọn
- */
 @WebServlet("/receptionist/grooming-checkin")
 public class GroomingCheckInServlet extends HttpServlet {
 

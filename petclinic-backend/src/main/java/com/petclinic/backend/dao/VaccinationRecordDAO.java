@@ -9,7 +9,6 @@ import java.util.List;
 
 public class VaccinationRecordDAO {
 
-    /** Lịch sử tiêm vaccine gắn với 1 appointment (1 appointment có thể có nhiều mũi). */
     public List<VaccinationRecord> findByAppointment(int appointmentId) throws SQLException {
         String sql = "SELECT vr.*, v.Name AS VaccineName, s.FullName AS StaffName "
                 + "FROM VaccinationRecords vr "

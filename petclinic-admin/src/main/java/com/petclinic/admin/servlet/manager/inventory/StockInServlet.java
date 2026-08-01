@@ -14,12 +14,6 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.List;
 
-/**
- * Inventory &gt; Nhập kho (stock-in screen).
- * Dedicated data-entry screen for restocking an existing Medicine/Vaccine
- * or registering a brand-new one. Deliberately does NOT touch an existing
- * item's alert threshold - see StockService.recordStockIn for why.
- */
 @WebServlet("/manager/inventory/stock-in")
 public class StockInServlet extends HttpServlet {
 
@@ -60,8 +54,6 @@ public class StockInServlet extends HttpServlet {
             req.getSession().setAttribute("flashError", "Lỗi hệ thống khi nhập kho: " + e.getMessage());
         }
 
-        // Redirect back to this same screen (not the list) so a manager can
-        // enter several stock-in transactions in a row without re-navigating.
         resp.sendRedirect(req.getContextPath() + "/manager/inventory/stock-in");
     }
 

@@ -55,10 +55,10 @@
     </div>
   </div>
 
-  <div class="db-section-head">⚡ Truy Cập Nhanh</div>
+  <div class="db-section-head">Truy Cập Nhanh</div>
   <div class="db-quick-grid">
     <a href="${ctx}/booking/new" class="db-quick-card">
-      <div class="db-quick-icon">➕</div><span>Đặt lịch khám mới</span>
+      <div class="db-quick-icon"></div><span>Đặt lịch khám mới</span>
     </a>
     <a href="${ctx}/pets" class="db-quick-card">
       <div class="db-quick-icon"></div><span>Thú cưng của tôi</span>

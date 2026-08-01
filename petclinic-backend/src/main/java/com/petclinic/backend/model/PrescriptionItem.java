@@ -15,7 +15,6 @@ public class PrescriptionItem {
 
     public PrescriptionItem() {}
 
-    // ── Convenience constructor ───────────────────────────────────────────────
     public PrescriptionItem(int recordID, int medicineID, String dosage,
                             BigDecimal quantity, BigDecimal unitPrice) {
         this.recordID = recordID;

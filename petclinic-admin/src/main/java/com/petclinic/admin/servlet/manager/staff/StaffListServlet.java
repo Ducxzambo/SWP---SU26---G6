@@ -13,12 +13,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.List;
 
-/**
- * Staff &gt; Danh sách nhân viên (list/search screen).
- * Read-only browse of all staff (active + inactive) with keyword/role/status
- * filters. Row actions link out to Detail; deactivate/reactivate is a quick
- * inline POST that preserves the current filters on redirect.
- */
 @WebServlet("/manager/staff")
 public class StaffListServlet extends HttpServlet {
 

@@ -22,15 +22,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * URL map:
- *   GET  /appointments                  → list (upcoming + history)
- *   GET  /appointments/detail?id=       → detail view
- *   GET  /appointments/reschedule?id=   → slot picker
- *   POST /appointments/reschedule       → save new slot
- *   POST /appointments/cancel           → cancel with reason
- *   GET  /appointments/pay?id=          → resume payment for Pending
- */
 @WebServlet(urlPatterns = {
         "/appointments",
         "/appointments/detail",
@@ -54,7 +45,6 @@ public class AppointmentServlet extends HttpServlet {
     private final PetDAO petDAO      = new PetDAO();
     private final BookingService bookingSvc = new BookingService();
 
-    // ── GET ───────────────────────────────────────────────────────────────────
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
@@ -71,7 +61,6 @@ public class AppointmentServlet extends HttpServlet {
         } catch (Exception e) { e.printStackTrace(); throw new ServletException(e); }
     }
 
-    // ── POST ──────────────────────────────────────────────────────────────────
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
@@ -87,15 +76,10 @@ public class AppointmentServlet extends HttpServlet {
         } catch (Exception e) { e.printStackTrace(); throw new ServletException(e); }
     }
 
-    // ══════════════════════════════════════════════════════════════════════════
-    //  LIST
-    // ══════════════════════════════════════════════════════════════════════════
-
     private void handleList(HttpServletRequest req, HttpServletResponse resp, Customer customer)
             throws Exception {
         List<Appointment> all = apptDAO.findByCustomer(customer.getCustomerID());
 
-        // ── Lọc theo thú cưng TRƯỚC khi phân trang/hiển thị ──────────────────
         Integer petFilter = parseNullableId(req.getParameter("petId"));
         if (petFilter != null) {
             List<Appointment> filtered = new ArrayList<>();
@@ -122,7 +106,6 @@ public class AppointmentServlet extends HttpServlet {
         String view = "calendar".equals(req.getParameter("view")) ? "calendar" : "list";
 
         if ("calendar".equals(view)) {
-            // Calendar cần TOÀN BỘ tập đã lọc theo pet (không phân trang).
             req.setAttribute("calendarJson", appointmentsToJson(all));
         } else {
             int upTotalPages   = Math.max(1, (int) Math.ceil(upcoming.size() / (double) PAGE_SIZE));
@@ -182,17 +165,12 @@ public class AppointmentServlet extends HttpServlet {
         return arr.toString();
     }
 
-    // ══════════════════════════════════════════════════════════════════════════
-    //  DETAIL
-    //  Không guard bằng canModify() — mọi appointment của customer đều xem được.
-    // ══════════════════════════════════════════════════════════════════════════
     private void handleDetail(HttpServletRequest req, HttpServletResponse resp, Customer customer)
             throws Exception {
         int id = parseId(req.getParameter("id"));
         if (id < 0) { resp.sendRedirect(req.getContextPath() + "/appointments"); return; }
 
         Appointment appt = apptDAO.findById(id);
-        // 404 chỉ khi không tìm thấy HOẶC không thuộc về customer này
         if (appt == null || appt.getCustomerID() != customer.getCustomerID()) {
             resp.sendError(404, "Không tìm thấy lịch khám."); return;
         }
@@ -217,10 +195,6 @@ public class AppointmentServlet extends HttpServlet {
                 .forward(req, resp);
     }
 
-    // ══════════════════════════════════════════════════════════════════════════
-    //  RESCHEDULE GET
-    //  Guard: chỉ cho reschedule nếu canReschedule() == true
-    // ══════════════════════════════════════════════════════════════════════════
     private void handleRescheduleGet(HttpServletRequest req, HttpServletResponse resp,
                                      Customer customer) throws Exception {
         int id = parseId(req.getParameter("id"));
@@ -239,7 +213,7 @@ public class AppointmentServlet extends HttpServlet {
             return;
         }
 
-        // Determine if inpatient by checking slot duration (≥ 4h = inpatient)
+        // Determine if inpatient by checking slot duration (>= 4h = inpatient)
         boolean isInpatient = appt.getStartTime() != null && appt.getEndTime() != null
                 && Duration.between(appt.getStartTime(), appt.getEndTime()).toMinutes() >= 240;
 
@@ -258,9 +232,6 @@ public class AppointmentServlet extends HttpServlet {
                 .forward(req, resp);
     }
 
-    // ══════════════════════════════════════════════════════════════════════════
-    //  RESCHEDULE POST
-    // ══════════════════════════════════════════════════════════════════════════
     private void handleReschedulePost(HttpServletRequest req, HttpServletResponse resp,
                                       Customer customer) throws Exception {
         int id = parseId(req.getParameter("appointmentId"));
@@ -275,7 +246,6 @@ public class AppointmentServlet extends HttpServlet {
         }
 
         String slotKey = req.getParameter("slotKey");
-        // Handle inpatient: slotKey = "yyyy-MM-dd|morning" or "yyyy-MM-dd|afternoon"
         if (slotKey == null || slotKey.isBlank()) {
             req.getSession().setAttribute("flashError", "Vui lòng chọn một khung giờ.");
             resp.sendRedirect(req.getContextPath() + "/appointments/reschedule?id=" + id);
@@ -298,8 +268,7 @@ public class AppointmentServlet extends HttpServlet {
             end   = start.plusMinutes(BookingService.SLOT_MINUTES);
         }
 
-        // Validate: ngày hẹn mới phải còn trước deadline 17:30 của ngày hôm
-        // trước ngày đó — dùng chung logic với Appointment.getModifyDeadline().
+        // Validate: ngày hẹn mới phải còn trước 17:30 của ngày hôm trước appointmentDate
         if (!LocalDateTime.now().isBefore(Appointment.deadlineFor(date))) {
             req.getSession().setAttribute("flashError",
                     "Khung giờ đã chọn phải được đặt trước 17:30 của ngày liền trước ngày hẹn.");
@@ -313,9 +282,6 @@ public class AppointmentServlet extends HttpServlet {
         resp.sendRedirect(req.getContextPath() + "/appointments/detail?id=" + id);
     }
 
-    // ══════════════════════════════════════════════════════════════════════════
-    //  CANCEL
-    // ══════════════════════════════════════════════════════════════════════════
     private void handleCancel(HttpServletRequest req, HttpServletResponse resp,
                               Customer customer) throws Exception {
         int id = parseId(req.getParameter("appointmentId"));
@@ -332,12 +298,9 @@ public class AppointmentServlet extends HttpServlet {
         String reason = req.getParameter("cancelReason");
         String trimmedReason = reason != null && !reason.isBlank() ? reason.trim() : null;
 
-        // Yêu cầu hoàn tiền (chỉ áp dụng khi appointment đang Confirmed) (Refunds.Status='Requested')
         boolean refundRequested = isChecked(req.getParameter("refundRequested"));
         if (refundRequested && "Confirmed".equals(appt.getStatus())) {
             if (!recordRefundRequest(req, id, trimmedReason)) {
-                // Thiếu thông tin ngân hàng hoặc không tìm thấy khoản đã
-                // thanh toán → dừng lại, KHÔNG huỷ lịch, để khách bổ sung.
                 resp.sendRedirect(req.getContextPath() + "/appointments/detail?id=" + id);
                 return;
             }
@@ -351,11 +314,6 @@ public class AppointmentServlet extends HttpServlet {
         resp.sendRedirect(req.getContextPath() + "/appointments");
     }
 
-    /**
-     * Ghi 1 dòng Refunds (Status='Requested') cho appointment đang huỷ, dựa
-     * trên Invoice tương ứng của appointment đó - trả về false (và set
-     * flashError) nếu thiếu dữ liệu bắt buộc, true nếu insert thành công.
-     */
     private boolean recordRefundRequest(HttpServletRequest req, int appointmentId, String cancelReason)
             throws Exception {
         String bankCode      = trimOrNull(req.getParameter("bankCode"));
@@ -367,7 +325,6 @@ public class AppointmentServlet extends HttpServlet {
             return false;
         }
 
-        // AppointmentID -> Invoice tương ứng -> PaymentInvoices của invoice đó
         Invoice invoice = invoiceDAO.findByAppointment(appointmentId);
         if (invoice == null) {
             req.getSession().setAttribute("flashError",
@@ -402,9 +359,6 @@ public class AppointmentServlet extends HttpServlet {
         return t.isEmpty() ? null : t;
     }
 
-    // ══════════════════════════════════════════════════════════════════════════
-    //  PAY (resume payment for Pending appointment)
-    // ══════════════════════════════════════════════════════════════════════════
     private void handlePay(HttpServletRequest req, HttpServletResponse resp,
                            Customer customer) throws Exception {
         int id = parseId(req.getParameter("id"));
@@ -437,7 +391,6 @@ public class AppointmentServlet extends HttpServlet {
         resp.sendRedirect(req.getContextPath() + "/booking/payment");
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
 
     private String cannotModifyReason(Appointment appt) {
         if (!"Pending".equals(appt.getStatus()) && !"Confirmed".equals(appt.getStatus())) {

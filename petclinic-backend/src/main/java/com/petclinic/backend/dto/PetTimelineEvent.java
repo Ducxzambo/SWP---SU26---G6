@@ -3,20 +3,13 @@ package com.petclinic.backend.dto;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 
-/**
- * 1 điểm mốc trên timeline thú cưng (pet profile).
- *   DONE      -> chấm xanh lá (lịch hẹn đã hoàn thành)
- *   CONFIRMED -> chấm vàng    (lịch hẹn đã xác nhận)
- *   VACCINE   -> chấm đen     (VaccinationRecords.AdministeredDate)
- *   FOLLOWUP  -> chấm đen     (ngày tái khám, parse từ MedicalRecords.TreatmentPlan)
- */
 public class PetTimelineEvent {
     public enum Type { DONE, CONFIRMED, VACCINE, FOLLOWUP }
 
     private final LocalDate date;
     private final Type type;
     private final String label;
-    private final Integer appointmentId; // null nếu không link được tới 1 appointment cụ thể
+    private final Integer appointmentId;
 
     private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 

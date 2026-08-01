@@ -13,15 +13,6 @@ import java.util.stream.Collectors;
 import com.petclinic.backend.model.AppointmentServiceItem;
 import com.petclinic.backend.model.AppointmentService;
 
-/**
- * 1 appointment = 1 customer + 1 slot, co the gan NHIEU dich vu
- * qua bang join AppointmentServices (N-N).
- *
- * petID CO THE NULL
- *
- * serviceName / categoryName / staffName ben duoi la cac truong HIEN THI
- * tong hop (aggregate), duoc AppointmentDAO tinh tu danh sach services.
- */
 public class Appointment {
     private int       appointmentID;
     private int       customerID;
@@ -32,12 +23,11 @@ public class Appointment {
     private String    status;
     private String    notes;
     private String    cancelReason;
-    private Integer   slotShift; // 1-4 = 4 ca chinh co dinh (FIXED_SLOTS), 5 = ca phu OT (18:30-07:00, chi staff tao)
+    private Integer   slotShift;
 
-    // Chi tiet dich vu da chon (N-N)
     private List<AppointmentService> services = new ArrayList<>();
 
-    // join fields
+
     private String customerName;
     private String staffName;
     private String petName;
@@ -51,7 +41,7 @@ public class Appointment {
     private java.math.BigDecimal petWeight;
 
     public Appointment() {}
-    // format date to VN
+
     public String getMonthDisplayVi() {
         if (this.appointmentDate == null) return "";
         return this.appointmentDate.getMonth().getDisplayName(TextStyle.SHORT, new Locale("vi"));
@@ -62,13 +52,11 @@ public class Appointment {
         return this.appointmentDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
     }
 
-    // Them ham getter nay cho startTime
     public String getFormattedStartTime() {
         if (this.startTime == null) return "";
         return this.startTime.format(DateTimeFormatter.ofPattern("HH:mm"));
     }
 
-    // Them ham getter nay cho endTime
     public String getFormattedEndTime() {
         if (this.endTime == null) return "";
         return this.endTime.format(DateTimeFormatter.ofPattern("HH:mm"));
@@ -96,13 +84,10 @@ public class Appointment {
     public void      setSlotShift(Integer v)    { slotShift = v; }
     public String    getPetName()               { return petName; }
     public void      setPetName(String v)       { petName = v; }
-
-    // join fields
     public String getCustomerName()              { return customerName; }
     public void   setCustomerName(String v)      { customerName = v; }
     public Integer getRecordID()                 { return recordID; }
     public void    setRecordID(Integer v)        { recordID = v; }
-
     public String           getPetSpeciesName() { return petSpeciesName; }
     public void             setPetSpeciesName(String v) { petSpeciesName = v; }
     public String           getPetBreedName()  { return petBreedName; }
@@ -117,10 +102,6 @@ public class Appointment {
         this.services = v != null ? v : new ArrayList<>();
     }
 
-    /**
-     * Chuoi hien thi tong hop ten dich vu (vd "Kham tong quat, Tam spa,
-     * Vaccine").
-     */
     public String getServiceName() {
         if (serviceName != null) return serviceName;
         List<String> names = new ArrayList<>();
@@ -129,7 +110,6 @@ public class Appointment {
     }
     public void setServiceName(String v) { serviceName = v; }
 
-    /** Chuoi hien thi tong hop ten nhom dich vu (distinct). */
     public String getCategoryName() {
         if (categoryName != null) return categoryName;
         LinkedHashSet<String> names = new LinkedHashSet<>();
@@ -138,7 +118,6 @@ public class Appointment {
     }
     public void setCategoryName(String v) { categoryName = v; }
 
-    /** Chuoi hien thi tong hop ten nhan vien da duoc gan (distinct), co the nhieu nguoi phu trach cac dich vu khac nhau. */
     public String getStaffName() {
         if (staffName != null) return staffName;
         LinkedHashSet<String> names = new LinkedHashSet<>();
@@ -147,65 +126,52 @@ public class Appointment {
     }
     public void setStaffName(String v) { staffName = v; }
 
-    /** Danh sach ServiceID da chon - dung cho tinh slot/capacity khi reschedule. */
     public List<Integer> getServiceIds() {
         return services.stream().map(AppointmentService::getServiceID).collect(Collectors.toList());
     }
 
-    // -- Business logic ----------------------------------------------------
 
-    /**
-     * Gio cutoff co dinh dung de tinh deadline chinh sua (huy/doi lich):
-     * 17:30 CUA NGAY HOM TRUOC ngay hen
-     * . Vi du: lich hen ngay 20/07 deu phai duoc huy/doi truoc 17:30 ngay 19/07.
-     */
     public static final LocalTime MODIFY_DEADLINE_TIME = LocalTime.of(17, 30);
 
-    /**
-     * Tinh deadline 17:30 ngay hom truoc cho 1 ngay hen bat ky.
-     */
     public static LocalDateTime deadlineFor(LocalDate date) {
         return LocalDateTime.of(date.minusDays(1), MODIFY_DEADLINE_TIME);
     }
 
-    /**
-     * Deadline chung cho ca doi lich (reschedule) va huy lich (cancel):
-     */
     public LocalDateTime getModifyDeadline() {
         if (appointmentDate == null || startTime == null) return null;
         if (!"Pending".equals(status) && !"Confirmed".equals(status)) return null;
         return deadlineFor(appointmentDate);
     }
 
-    /**
-     * Co the doi lich khong.
-     */
-    public boolean canReschedule() {
+    public boolean canModify() {
         LocalDateTime deadline = getModifyDeadline();
         return deadline != null && LocalDateTime.now().isBefore(deadline);
     }
 
-    /**
-     * Co the huy lich khong.
-     */
+    public boolean canReschedule() {
+        return canModify();
+    }
+
     public boolean canCancel() {
-        return canReschedule();
+        return canModify();
     }
 
-    /**
-     * Con dung cho UI tong quat (badge "Co the chinh sua"): reschedule va
-     * cancel nay dung chung dieu kien nen canModify() == canReschedule().
-     */
-    public boolean canModify() {
-        return canReschedule();
+    public List<AppointmentService> getServicesByCategory(String categoryName) {
+        List<AppointmentService> result = new ArrayList<>();
+        if (services != null) {
+            for (AppointmentService s : services) {
+                if (categoryName.equals(s.getCategoryName())) result.add(s);
+            }
+        }
+        return result;
     }
 
-    /**
-     * Appointment da ket thuc.
-     */
-    public boolean isCompleted() {
-        return "Done".equals(status) || "NoShow".equals(status)
-                || "Cancelled".equals(status);
+    public boolean isActive() {
+        return "Pending".equals(status) || "Confirmed".equals(status)
+                || "InProgress".equals(status);
+    }
+    public boolean isPetUnassigned() {
+        return petID == null;
     }
 
     public String getServiceNamesJoined() {
@@ -218,7 +184,6 @@ public class Appointment {
         return sb.toString();
     }
 
-    /** Tổng tiền dịch vụ (chưa gồm thuốc) — cộng UnitPrice mọi dòng AppointmentServices. */
     public java.math.BigDecimal getServicesTotalPrice() {
         java.math.BigDecimal total = java.math.BigDecimal.ZERO;
         if (services != null) {
@@ -229,7 +194,6 @@ public class Appointment {
         return total;
     }
 
-    /** Tên nhân viên phụ trách các dịch vụ thuộc 1 category, nối dấu phẩy nếu nhiều người khác nhau. */
     public String getStaffNamesByCategory(String categoryName) {
         if (services == null) return "";
         LinkedHashSet<String> names = new LinkedHashSet<>();
@@ -241,7 +205,6 @@ public class Appointment {
         return String.join(", ", names);
     }
 
-    /** True nếu ÍT NHẤT 1 dịch vụ thuộc category chỉ định CHƯA có staff phụ trách. */
     public boolean hasUnassignedServiceInCategory(String categoryName) {
         if (services == null) return false;
         for (AppointmentService s : services) {
@@ -250,33 +213,11 @@ public class Appointment {
         return false;
     }
 
-    /** Danh sách dịch vụ thuộc 1 category cụ thể trong appointment này. */
-    public List<AppointmentService> getServicesByCategory(String categoryName) {
-        List<AppointmentService> result = new ArrayList<>();
-        if (services != null) {
-            for (AppointmentService s : services) {
-                if (categoryName.equals(s.getCategoryName())) result.add(s);
-            }
-        }
-        return result;
-    }
-
-    /** True nếu appointment có ít nhất 1 dịch vụ thuộc category chỉ định. */
     public boolean hasCategory(String categoryName) {
         if (services == null) return false;
         for (AppointmentService s : services) {
             if (categoryName.equals(s.getCategoryName())) return true;
         }
         return false;
-    }
-    /**
-     * Appointment dang active (Pending/Confirmed/InProgress).
-     */
-    public boolean isActive() {
-        return "Pending".equals(status) || "Confirmed".equals(status)
-                || "InProgress".equals(status);
-    }
-    public boolean isPetUnassigned() {
-        return petID == null;
     }
 }

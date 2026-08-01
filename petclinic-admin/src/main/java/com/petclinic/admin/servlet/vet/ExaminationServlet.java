@@ -27,7 +27,6 @@ public class ExaminationServlet extends HttpServlet {
     private final ExaminationService examinationService = new ExaminationService();
     private final InvoiceSyncService invoiceSyncService = new InvoiceSyncService();
 
-    // ── GET ───────────────────────────────────────────────────────────────────
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
@@ -48,7 +47,6 @@ public class ExaminationServlet extends HttpServlet {
         }
     }
 
-    // ── POST ──────────────────────────────────────────────────────────────────
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
@@ -127,7 +125,6 @@ public class ExaminationServlet extends HttpServlet {
         }
     }
 
-    // ── Action handlers ───────────────────────────────────────────────────────
 
     private void showQueue(HttpServletRequest req, HttpServletResponse resp, Staff vet)
             throws ServletException, IOException {
@@ -158,7 +155,7 @@ public class ExaminationServlet extends HttpServlet {
         }
     }
 
-    /** Tab "Lịch sử của tôi" — các ca bác sĩ này ĐÃ lưu bệnh án xong. */
+    // Tab Lịch sử: các ca bác sĩ này đã lưu bệnh án xong
     private void showHistory(HttpServletRequest req, HttpServletResponse resp, Staff vet)
             throws ServletException, IOException {
 
@@ -259,7 +256,7 @@ public class ExaminationServlet extends HttpServlet {
         }
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
+    // Helpers
 
     private String buildDiagnosis(HttpServletRequest req) {
         String[] ids = req.getParameterValues("labTestID[]");
@@ -376,12 +373,7 @@ public class ExaminationServlet extends HttpServlet {
         System.out.println("[BP-04 STUB] Generate invoice for appointmentID=" + appointmentID);
     }
 
-    /**
-     * Toàn bộ ServiceID Chẩn đoán/Điều trị đang được chọn trên form khám
-     * (labTestID[] + treatmentID[]) — gồm cả những dòng ĐÃ có từ lúc check-in
-     * lẫn dòng vet chọn thêm; InvoiceSyncService sẽ tự lọc ra dòng nào là MỚI
-     * để thêm vào AppointmentServices/InvoiceItems (BP-04/05).
-     */
+
     private List<Integer> parseSelectedServiceIds(HttpServletRequest req) {
         List<Integer> ids = new ArrayList<>();
         appendIds(ids, req.getParameterValues("labTestID[]"));

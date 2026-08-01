@@ -26,8 +26,6 @@ public class ConfirmServlet extends HttpServlet {
     private final PaymentService paymentSvc = new PaymentService();
     private final PetDAO petDAO = new PetDAO();
 
-    // ── GET ───────────────────────────────────────────────────────────────────
-
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         Customer customer = requireLogin(req, resp);
@@ -52,11 +50,9 @@ public class ConfirmServlet extends HttpServlet {
                 req.setAttribute("isInpatient", true);
                 req.setAttribute("inpatientDate", sess.getAttribute("bk_iDate"));
                 req.setAttribute("inpatientPeriod", isMorning ? "Buổi sáng (08:00–12:00)" : "Buổi chiều (13:30–17:30)");
+                req.setAttribute("totalQuantity", 1);
             }
             else {
-                // services/vaccines gom TẤT CẢ dịch vụ + vaccine đã chọn cho lượt
-                // đặt lịch này (danh sách, không giới hạn 1 mục) - hiển thị đầy
-                // đủ ở confirm.jsp.
                 String bookingPayload = (String) sess.getAttribute("bk_payload");
                 BookingSelection selection = BookingSelection.parse(bookingPayload);
 
@@ -77,6 +73,8 @@ public class ConfirmServlet extends HttpServlet {
                 req.setAttribute("vaccines", vaccines);
                 req.setAttribute("slotKey", sess.getAttribute("bk_slotKey"));
                 req.setAttribute("isInpatient", false);
+                req.setAttribute("totalQuantity", svcs.size() + vaccines.size());
+
             }
 
             req.setAttribute("notes", sess.getAttribute("bk_notes"));
@@ -90,8 +88,6 @@ public class ConfirmServlet extends HttpServlet {
             throw new ServletException(e);
         }
     }
-
-    // ── POST ──────────────────────────────────────────────────────────────────
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
@@ -148,9 +144,6 @@ public class ConfirmServlet extends HttpServlet {
                     return;
                 }
 
-                // 1 appointment cho NHIỀU dịch vụ/vaccine đã chọn.
-                // AppointmentServices được ghi bên trong createNormalAppointment
-                // (1 dòng/dịch vụ thực sự chọn; riêng Vaccine chỉ 1 dòng đại diện).
                 apptId = bookingSvc.createNormalAppointment(customer.getCustomerID(), selection, slotKey, petId);
 
                 if (apptId <= 0) {
@@ -159,7 +152,6 @@ public class ConfirmServlet extends HttpServlet {
                     return;
                 }
 
-                // totalAmount của invoice = tổng giá TẤT CẢ dịch vụ + vaccine đã chọn.
                 invoiceId = paymentSvc.createInvoice(customer.getCustomerID(), apptId, total);
 
                 if (!selection.getServiceIds().isEmpty()) {
@@ -197,7 +189,7 @@ public class ConfirmServlet extends HttpServlet {
     }
 
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
+    // Helpers
     private int firstServiceIdOfCategory(int categoryId) throws Exception {
         List<Service> svcs = serviceDAO.findByCategory(categoryId);
         return svcs.isEmpty() ? -1 : svcs.get(0).getServiceID();

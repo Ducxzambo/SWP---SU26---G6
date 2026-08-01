@@ -18,14 +18,6 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- * URL map:
- *   GET  /pets                  → list of customer's pets
- *   GET  /pets/profile?id=      → pet profile + medical history + vaccines
- *   GET  /pets/edit?id=         → edit pet form
- *   POST /pets/edit             → save edits
- *   POST /pets/delete           → soft delete pet
- */
 @WebServlet(urlPatterns = {
     "/pets", "/pets/profile", "/pets/edit", "/pets/delete"
 })
@@ -42,11 +34,8 @@ public class PetServlet extends HttpServlet {
 
     private static final DateTimeFormatter ISO = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
-    // "Tai kham: yyyy-MM-dd" là chuỗi ExaminationService.saveMedicalRecord() append
-// vào TreatmentPlan khi vet nhập ngày tái khám — xem examination-detail.jsp field followUpDate.
     private static final Pattern FOLLOWUP_PATTERN = Pattern.compile("Tai kham:\\s*(\\d{4}-\\d{2}-\\d{2})");
 
-    // ── GET ───────────────────────────────────────────────────────────────────
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
@@ -62,7 +51,6 @@ public class PetServlet extends HttpServlet {
         } catch (Exception e) { e.printStackTrace(); throw new ServletException(e); }
     }
 
-    // ── POST ──────────────────────────────────────────────────────────────────
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
@@ -78,9 +66,6 @@ public class PetServlet extends HttpServlet {
         } catch (Exception e) { e.printStackTrace(); throw new ServletException(e); }
     }
 
-    // ══════════════════════════════════════════════════════════════════════════
-    //  LIST
-    // ══════════════════════════════════════════════════════════════════════════
     private void handleList(HttpServletRequest req, HttpServletResponse resp, Customer customer)
             throws Exception {
         List<Pet> pets = petDAO.findByCustomer(customer.getCustomerID());
@@ -95,9 +80,6 @@ public class PetServlet extends HttpServlet {
         req.getRequestDispatcher("/WEB-INF/views/customer/pets/list.jsp").forward(req, resp);
     }
 
-    // ══════════════════════════════════════════════════════════════════════════
-    //  PROFILE
-    // ══════════════════════════════════════════════════════════════════════════
     private void handleProfile(HttpServletRequest req, HttpServletResponse resp, Customer customer)
             throws Exception {
         int id = parseId(req.getParameter("id"));
@@ -162,7 +144,7 @@ public class PetServlet extends HttpServlet {
                     timeline.add(new PetTimelineEvent(followUp, PetTimelineEvent.Type.FOLLOWUP,
                             "Tái khám", mr.getAppointmentID()));
                 } catch (Exception ignored) {
-                    // Ngày tái khám lưu sai định dạng — bỏ qua, không chặn hiển thị timeline.
+
                 }
             }
         }
@@ -184,9 +166,6 @@ public class PetServlet extends HttpServlet {
         req.getRequestDispatcher("/WEB-INF/views/customer/pets/profile.jsp").forward(req, resp);
     }
 
-    // ══════════════════════════════════════════════════════════════════════════
-    //  EDIT FORM
-    // ══════════════════════════════════════════════════════════════════════════
     private void handleEditForm(HttpServletRequest req, HttpServletResponse resp, Customer customer)
             throws Exception {
         int id = parseId(req.getParameter("id"));
@@ -200,9 +179,6 @@ public class PetServlet extends HttpServlet {
         req.getRequestDispatcher("/WEB-INF/views/customer/pets/form.jsp").forward(req, resp);
     }
 
-    // ══════════════════════════════════════════════════════════════════════════
-    //  EDIT SAVE — CHỈ sửa được name + dateOfBirth.
-    // ══════════════════════════════════════════════════════════════════════════
     private void handleEditSave(HttpServletRequest req, HttpServletResponse resp, Customer customer)
             throws Exception {
         int id = parseId(req.getParameter("petId"));
@@ -225,9 +201,6 @@ public class PetServlet extends HttpServlet {
         resp.sendRedirect(req.getContextPath() + "/pets/profile?id=" + id);
     }
 
-    // ══════════════════════════════════════════════════════════════════════════
-    //  DELETE
-    // ══════════════════════════════════════════════════════════════════════════
     private void handleDelete(HttpServletRequest req, HttpServletResponse resp, Customer customer)
             throws Exception {
         int id = parseId(req.getParameter("petId"));
@@ -240,7 +213,6 @@ public class PetServlet extends HttpServlet {
         resp.sendRedirect(req.getContextPath() + "/pets");
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
     private void applyEditableFields(Pet pet, HttpServletRequest req) {
         pet.setName(trim(req.getParameter("name")));
 
@@ -258,8 +230,6 @@ public class PetServlet extends HttpServlet {
         } else {
             pet.setDateOfBirth(null);
         }
-        // weight KHÔNG được set ở đây — pet.getWeight() giữ nguyên giá trị đã
-        // load từ DB, nên PetDAO.update() sẽ ghi lại đúng giá trị cũ, không đổi.
     }
 
     private String validate(Pet pet) {

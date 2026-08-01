@@ -31,22 +31,14 @@ public class PaymentService {
 
         int invoiceId = decodeInvoiceId(data.orderCode());
         boolean isFullPayment = decodeIsFullPayment(data.orderCode());
-
-        // Gọi DAO để update database
         int apptId = invoiceDAO.confirmPaymentInTransaction(invoiceId, data.amount(), isFullPayment);
-
-        // Tự động assign bác sĩ nếu thành công
         if (apptId > 0) {
             assignmentSvc.autoAssign(apptId);
         }
         return true;
     }
 
-    /**
-     * Invoice luôn được tạo ở trạng thái 'Unpaid' — được tạo NGAY SAU khi
-     * tạo appointment, TRƯỚC khi khách thanh toán. Sẽ tự chuyển 'PrePaid'
-     * ngay khi thanh toán 100% được xác nhận
-     */
+
     public int createInvoice(int customerId, int appointmentId, BigDecimal totalAmount) throws Exception {
         return invoiceDAO.createInvoice(customerId, appointmentId, totalAmount, "Unpaid");
     }
@@ -55,7 +47,6 @@ public class PaymentService {
         invoiceDAO.addInvoiceItem(invoiceId, itemType, description, quantity, unitPrice);
     }
 
-    // Luồng sinh mã orderCode
     private long buildOrderCode(int invoiceId, boolean isFullPayment) {
         long retrySuffix = (System.currentTimeMillis() / 1000) % 10_000;
         return (long) invoiceId * 100_000 + retrySuffix * 10 + (isFullPayment ? 1 : 0);

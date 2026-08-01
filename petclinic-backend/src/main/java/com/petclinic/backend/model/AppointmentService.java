@@ -2,14 +2,6 @@ package com.petclinic.backend.model;
 
 import java.math.BigDecimal;
 
-/**
- * 1 dòng trong bảng join AppointmentServices — đại diện cho 1 dịch vụ được
- * chọn trong 1 appointment (N-N giữa Appointments và Services).
- *
- * UnitPrice được "chốt" tại thời điểm đặt lịch (snapshot giá Service lúc
- * đó) — không đổi kể cả khi Service.Price thay đổi về sau, để hoá đơn luôn
- * khớp với số tiền đã thu.
- */
 public class AppointmentService {
     private int        appointmentServiceID;
     private int        appointmentID;

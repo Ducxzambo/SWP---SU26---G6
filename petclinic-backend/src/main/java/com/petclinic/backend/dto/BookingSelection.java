@@ -8,11 +8,6 @@ import com.google.gson.JsonParser;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Lựa chọn dịch vụ/vaccine của 1 lần đặt lịch, gửi từ booking-new.js.
- * Không lưu DB — chỉ là DTO trung gian giữa JSON submit và
- * BookingService.createNormalAppointment().
- */
 public class BookingSelection {
     private List<Integer> serviceIds = new ArrayList<>();
     private List<Integer> vaccineIds = new ArrayList<>();
@@ -28,11 +23,6 @@ public class BookingSelection {
     public boolean isEmpty() {
         return serviceIds.isEmpty() && vaccineIds.isEmpty();
     }
-
-    // ── Parser (bookingPayload JSON -> BookingSelection) ────────────────────
-    //
-    // Dùng Gson để parse JSON dạng object:
-    //   {"serviceIds":[..],"vaccineIds":[..]}
 
     public static BookingSelection parse(String json) {
         if (json == null || json.isBlank()) return new BookingSelection(null, null);

@@ -19,17 +19,6 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.*;
 
-/**
- * Booking wizard:
- * GET /booking/new → Step 1: chọn loại lịch (Khám/Spa/Vaccine vs Nội trú)
- * POST /booking/new → Validate → Step 2 confirm
- * GET /booking/confirm → Step 2 confirm page (from session)
- * POST /booking/confirm → Create Pending appointments → Step 3 payment
- * GET /booking/payment → Step 3 payment page
- * POST /booking/payment → Call PayOS, redirect to QR checkout
- *
- * [{"petId":1,"serviceIds":[11,12],"vaccineIds":[3,5]}]
- */
 @WebServlet(urlPatterns = {"/booking/new"})
 public class NewServlet extends HttpServlet {
 
@@ -83,8 +72,6 @@ public class NewServlet extends HttpServlet {
 
         return o.toString();
     }
-
-    // ── POST ──────────────────────────────────────────────────────────────────
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
@@ -228,13 +215,6 @@ public class NewServlet extends HttpServlet {
         req.getRequestDispatcher("/WEB-INF/views/booking/confirm.jsp").forward(req, resp);
     }
 
-    /**
-     * "petId" (existing pet, must belong to this customer) or a "newPetName" +
-     * optional species/breed/gender/dateOfBirth to create a brand-new pet on the
-     * fly — mirrors ExaminationService.createPetAndCheckIn, just triggered by
-     * the customer at booking time instead of the receptionist at check-in.
-     * Returns null when neither an existing pet nor new-pet info was supplied.
-     */
     private Integer resolvePetSelection(HttpServletRequest req, Customer customer) throws Exception {
         String petIdParam = req.getParameter("petId");
         if (petIdParam != null && !petIdParam.isBlank()) {
@@ -275,7 +255,7 @@ public class NewServlet extends HttpServlet {
                 LocalDate dob = LocalDate.parse(dobStr.trim());
                 if (!dob.isAfter(LocalDate.now())) pet.setDateOfBirth(dob);
             } catch (Exception ignored) {
-                // Ngày sinh không hợp lệ - bỏ qua, không chặn luồng đặt lịch.
+
             }
         }
 
@@ -284,8 +264,7 @@ public class NewServlet extends HttpServlet {
     }
 
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
-
+    // Helpers
     private void forwardStep1Error(HttpServletRequest req, HttpServletResponse resp, Customer customer, String msg) throws Exception {
         req.setAttribute("error", msg);
         doGet(req, resp);

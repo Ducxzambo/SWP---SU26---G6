@@ -17,13 +17,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 
-/**
- * On server startup, re-schedules email reminders for all upcoming Confirmed
- * appointments whose reminder times haven't passed yet.
- *
- * This compensates for reminders lost when the server restarts.
- * For production with frequent restarts, use a DB-persisted job table (e.g. Quartz).
- */
 @WebListener
 public class ReminderSchedulerListener implements ServletContextListener {
 
@@ -59,13 +52,9 @@ public class ReminderSchedulerListener implements ServletContextListener {
 
     @Override
     public void contextDestroyed(ServletContextEvent sce) {
-        // EmailService uses daemon threads — JVM will stop them on shutdown
+
     }
 
-    /**
-     * Load all Confirmed appointments from today onward.
-     * Only includes those where at least one reminder (48h or 18h) is still in the future.
-     */
     private List<Appointment> findUpcomingConfirmed() throws Exception {
         String sql = "SELECT AppointmentID FROM Appointments "
                 + "WHERE Status = 'Confirmed' AND AppointmentDate >= ?";
@@ -84,7 +73,6 @@ public class ReminderSchedulerListener implements ServletContextListener {
         for (int id : ids) {
             Appointment a = appointmentDAO.findById(id);
             if (a == null || a.getAppointmentDate() == null || a.getStartTime() == null) continue;
-            // Only schedule if 18h reminder hasn't passed yet
             LocalDateTime apptDt = LocalDateTime.of(a.getAppointmentDate(), a.getStartTime());
             if (apptDt.minusHours(18).isAfter(now)) {
                 list.add(a);

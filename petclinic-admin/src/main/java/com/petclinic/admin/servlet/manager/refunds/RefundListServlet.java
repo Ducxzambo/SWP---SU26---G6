@@ -13,10 +13,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.List;
 
-/**
- * Refund: Yêu cầu hoàn tiền (list screen).
- * Requested luôn hiển thị trước (hàng đợi cần xử lý) - xem RefundDAO.search().
- */
 @WebServlet("/manager/refunds")
 public class RefundListServlet extends HttpServlet {
 

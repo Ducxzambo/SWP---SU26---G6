@@ -13,13 +13,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.List;
 
-/**
- * Inventory &gt; Danh sách tồn kho (list/search screen).
- * Read-only browse of all Medicine + Vaccine stock, with keyword/type/level
- * filters and quick health metrics. This is the hub screen managers land on
- * for the Inventory module; the other Inventory screens (Stock In,
- * Thresholds, Transactions, Report) are reached through the sub-nav.
- */
 @WebServlet("/manager/inventory")
 public class InventoryListServlet extends HttpServlet {
 

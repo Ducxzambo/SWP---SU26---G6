@@ -15,7 +15,6 @@ public class GroomingRecord {
     private String        flagReason;
     private LocalDateTime createdAt;
 
-    // transient join fields
     private String petName;
     private String ownerName;
     private String staffName;
@@ -49,7 +48,7 @@ public class GroomingRecord {
     public void          setCreatedAt(LocalDateTime v){ createdAt = v; }
     public String        getGroomerName()             { return groomerName; }
     public void          setGroomerName(String v)     { groomerName = v; }
-    // join
+
     public String getPetName()     { return petName; }
     public void   setPetName(String v){ petName = v; }
     public String getOwnerName()   { return ownerName; }

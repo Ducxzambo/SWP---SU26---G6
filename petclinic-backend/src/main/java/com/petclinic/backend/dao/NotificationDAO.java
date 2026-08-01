@@ -9,9 +9,6 @@ import java.util.List;
 
 public class NotificationDAO {
 
-    // ── Read ──────────────────────────────────────────────────────────────────
-
-    /** Lấy tất cả thông báo của 1 customer, mới nhất lên đầu. */
     public List<Notification> findByCustomer(int customerId) throws SQLException {
         String sql = "SELECT * FROM Notifications "
                 + "WHERE CustomerID = ? "
@@ -20,7 +17,6 @@ public class NotificationDAO {
         return query(sql, ps -> ps.setInt(1, customerId));
     }
 
-    /** Lọc theo type category (REMINDER, PAYMENT, EXAM_RESULT, CARE_TIP, SUPPORT, INFO). */
     public List<Notification> findByCustomerAndType(int customerId, String type)
             throws SQLException {
         String sql = "SELECT * FROM Notifications "
@@ -30,7 +26,6 @@ public class NotificationDAO {
         return query(sql, ps -> { ps.setInt(1, customerId); ps.setString(2, type); });
     }
 
-    /** Chỉ lấy chưa đọc. */
     public List<Notification> findUnread(int customerId) throws SQLException {
         String sql = "SELECT * FROM Notifications "
                 + "WHERE CustomerID = ? AND IsRead = 0 "
@@ -39,7 +34,6 @@ public class NotificationDAO {
         return query(sql, ps -> ps.setInt(1, customerId));
     }
 
-    /** Đếm chưa đọc (dùng cho badge header). */
     public int countUnread(int customerId) throws SQLException {
         String sql = "SELECT COUNT(*) FROM Notifications "
                 + "WHERE CustomerID = ? AND IsRead = 0 "
@@ -53,9 +47,6 @@ public class NotificationDAO {
         }
     }
 
-    // ── Write ─────────────────────────────────────────────────────────────────
-
-    /** Tạo 1 thông báo. Returns generated ID. */
     public int create(Notification n) throws SQLException {
         String sql = "INSERT INTO Notifications "
                 + "(CustomerID, StaffID, Title, Body, Type, ActionUrl, IsRead, ExpiresAt) "
@@ -79,7 +70,6 @@ public class NotificationDAO {
         }
     }
 
-    /** Đánh dấu 1 thông báo đã đọc. */
     public void markRead(int notificationId) throws SQLException {
         String sql = "UPDATE Notifications SET IsRead = 1 WHERE NotificationID = ?";
         try (Connection c = DBConnection.getConnection();
@@ -89,7 +79,6 @@ public class NotificationDAO {
         }
     }
 
-    /** Đánh dấu tất cả đã đọc cho 1 customer. */
     public void markAllRead(int customerId) throws SQLException {
         String sql = "UPDATE Notifications SET IsRead = 1 "
                 + "WHERE CustomerID = ? AND IsRead = 0";
@@ -100,7 +89,6 @@ public class NotificationDAO {
         }
     }
 
-    /** Đánh dấu tất cả theo type đã đọc. */
     public void markTypeRead(int customerId, String type) throws SQLException {
         String sql = "UPDATE Notifications SET IsRead = 1 "
                 + "WHERE CustomerID = ? AND Type = ? AND IsRead = 0";
@@ -112,8 +100,6 @@ public class NotificationDAO {
         }
     }
 
-    // ── Factory helpers (gọi từ NotificationService) ─────────────────────────
-
     public int createForCustomer(int customerId, String type, String title,
                                  String body, String actionUrl) throws SQLException {
         Notification n = new Notification();
@@ -124,8 +110,6 @@ public class NotificationDAO {
         n.setActionUrl(actionUrl);
         return create(n);
     }
-
-    // ── Internal ──────────────────────────────────────────────────────────────
 
     @FunctionalInterface
     interface PsSetter { void set(PreparedStatement ps) throws SQLException; }

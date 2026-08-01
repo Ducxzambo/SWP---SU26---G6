@@ -14,7 +14,6 @@ public class PetDAO {
 
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
-    /** Dùng cho weight fallback — xem applyWeightFallback(). */
     private final MedicalRecordDAO medicalRecordDAO = new MedicalRecordDAO();
 
     // ── Read ──────────────────────────────────────────────────────────────────
@@ -67,7 +66,6 @@ public class PetDAO {
         }
     }
 
-    /** All active (non-deleted) pets belonging to a customer. */
     public List<Pet> findByCustomerId(int customerID) throws SQLException {
         String sql = "SELECT * FROM Pets WHERE CustomerID = ? AND IsDeleted = 0 ORDER BY Name";
         try (Connection c = DBConnection.getConnection();
@@ -92,7 +90,6 @@ public class PetDAO {
         }
     }
 
-    // ── Write ─────────────────────────────────────────────────────────────────
 
     public int insert(Pet pet) throws SQLException {
         String sql = "INSERT INTO Pets (CustomerID, Name, SpeciesName, BreedName, Gender, DateOfBirth, Weight) "
@@ -130,7 +127,6 @@ public class PetDAO {
         }
     }
 
-    /** Soft delete — sets IsDeleted = 1 */
     public void softDelete(int petId, int customerId) throws SQLException {
         String sql = "UPDATE Pets SET IsDeleted = 1 WHERE PetID = ? AND CustomerID = ?";
         try (Connection c = DBConnection.getConnection();
@@ -141,7 +137,7 @@ public class PetDAO {
         }
     }
 
-    // ── Mapping ───────────────────────────────────────────────────────────────
+    // Mapping
 
     private Pet mapRowWithStats(ResultSet rs) throws SQLException {
         Pet p = mapRow(rs);
@@ -152,20 +148,13 @@ public class PetDAO {
         return p;
     }
 
-    /**
-     * Neu Pets.Weight null (tu khi bo chinh sua can nang truc tiep o Edit
-     * Pet - chi con staff ghi nhan can nang qua MedicalRecord luc kham),
-     * dung can nang o lan kham GAN NHAT co ghi nhan lam gia tri hien thi
-     * thay the. CHI ap dung trong bo nho cho object tra ve - KHONG ghi de
-     * lai vao Pets.Weight trong DB.
-     */
     private void applyWeightFallback(Pet p) {
         if (p.getWeight() != null) return;
         try {
             BigDecimal latest = medicalRecordDAO.findLatestWeightByPet(p.getPetID());
             if (latest != null) p.setWeight(latest);
         } catch (SQLException ignored) {
-            // Loi tra cuu fallback khong duoc lam hong viec hien thi pet.
+
         }
     }
 

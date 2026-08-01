@@ -12,6 +12,7 @@
     <artifactId>petclinic-customer</artifactId>
     <packaging>war</packaging>
     <dependencies>
+
         <dependency>
             <groupId>com.petclinic</groupId>
             <artifactId>petclinic-backend</artifactId>

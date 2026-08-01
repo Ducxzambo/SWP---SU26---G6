@@ -15,9 +15,6 @@ public class HttpUtils {
             .connectTimeout(Duration.ofSeconds(10))
             .build();
 
-    /**
-     * Thực hiện HTTP POST request
-     */
     public static String post(String targetUrl, String jsonBody, Map<String, String> headers) throws Exception {
 
         HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
@@ -26,17 +23,14 @@ public class HttpUtils {
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(jsonBody));
 
-        // Gắn thêm các header tùy chỉnh
         if (headers != null) {
             headers.forEach(requestBuilder::header);
         }
 
         HttpRequest request = requestBuilder.build();
 
-        // Gửi request đồng bộ và nhận kết quả dưới dạng chuỗi (String)
         HttpResponse<String> response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
 
-        // Trả về chuỗi JSON từ API
         return response.body();
     }
 }

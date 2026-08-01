@@ -12,7 +12,6 @@ import java.time.temporal.ChronoUnit;
  */
 public class Notification {
 
-    // Notification types (maps to DB column Type)
     public static final String TYPE_REMINDER_48H      = "REMINDER_48H";
     public static final String TYPE_REMINDER_18H      = "REMINDER_18H";
     public static final String TYPE_BOOKING_CONFIRMED = "BOOKING_CONFIRMED";
@@ -30,15 +29,14 @@ public class Notification {
     private Integer       staffID;
     private String        title;
     private String        body;
-    private String        type;        // one of TYPE_* constants above
-    private String        actionUrl;   // optional deep-link (e.g. /appointments/detail?id=5)
+    private String        type;
+    private String        actionUrl;
     private boolean       isRead;
     private LocalDateTime createdAt;
-    private LocalDateTime expiresAt;    // null --> never expire
+    private LocalDateTime expiresAt;
 
     public Notification() {}
 
-    // ── Getters / Setters ─────────────────────────────────────────────────────
     public int           getNotificationID()       { return notificationID; }
     public void          setNotificationID(int v)  { notificationID = v; }
     public Integer       getCustomerID()           { return customerID; }
@@ -60,10 +58,6 @@ public class Notification {
     public LocalDateTime getExpiresAt()            { return expiresAt; }
     public void          setExpiresAt(LocalDateTime v){ expiresAt = v; }
 
-    // ── Display helpers ───────────────────────────────────────────────────────
-
-
-    /** CSS class cho màu accent border-left theo loại. */
     public String getTypeColor() {
         if (type == null) return "notif-info";
         switch (type) {

@@ -9,14 +9,6 @@ import java.util.List;
 
 public class RefundDAO {
 
-    /**
-     * Tao 1 yeu cau hoan tien moi (Status mac dinh 'Requested' - xem DEFAULT
-     * constraint trong migration). Goi tu AppointmentServlet.handleCancel()
-     * TRUOC KHI appointment duoc chuyen sang Cancelled trong cung request -
-     * neu insert loi (vd mat ket noi DB) thi exception se duoc nem len va
-     * appointment SE KHONG bi huy, tranh tinh trang huy lich nhung mat yeu
-     * cau hoan tien.
-     */
     public int createRequest(Refund r) throws SQLException {
         String sql = "INSERT INTO Refunds "
                 + "(AppointmentID, TotalAmount, PaidAmount, Reason, BankCode, AccountNumber, AccountName) "
@@ -38,9 +30,6 @@ public class RefundDAO {
         return -1;
     }
 
-
-    // ── Staff-side review queue (list/detail) ───────────────────────────────────
-
     private static final String JOINED_SELECT = """
             SELECT r.*, a.AppointmentDate, a.Status AS ApptStatus,
                    c.FullName AS CustomerName, c.Phone AS CustomerPhone,
@@ -50,16 +39,6 @@ public class RefundDAO {
             JOIN Customers c ON a.CustomerID = c.CustomerID
             LEFT JOIN Pets p ON a.PetID = p.PetID
             """;
-
-    /**
-     * Danh sach yeu cau hoan tien cho man hinh quan ly cua staff. Cac dong
-     * Status='Requested' LUON duoc xep truoc (bat ke sortBy la gi), vi day
-     * la hang doi can xu ly - "sort" chi quyet dinh thu tu TRONG TUNG NHOM
-     * (Requested truoc, con lai sau).
-     *
-     * @param statusFilter null/blank = tat ca; hoac "Requested"/"Processed"/"Rejected"
-     * @param sortBy       "date_desc" (mac dinh) | "date_asc" | "amount_desc" | "amount_asc"
-     */
     public List<Refund> search(String statusFilter, String sortBy) throws SQLException {
         StringBuilder sql = new StringBuilder(JOINED_SELECT).append(" WHERE 1 = 1");
         List<Object> params = new ArrayList<>();
@@ -71,10 +50,10 @@ public class RefundDAO {
 
         sql.append(" ORDER BY CASE WHEN r.Status = 'Requested' THEN 0 ELSE 1 END, ");
         sql.append(switch (sortBy == null ? "" : sortBy) {
-            case "date_asc" -> "r.RequestedAt ASC";
+            case "date_desc " -> "r.RequestedAt DESC";
             case "amount_desc" -> "r.PaidAmount DESC";
             case "amount_asc" -> "r.PaidAmount ASC";
-            default -> "r.RequestedAt DESC";
+            default -> "r.RequestedAt ASC";
         });
 
         try (Connection c = DBConnection.getConnection();
@@ -88,7 +67,6 @@ public class RefundDAO {
         }
     }
 
-    /** Chi tiet 1 yeu cau hoan tien, kem cac truong hien thi tu Appointment/Customer/Pet. */
     public Refund findById(int refundId) throws SQLException {
         String sql = JOINED_SELECT + " WHERE r.RefundID = ?";
         try (Connection c = DBConnection.getConnection();
@@ -100,13 +78,6 @@ public class RefundDAO {
         }
     }
 
-    /**
-     * Xac nhan da chuyen khoan hoan tien. Guard "AND Status = 'Requested'"
-     * trong WHERE de tranh xu ly trung neu nut duoc bam 2 lan (double-submit)
-     * hoac 2 tab cung xu ly 1 yeu cau - executeUpdate() tra ve 0 neu request
-     * da bi xu ly truoc do, RefundService se dua vao gia tri nay de bao loi
-     * ro rang thay vi am tham ghi de.
-     */
     public boolean markProcessed(int refundId, int processedByStaffId) throws SQLException {
         String sql = "UPDATE Refunds SET Status = 'Processed', ProcessedByID = ?, RefundedAt = GETDATE() "
                 + "WHERE RefundID = ? AND Status = 'Requested'";
@@ -118,7 +89,6 @@ public class RefundDAO {
         }
     }
 
-    /** Tu choi yeu cau - cung guard idempotency nhu markProcessed(). */
     public boolean markRejected(int refundId, int processedByStaffId, String rejectReason) throws SQLException {
         String sql = "UPDATE Refunds SET Status = 'Rejected', ProcessedByID = ?, RejectReason = ? "
                 + "WHERE RefundID = ? AND Status = 'Requested'";

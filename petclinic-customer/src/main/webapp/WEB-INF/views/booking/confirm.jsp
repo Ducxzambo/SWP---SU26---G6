@@ -100,27 +100,22 @@
       </table>
     </c:if>
 
-    <div class="confirm-box-head" style="background:var(--green-50);color:var(--text-dark);font-size:14px;border-top:1px solid var(--border);">
-      Ước tính chi phí
-    </div>
-    <table class="confirm-table">
-      <c:if test="${!isInpatient}">
+    <!-- Thay toàn bộ khối "Ước tính chi phí" cũ bằng: -->
+    <div class="confirm-box" style="margin-top:20px;">
+      <div class="confirm-box-head">HÓA ĐƠN 1</div>
+      <table class="confirm-table">
+        <tr><td>Tổng số lượng</td><td>${totalQuantity}</td></tr>
+        <tr><td>Tổng tiền hàng</td>
+            <td><fmt:formatNumber value="${totalPrice}" type="number" groupingUsed="true"/>đ</td></tr>
+        <tr><td>Chiết khấu</td><td>0đ</td></tr>
         <tr style="background:var(--green-50);">
-          <td style="font-weight:600;color:var(--green-900);">Cần thanh toán (100%)</td>
+          <td style="font-weight:600;color:var(--green-900);">Tổng phải trả</td>
           <td style="font-weight:700;color:var(--green-700);font-size:16px;">
             <fmt:formatNumber value="${totalPrice}" type="number" groupingUsed="true"/>đ
           </td>
         </tr>
-      </c:if>
-      <c:if test="${isInpatient}">
-        <tr style="background:var(--green-50);">
-          <td style="font-weight:600;color:var(--green-900);">Đặt cọc nội trú</td>
-          <td style="font-weight:700;color:var(--green-700);font-size:16px;">
-            <fmt:formatNumber value="${depositAmount}" type="number" groupingUsed="true"/>đ
-          </td>
-        </tr>
-      </c:if>
-    </table>
+      </table>
+    </div>
   </div>
 
   <div style="background:var(--green-50);border:1px solid var(--green-100);border-radius:10px;padding:14px 18px;margin-top:20px;font-size:13.5px;color:var(--green-700);line-height:1.7;">

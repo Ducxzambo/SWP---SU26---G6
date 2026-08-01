@@ -15,15 +15,6 @@ import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.List;
 
-/**
- * BP-03 — Groomer side.
- *
- * GET  /groomer/session              → hàng chờ (assigned-to-me + unassigned)
- * GET  /groomer/session?action=start&appointmentID=X → tự nhận + bắt đầu
- * GET  /groomer/session?action=form&appointmentID=X  → form ghi nhận
- * GET  /groomer/session?action=view&recordID=X        → xem lại (read-only)
- * POST /groomer/session              → lưu bản ghi grooming → Done
- */
 @WebServlet("/groomer/session")
 public class GroomingServlet extends HttpServlet {
 
@@ -109,8 +100,6 @@ public class GroomingServlet extends HttpServlet {
         }
     }
 
-    // ── Handlers ──────────────────────────────────────────────────────────────
-
     private void showQueue(HttpServletRequest req, HttpServletResponse resp, Staff groomer)
             throws ServletException, IOException {
         LocalDate filterDate = parseDate(req.getParameter("date"));
@@ -137,7 +126,7 @@ public class GroomingServlet extends HttpServlet {
         }
     }
 
-    /** Tab "Lịch sử của tôi" — các ca groomer này ĐÃ lưu kết quả grooming xong. */
+    //Tab Lịch sử - lưu kết quả grooming xong
     private void showHistory(HttpServletRequest req, HttpServletResponse resp, Staff groomer)
             throws ServletException, IOException {
         LocalDate filterDate = parseDate(req.getParameter("date"));
@@ -163,7 +152,7 @@ public class GroomingServlet extends HttpServlet {
         }
     }
 
-    /** Bắt đầu grooming: tự nhận ca nếu chưa ai nhận, rồi chuyển InProgress + mở form. */
+    // Bắt đầu grooming: tự nhận ca nếu chưa ai nhận, rồi chuyển InProgress + mở form.
     private void startSession(HttpServletRequest req, HttpServletResponse resp, Staff groomer)
             throws ServletException, IOException {
         String idStr = req.getParameter("appointmentID");
@@ -224,8 +213,8 @@ public class GroomingServlet extends HttpServlet {
         }
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
 
+    // Helpers
     private void forwardFormError(HttpServletRequest req, HttpServletResponse resp,
                                   int appointmentID, String msg)
             throws ServletException, IOException {
@@ -255,9 +244,5 @@ public class GroomingServlet extends HttpServlet {
     private LocalDate parseDate(String param) {
         if (param == null || param.isBlank()) return LocalDate.now();
         try { return LocalDate.parse(param); } catch (DateTimeParseException e) { return LocalDate.now(); }
-    }
-
-    private void triggerInvoice(int appointmentID) {
-        System.out.println("[BP-05 STUB] Generate invoice for appointmentID=" + appointmentID);
     }
 }

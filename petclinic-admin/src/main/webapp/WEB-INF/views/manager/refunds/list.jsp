@@ -50,8 +50,8 @@
                 <option value="Rejected" ${status == 'Rejected' ? 'selected' : ''}>Đã từ chối</option>
             </select>
             <select name="sort" class="form-control no-icon">
-                <option value="date_desc" ${sort == 'date_desc' || empty sort ? 'selected' : ''}>Mới nhất</option>
-                <option value="date_asc" ${sort == 'date_asc' ? 'selected' : ''}>Cũ nhất</option>
+                <option value="date_asc" ${sort == 'date_asc' || empty sort ? 'selected' : ''}>Cũ nhất</option>
+                <option value="date_desc" ${sort == 'date_desc'  ? 'selected' : ''}>Mới nhất</option>
                 <option value="amount_desc" ${sort == 'amount_desc' ? 'selected' : ''}>Số tiền giảm dần</option>
                 <option value="amount_asc" ${sort == 'amount_asc' ? 'selected' : ''}>Số tiền tăng dần</option>
             </select>

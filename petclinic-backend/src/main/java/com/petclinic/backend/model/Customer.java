@@ -13,7 +13,6 @@ public class Customer {
     private String        rememberMeToken;
     private LocalDateTime tokenExpiredTime;
 
-    // ── Constructors ─────────────────────────────────────────────────────────
     public Customer() {}
 
     public Customer(String fullName, String email, String phone, String passwordHash) {
@@ -24,7 +23,6 @@ public class Customer {
         this.isActive     = true;
     }
 
-    // ── Getters & Setters ────────────────────────────────────────────────────
     public int           getCustomerID()   { return customerID; }
     public void          setCustomerID(int v) { customerID = v; }
     public String        getFullName()     { return fullName; }

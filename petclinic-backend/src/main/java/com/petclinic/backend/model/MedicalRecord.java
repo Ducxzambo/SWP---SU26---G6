@@ -17,7 +17,6 @@ public class MedicalRecord {
     private String        treatmentPlan;
     private LocalDateTime createdAt;
 
-    // ── Transient fields ─────────────────────────────────────────────────────
     private String petName;
     private String staffName;
     private String ownerName;
@@ -75,23 +74,10 @@ public class MedicalRecord {
         this.prescriptionItems = prescriptionItems;
     }
 
-    /**
-     * True if at least one prescription item exists.
-     */
     public boolean hasPrescription() {
         return prescriptionItems != null && !prescriptionItems.isEmpty();
     }
 
-    // ── Diagnosis / TreatmentPlan (checklist string) ────────────────────────
-    // Format do staff-side build (buildDiagnosis/buildTreatmentPlan):
-    //   mỗi dòng "[Tên hạng mục]: Ghi chú" (ghi chú có thể vắng), các dòng
-    //   phân tách bằng "\n". Riêng Diagnosis còn có thể là chuỗi triệu chứng
-    //   tự do (không có dấu "[") khi staff không chọn xét nghiệm nào
-    //   (fallback = req.getParameter("symptoms")) — TreatmentPlan thì luôn
-    //   là "" hoặc đúng định dạng checklist, không có fallback tự do.
-
-    /** true nếu Diagnosis ở dạng checklist có cấu trúc (hiển thị bảng được);
-     *  false nếu là văn bản triệu chứng tự do (hiển thị đoạn văn bình thường). */
     public boolean isDiagnosisStructured() {
         return diagnosis != null && diagnosis.trim().startsWith("[");
     }
@@ -123,7 +109,6 @@ public class MedicalRecord {
         return out;
     }
 
-    /** 1 dòng trong bảng Diagnosis/TreatmentPlan: tên hạng mục + ghi chú. */
     public static class LabTestEntry {
         private final String name;
         private final String note;

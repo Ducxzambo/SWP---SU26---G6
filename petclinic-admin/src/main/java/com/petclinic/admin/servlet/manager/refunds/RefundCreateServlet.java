@@ -15,17 +15,6 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.List;
 
-/**
- * Refund: Tạo yêu cầu mới .
- * 2 bước dùng chung 1 servlet, phân biệt bằng sự có mặt của "appointmentId":
- *   - GET  không có appointmentId  → bước 1: chọn appointment (Cancelled/
- *     NoShow/Done), có tìm kiếm theo tên khách/thú cưng.
- *   - GET  có appointmentId        → bước 2: form nhập lý do/số tiền/ngân
- *     hàng cho đúng appointment đó, kèm xem trước Invoice/Items/Payments.
- *   - POST → tạo Refund, redirect sang trang chi tiết (dùng LẠI đúng màn
- *     xác nhận/từ chối thông thường - "tiến hành thanh toán giống luồng
- *     thông thường" như yêu cầu).
- */
 @WebServlet("/manager/refunds/create")
 public class RefundCreateServlet extends HttpServlet {
 

@@ -4,10 +4,6 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 
-/**
- * Represents a 120-minute bookable slot.
- * A slot is greyed-out only when currentLoad >= maxCapacity (i.e. == 1.0 as per spec).
- */
 public class TimeSlot {
     private LocalDate date;
     private LocalTime startTime;
@@ -17,7 +13,7 @@ public class TimeSlot {
     private int       currentLoad;
     private boolean    placeholder;
 
-    // Per-role-group breakdown (populated by BookingService)
+    // Per-role-group breakdown
     private int groomLoad;
     private int groomCap;
     private int vetLoad;
@@ -35,7 +31,6 @@ public class TimeSlot {
         this.available = available;
     }
 
-    // ── Getters / Setters ─────────────────────────────────────────────────────
     public LocalDate getDate()           { return date; }
     public void      setDate(LocalDate v){ date = v; }
     public LocalTime getStartTime()      { return startTime; }
@@ -59,11 +54,9 @@ public class TimeSlot {
     public int       getVetCap()         { return vetCap; }
     public void      setVetCap(int v)    { vetCap = v; }
 
-    /** "yyyy-MM-dd|HH:mm" — used as HTML value. */
     public String getSlotKey()     { return date.format(DF) + "|" + startTime.format(TF); }
     public String getDisplayTime() { return startTime.format(TF) + " – " + endTime.format(TF); }
 
-    /** Percentage fill for progress bar display (capped at 100). */
     public int getFillPercent() {
         if (maxCapacity <= 0) return 0;
         return Math.min(100, (int) Math.round(currentLoad / maxCapacity * 100));

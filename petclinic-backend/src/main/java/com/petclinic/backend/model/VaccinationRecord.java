@@ -43,13 +43,12 @@ public class VaccinationRecord {
     public String getFormattedNextDueDate() {
         return nextDueDate != null ? nextDueDate.format(FMT) : "Không cần nhắc";
     }
-    /** true nếu vaccine sắp đến hạn trong 30 ngày tới */
+
     public boolean isDueSoon() {
         if (nextDueDate == null) return false;
         LocalDate today = LocalDate.now();
         return !nextDueDate.isBefore(today) && nextDueDate.isBefore(today.plusDays(30));
     }
-    /** true nếu vaccine đã quá hạn */
     public boolean isOverdue() {
         return nextDueDate != null && nextDueDate.isBefore(LocalDate.now());
     }

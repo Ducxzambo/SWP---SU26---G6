@@ -27,7 +27,6 @@ public class GoogleAuthServlet extends HttpServlet {
 
     private final CustomerDAO customerDAO = new CustomerDAO();
 
-    // ── GET /auth/google: redirect to Google consent screen ──────────────────
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
@@ -35,7 +34,6 @@ public class GoogleAuthServlet extends HttpServlet {
         String path = req.getServletPath();
 
         if ("/auth/google".equals(path)) {
-            // Generate random state for CSRF protection
             String state = java.util.UUID.randomUUID().toString();
             req.getSession(true).setAttribute("oauth_state", state);
 
@@ -50,12 +48,10 @@ public class GoogleAuthServlet extends HttpServlet {
             return;
         }
 
-        // ── GET /auth/google/callback: exchange code for token ─────────────
         String code           = req.getParameter("code");
         String stateParam     = req.getParameter("state");
         HttpSession session   = req.getSession(false);
 
-        // CSRF check — guard tất cả null case trước khi so sánh
         String savedState = (session != null) ? (String) session.getAttribute("oauth_state") : null;
         if (savedState == null || !savedState.equals(stateParam)) {
             resp.sendRedirect(req.getContextPath() + "/auth/login?error=oauth_state");
@@ -69,22 +65,18 @@ public class GoogleAuthServlet extends HttpServlet {
         }
 
         try {
-            // Exchange auth code for access token
             String tokenResponse = exchangeCodeForToken(code);
             JSONObject tokenJson = new JSONObject(tokenResponse);
             String accessToken   = tokenJson.getString("access_token");
 
-            // Get user info from Google
             String userInfoResponse = fetchUserInfo(accessToken);
             JSONObject userInfo     = new JSONObject(userInfoResponse);
 
             String email    = userInfo.getString("email");
             String fullName = userInfo.optString("name", email);
 
-            // Find or create customer
             Customer customer = customerDAO.findByEmail(email);
             if (customer == null) {
-                // Auto-register Google users with a random unusable password
                 String randomHash = PasswordUtil.hashPassword(
                         java.util.UUID.randomUUID().toString());
                 Customer newCustomer = new Customer(fullName, email, null, randomHash);
@@ -92,14 +84,10 @@ public class GoogleAuthServlet extends HttpServlet {
                 customer = customerDAO.findById(id);
             }
 
-            // Create session (dùng lại session hiện có, không tạo mới)
             if (session == null) session = req.getSession(true);
             session.setAttribute("customer", customer);
             session.setMaxInactiveInterval(60 * 60 * 8);
 
-            // Google chỉ cung cấp email, không có số điện thoại. Nếu tài khoản
-            // (mới tạo hoặc đã có từ trước) còn thiếu email/phone, bắt buộc
-            // hoàn thiện thông tin tại trang profile trước khi vào hệ thống.
             if (isEmpty(customer.getEmail()) || isEmpty(customer.getPhone())) {
                 resp.sendRedirect(req.getContextPath() + "/profile");
             } else {
@@ -118,8 +106,7 @@ public class GoogleAuthServlet extends HttpServlet {
         }
     }
 
-    // ── OAuth helpers ─────────────────────────────────────────────────────────
-
+    //  OAuth helpers
     private String exchangeCodeForToken(String code) throws Exception {
         URL url = new URL("https://oauth2.googleapis.com/token");
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();

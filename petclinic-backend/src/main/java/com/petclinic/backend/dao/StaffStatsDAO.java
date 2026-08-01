@@ -10,30 +10,8 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Read-only statistics derived from AppointmentServices (one row per service
- * assigned to a staff member within an appointment) joined to Appointments
- * (for its date and Status). This is the same AssignedStaffID wiring the
- * booking/service-assignment flow already uses, so "case" here means one
- * assigned service line, and "completed" means the parent appointment's
- * Status is 'Done'.
- * <p>
- * Deliberately does NOT attempt a per-staff average rating: Reviews are
- * recorded per-Appointment, not per assigned staff/service, so an
- * appointment with several staff assigned to different services would have
- * its single review misattributed to all of them. Revenue and case counts
- * are attributable cleanly (each AppointmentServices row has its own
- * UnitPrice and AssignedStaffID); rating is not, so it's left out rather
- * than shown as a misleading approximation.
- */
 public class StaffStatsDAO {
 
-    /**
-     * Performance rows for the Statistics screen (all staff, optionally
-     * filtered) or the Detail screen (single staff, staffID given).
-     * Staff with zero assigned cases in range still appear, with all counts
-     * at zero - the caller should not need a separate "empty" query.
-     */
     public List<StaffPerformance> getPerformance(LocalDate fromDate, LocalDate toDate,
                                                  String roleName, Integer staffID)
             throws SQLException {
@@ -65,14 +43,9 @@ public class StaffStatsDAO {
         List<Object> params = new ArrayList<>(joinParams);
 
         if (staffID != null) {
-            // Single-staff lookup (Staff Detail screen): show their history
-            // even if they've since been deactivated - that's the whole
-            // point of looking someone up individually.
             sql.append(" AND s.StaffID = ?");
             params.add(staffID);
         } else {
-            // Multi-staff leaderboard (Statistics screen): only compare
-            // people currently on the team.
             sql.append(" AND s.IsActive = 1");
         }
         if (roleName != null && !roleName.isBlank()) {
@@ -106,10 +79,6 @@ public class StaffStatsDAO {
         }
     }
 
-    /**
-     * Which services a given staff member has actually completed, all-time
-     * or within a range - shown on the Staff Detail screen.
-     */
     public List<StaffServiceBreakdown> getServiceBreakdown(int staffID, LocalDate fromDate,
                                                             LocalDate toDate) throws SQLException {
         StringBuilder sql = new StringBuilder("""

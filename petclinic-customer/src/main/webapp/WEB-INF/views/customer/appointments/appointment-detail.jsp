@@ -286,10 +286,17 @@
 
     <!-- Invoice & Payments -->
     <c:if test="${not empty invoice}">
+
       <div class="detail-section">
         <div class="detail-section-head">
           Hoá đơn
           <span class="inv-status inv-status--${fn:toLowerCase(invoice.status)}">${invoice.status}</span>
+          <c:if test="${invoice.status eq 'PrePaid' or invoice.status eq 'Paid'}">
+            <a href="${ctx}/invoices/pdf?invoiceId=${invoice.invoiceID}" target="_blank"
+               style="margin-left:auto;font-size:12.5px;color:var(--green-500);font-weight:600;">
+              Xem / Tải hóa đơn PDF
+            </a>
+          </c:if>
         </div>
         <div class="detail-section-body" style="padding:0;">
 

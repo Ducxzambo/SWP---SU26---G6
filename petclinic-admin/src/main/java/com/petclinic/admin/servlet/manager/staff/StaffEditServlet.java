@@ -14,13 +14,6 @@ import java.io.IOException;
 import java.time.LocalDate;
 import java.util.List;
 
-/**
- * Staff &gt; Thêm mới / Sửa thông tin nhân viên (create+edit screen).
- * With no "id" param this is the create form (also collects an initial
- * password); with "id" it edits an existing profile. Password changes are
- * NOT handled here - see StaffPasswordResetServlet - so a routine profile
- * edit (fixing a phone number, say) can never accidentally touch credentials.
- */
 @WebServlet("/manager/staff/edit")
 public class StaffEditServlet extends HttpServlet {
 

@@ -37,29 +37,42 @@
 
   <div class="pay-options">
 
-    <!-- Full payment (booking thường) -->
     <c:if test="${!isInpatient}">
     <div class="pay-option" id="optFull" onclick="selectPay('full', this)">
       <div class="pay-opt-check" id="checkFull"></div>
-      <div class="pay-opt-icon"></div>
+      <div class="pay-opt-icon">💰</div>
       <div class="pay-opt-body">
-        <div class="pay-opt-title">Thanh toán toàn bộ</div>
+        <div class="pay-opt-title">Trả toàn bộ</div>
         <div class="pay-opt-desc">Thanh toán 100% chi phí ngay khi đặt lịch.</div>
         <div class="pay-opt-amount" id="amtFull">
           <fmt:formatNumber value="${totalPrice}" type="number" groupingUsed="true"/>₫
         </div>
       </div>
     </div>
+
+    <div class="pay-option" id="optPartial" onclick="selectPay('partial', this)">
+      <div class="pay-opt-check" id="checkPartial"></div>
+      <div class="pay-opt-icon">🪙</div>
+      <div class="pay-opt-body">
+        <div class="pay-opt-title">Đặt cọc 50%</div>
+        <div class="pay-opt-desc">Đặt cọc trước 50%, phần còn lại thanh toán vào ngày khám.</div>
+        <div class="pay-opt-amount pay-opt-amount--deposit" id="amtPartial">
+          <fmt:formatNumber value="${depositAmount}" type="number" groupingUsed="true"/>₫
+          <span class="pay-opt-remaining">
+            (còn lại <fmt:formatNumber value="${totalPrice - depositAmount}" type="number" groupingUsed="true"/>₫)
+          </span>
+        </div>
+      </div>
+    </div>
     </c:if>
 
-    <!-- Đặt cọc nội trú -->
     <c:if test="${isInpatient}">
     <div class="pay-option" id="optPartial" onclick="selectPay('partial', this)">
       <div class="pay-opt-check" id="checkPartial"></div>
-      <div class="pay-opt-icon"></div>
+      <div class="pay-opt-icon">🏥</div>
       <div class="pay-opt-body">
         <div class="pay-opt-title">Đặt cọc trước</div>
-        <div class="pay-opt-desc">Cọc cố định cho dịch vụ nội trú. Chi phí điều trị thực tế sẽ được tính khi xuất viện.</div>
+        <div class="pay-opt-desc">Cọc cố định cho dịch vụ nội trú. Chi phí thực tế tính khi xuất viện.</div>
         <div class="pay-opt-amount pay-opt-amount--deposit" id="amtPartial">
           <fmt:formatNumber value="${depositAmount}" type="number" groupingUsed="true"/>₫
         </div>

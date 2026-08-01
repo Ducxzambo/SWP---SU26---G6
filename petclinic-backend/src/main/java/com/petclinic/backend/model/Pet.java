@@ -16,7 +16,6 @@ public class Pet {
     private BigDecimal weight;
     private boolean    isDeleted;
 
-    // Aggregated stats (populated by PetDAO or PetService)
     private int    totalAppointments;
     private int    doneAppointments;
     private String lastVisitDate;
@@ -25,7 +24,6 @@ public class Pet {
 
     public Pet() {}
 
-    // ── Getters / Setters ─────────────────────────────────────────────────────
     public int        getPetID()         { return petID; }
     public void       setPetID(int v)    { petID = v; }
     public int        getCustomerID()    { return customerID; }
@@ -51,12 +49,10 @@ public class Pet {
     public String     getLastVisitDate()        { return lastVisitDate; }
     public void       setLastVisitDate(String v){ lastVisitDate = v; }
 
-    // ── Display helpers ───────────────────────────────────────────────────────
     public String getFormattedDateOfBirth() {
         return dateOfBirth != null ? dateOfBirth.format(DATE_FMT) : "Không rõ";
     }
 
-    /** "2 tuổi 3 tháng" or "Không rõ" */
     public String getAgeDisplay() {
         if (dateOfBirth == null) return "Không rõ";
         Period p = Period.between(dateOfBirth, LocalDate.now());
@@ -66,7 +62,6 @@ public class Pet {
         return p.getYears() + " tuổi " + p.getMonths() + " tháng";
     }
 
-    /** Emoji icon by species name */
     public String getSpeciesEmoji() {
         if (speciesName == null) return "🐾";
         String s = speciesName.toLowerCase();

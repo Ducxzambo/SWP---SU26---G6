@@ -1,6 +1,5 @@
 package com.petclinic.admin.servlet.receptionist;
 
-import com.petclinic.backend.dao.AppointmentDAO;
 import com.petclinic.backend.dao.InvoiceDAO;
 import com.petclinic.backend.model.Appointment;
 import com.petclinic.backend.model.Invoice;
@@ -20,12 +19,6 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * BP-02/03 — Lịch sử lịch hẹn cho Lễ tân + Hoàn tất lịch hẹn.
- *
- * GET  /receptionist/history              → toàn bộ lịch hẹn trong ngày (mọi trạng thái)
- * POST /receptionist/history?action=finalize → xác nhận Hoàn tất (Status → Done)
- */
 @WebServlet("/receptionist/history")
 public class AppointmentHistoryServlet extends HttpServlet {
 
@@ -91,10 +84,6 @@ public class AppointmentHistoryServlet extends HttpServlet {
                 case SUCCESS -> {
                         session.setAttribute("flashSuccess", "Đã hoàn tất lịch hẹn #" + appointmentID + "!");
 
-                    // BP-04: chuyển sang màn hình tổng hợp hóa đơn để lễ tân thu
-                    // phần còn lại (nếu có phát sinh thêm chi phí thuốc/xét
-                    // nghiệm lúc khám) - tiền mặt hoặc
-                    // chuyển khoản QR PayOS, y hệt màn hình ở bước check-in.
                     try {
                         Invoice invoice = invoiceDAO.findByAppointment(appointmentID);
                         if (invoice != null) {
