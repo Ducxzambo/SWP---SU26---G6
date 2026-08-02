@@ -158,13 +158,12 @@
           <div class="pay-opt-body">
             <div class="pay-opt-title">Tiền mặt</div>
             <div class="pay-opt-amount"><fmt:formatNumber value="${amountDue}" type="number" groupingUsed="true"/>đ</div>
-            <form action="${ctx}/receptionist/invoice" method="post" style="margin-top:10px;display:flex;gap:8px;">
+            <form action="${ctx}/receptionist/invoice" method="post" style="margin-top:10px;">
               <input type="hidden" name="invoiceId" value="${invoice.invoiceID}">
               <input type="hidden" name="from" value="${from}">
               <input type="hidden" name="action" value="cash">
               <button type="submit" class="btn-confirm" style="padding:9px 18px;">Xác nhận thu tiền</button>
             </form>
-            <div id="changePreview" style="margin-top:8px;font-size:13px;"></div>
           </div>
         </div>
 
@@ -207,21 +206,6 @@
 
       <script>
         const AMOUNT_DUE = ${amountDue};
-
-        function updateChangePreview() {
-          const tendered = parseFloat(document.getElementById('cashReceived').value || '0');
-          const el = document.getElementById('changePreview');
-          if (!tendered) { el.textContent = ''; return; }
-          if (tendered >= AMOUNT_DUE) {
-            const change = tendered - AMOUNT_DUE;
-            el.style.color = 'var(--green-700)';
-            el.textContent = change > 0 ? ('Tiền trả lại: ' + change.toLocaleString('vi-VN') + 'đ') : '';
-          } else {
-            el.style.color = 'var(--red-err, #c0392b)';
-            el.textContent = 'Chưa đủ, còn thiếu: ' + (AMOUNT_DUE - tendered).toLocaleString('vi-VN') + 'đ';
-          }
-        }
-
         function updateMixedRemaining() {
           const cash = parseFloat(document.getElementById('cashPart').value || '0');
           const el = document.getElementById('mixedRemainingPreview');

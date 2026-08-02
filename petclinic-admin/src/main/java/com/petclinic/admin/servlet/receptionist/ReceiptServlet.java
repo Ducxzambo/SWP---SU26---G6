@@ -38,15 +38,6 @@ public class ReceiptServlet extends HttpServlet {
                 return;
             }
 
-            // Nếu vừa thu tiền mặt xong và có tiền thừa
-            Integer changeInvoiceId = (Integer) session.getAttribute("lastCashChangeInvoiceId");
-            if (changeInvoiceId != null && changeInvoiceId == invoiceId) {
-                BigDecimal change = (BigDecimal) session.getAttribute("lastCashChange");
-                if (change != null) receipt.setChangeAmount(change);
-            }
-            session.removeAttribute("lastCashChange");
-            session.removeAttribute("lastCashChangeInvoiceId");
-
             if ("pdf".equalsIgnoreCase(req.getParameter("format"))) {
                 byte[] pdf = receiptService.renderPdf(receipt);
                 resp.setContentType("application/pdf");

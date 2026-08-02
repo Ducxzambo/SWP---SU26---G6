@@ -12,6 +12,7 @@ import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import com.petclinic.backend.util.VietnameseNumberUtil;
 
 public class ReceiptService {
 
@@ -20,55 +21,60 @@ public class ReceiptService {
     private final InvoiceDAO     invoiceDAO     = new InvoiceDAO();
     private final AppointmentDAO appointmentDAO = new AppointmentDAO();
 
-    //  1. Hóa đơn 1 - trước khi Invoice tồn tại, khách đang ở booking/confirm
-    public ReceiptData buildPreBookingInvoice(String customerName,
-                                              List<Service> services, List<Vaccine> vaccines) {
-        ReceiptData r = new ReceiptData();
-        r.setDocumentLabel("HÓA ĐƠN 1");
-        r.setInvoiceCode("Chưa phát hành");
-        r.setIssuedAtDisplay(java.time.LocalDateTime.now().format(DT_FMT));
-        r.setCustomerName(customerName);
-        r.setStaffName("Đặt lịch trực tuyến");
+    private static final String BIZ_NAME    = "PetClinic";
+    private static final String BIZ_ADDRESS = "123 Đường ABC, TP. Hà Nội";
+    private static final String BIZ_HOTLINE = "(028) 123 456 789";
+    private static final String BIZ_EMAIL   = "petclinicweb123@gmail.com";
 
-        BigDecimal qty = BigDecimal.ZERO, sub = BigDecimal.ZERO;
-        if (services != null) {
-            for (Service s : services) {
-                ReceiptLineItem li = lineOf(s.getName(), BigDecimal.ONE, s.getPrice());
-                r.getItems().add(li);
-                qty = qty.add(BigDecimal.ONE);
-                sub = sub.add(li.getLineTotal());
-            }
-        }
-        if (vaccines != null) {
-            for (Vaccine v : vaccines) {
-                ReceiptLineItem li = lineOf(v.getName(), BigDecimal.ONE, v.getUnitPrice());
-                r.getItems().add(li);
-                qty = qty.add(BigDecimal.ONE);
-                sub = sub.add(li.getLineTotal());
-            }
-        }
-        r.setTotalQuantity(qty);
-        r.setSubTotal(sub);
-        r.setDiscountAmount(BigDecimal.ZERO);
-        r.setTotalPayable(sub);
-        return r;
-    }
-
-    // Biến thể cho lịch nội trú
-    public ReceiptData buildPreBookingInvoiceInpatient(String customerName, BigDecimal depositAmount) {
-        ReceiptData r = new ReceiptData();
-        r.setDocumentLabel("HÓA ĐƠN 1");
-        r.setInvoiceCode("Chưa phát hành");
-        r.setIssuedAtDisplay(java.time.LocalDateTime.now().format(DT_FMT));
-        r.setCustomerName(customerName);
-        r.setStaffName("Đặt lịch trực tuyến");
-        r.getItems().add(lineOf("Đặt cọc nội trú", BigDecimal.ONE, depositAmount));
-        r.setTotalQuantity(BigDecimal.ONE);
-        r.setSubTotal(depositAmount);
-        r.setDiscountAmount(BigDecimal.ZERO);
-        r.setTotalPayable(depositAmount);
-        return r;
-    }
+//    //  1. Hóa đơn 1 - trước khi Invoice tồn tại, khách đang ở booking/confirm
+//    public ReceiptData buildPreBookingInvoice(String customerName,
+//                                              List<Service> services, List<Vaccine> vaccines) {
+//        ReceiptData r = new ReceiptData();
+//        r.setDocumentLabel("HÓA ĐƠN 1");
+//        r.setInvoiceCode("Chưa phát hành");
+//        r.setIssuedAtDisplay(java.time.LocalDateTime.now().format(DT_FMT));
+//        r.setCustomerName(customerName);
+//        r.setStaffName("Đặt lịch trực tuyến");
+//
+//        BigDecimal qty = BigDecimal.ZERO, sub = BigDecimal.ZERO;
+//        if (services != null) {
+//            for (Service s : services) {
+//                ReceiptLineItem li = lineOf(s.getName(), BigDecimal.ONE, s.getPrice());
+//                r.getItems().add(li);
+//                qty = qty.add(BigDecimal.ONE);
+//                sub = sub.add(li.getLineTotal());
+//            }
+//        }
+//        if (vaccines != null) {
+//            for (Vaccine v : vaccines) {
+//                ReceiptLineItem li = lineOf(v.getName(), BigDecimal.ONE, v.getUnitPrice());
+//                r.getItems().add(li);
+//                qty = qty.add(BigDecimal.ONE);
+//                sub = sub.add(li.getLineTotal());
+//            }
+//        }
+//        r.setTotalQuantity(qty);
+//        r.setSubTotal(sub);
+//        r.setDiscountAmount(BigDecimal.ZERO);
+//        r.setTotalPayable(sub);
+//        return r;
+//    }
+//
+//    // Biến thể cho lịch nội trú
+//    public ReceiptData buildPreBookingInvoiceInpatient(String customerName, BigDecimal depositAmount) {
+//        ReceiptData r = new ReceiptData();
+//        r.setDocumentLabel("HÓA ĐƠN 1");
+//        r.setInvoiceCode("Chưa phát hành");
+//        r.setIssuedAtDisplay(java.time.LocalDateTime.now().format(DT_FMT));
+//        r.setCustomerName(customerName);
+//        r.setStaffName("Đặt lịch trực tuyến");
+//        r.getItems().add(lineOf("Đặt cọc nội trú", BigDecimal.ONE, depositAmount));
+//        r.setTotalQuantity(BigDecimal.ONE);
+//        r.setSubTotal(depositAmount);
+//        r.setDiscountAmount(BigDecimal.ZERO);
+//        r.setTotalPayable(depositAmount);
+//        return r;
+//    }
 
     //  2. "BIÊN LAI LẦN 1" - vừa thanh toán xong lúc đặt lịch (full hoặc 50%)
     public ReceiptData buildPrepayReceipt(Invoice invoice, Appointment appt, Customer customer,
@@ -77,6 +83,7 @@ public class ReceiptService {
         r.setDocumentLabel("BIÊN LAI LẦN 1");
         r.setPaidStatusLabel("PrePaid");
         r.setPaidAmount(paidAmountThisTx);
+        r.setAmountInWords(VietnameseNumberUtil.readMoney(paidAmountThisTx));
         BigDecimal remaining = r.getTotalPayable().subtract(paidAmountThisTx);
         if (remaining.signum() < 0) remaining = BigDecimal.ZERO;
         r.setRemainingAmount(remaining);
@@ -105,6 +112,7 @@ public class ReceiptService {
         r.setDocumentLabel("BIÊN LAI LẦN 2");
         r.setPaidStatusLabel("Paid");
         r.setPaidAmount(justPaidAmount);
+        r.setAmountInWords(VietnameseNumberUtil.readMoney(justPaidAmount));
         r.setChangeAmount(changeAmount == null ? BigDecimal.ZERO : changeAmount);
         r.setNote("Thanh toán thành công.");
         return r;
@@ -123,24 +131,11 @@ public class ReceiptService {
         BigDecimal totalPaid = sumPayments(invoice);
 
         if ("PrePaid".equals(status)) {
-            ReceiptData r = baseFromInvoice(invoice, appt, customer);
-            r.setDocumentLabel("BIÊN LAI LẦN 1");
-            r.setPaidStatusLabel("PrePaid");
-            r.setPaidAmount(totalPaid);
-            BigDecimal remaining = r.getTotalPayable().subtract(totalPaid);
-            if (remaining.signum() < 0) remaining = BigDecimal.ZERO;
-            r.setRemainingAmount(remaining);
-            r.setRemainingDueDate(appt != null ? appt.getFormattedAppointmentDate() : "-");
-            r.setNote(remaining.signum() == 0 ? "Trả trước toàn bộ." : "Đặt cọc 50%.");
+            ReceiptData r = buildPrepayReceipt(invoice, appt, customer, false, totalPaid);
             return r;
         }
         if ("Paid".equals(status) || "Refunded".equals(status) || "PartiallyRefunded".equals(status)) {
-            ReceiptData r = baseFromInvoice(invoice, appt, customer);
-            r.setDocumentLabel("BIÊN LAI LẦN 2");
-            r.setPaidStatusLabel("Paid");
-            r.setPaidAmount(totalPaid);
-            r.setChangeAmount(BigDecimal.ZERO);
-            r.setNote("Thanh toán thành công.");
+            ReceiptData r = buildSettlementReceipt(invoice, appt, customer, totalPaid, BigDecimal.ZERO);
             return r;
         }
         return null;
@@ -171,6 +166,8 @@ public class ReceiptService {
                 ? invoice.getInvoiceCode() : "INV" + String.format("%06d", invoice.getInvoiceID()));
         r.setCustomerName(customer != null ? customer.getFullName()
                 : (appt != null && appt.getCustomerName() != null ? appt.getCustomerName() : "Khách vãng lai"));
+        r.setCustomerPhone(customer != null ? customer.getPhone() : null);
+        r.setPetName(appt != null ? appt.getPetName() : null);
 
         List<Payment> payments = invoice.getPayments(); // ORDER BY PaidAt DESC
         Payment last = payments.isEmpty() ? null : payments.get(0);
@@ -179,6 +176,7 @@ public class ReceiptService {
                 : java.time.LocalDateTime.now().format(DT_FMT));
         r.setStaffName(last != null && last.getProcessedByName() != null
                 ? last.getProcessedByName() : "Hệ thống (tự động)");
+        r.setPaymentMethodDisplay(mapPaymentMethod(last != null ? last.getMethod() : null));
 
         BigDecimal qty = BigDecimal.ZERO, itemsSum = BigDecimal.ZERO;
         for (InvoiceItem it : invoice.getItems()) {
@@ -209,6 +207,7 @@ public class ReceiptService {
         r.setSubTotal(total);
         r.setDiscountAmount(BigDecimal.ZERO);
         r.setTotalPayable(total);
+        r.setPurposeText(buildPurposeText(appt));
         return r;
     }
 
@@ -219,81 +218,150 @@ public class ReceiptService {
         return sum;
     }
 
-    //  RENDER - HTML (dùng chung cho PDF.
     public String renderHtml(ReceiptData r) {
+        boolean isReceipt = r.getDocumentLabel() != null && r.getDocumentLabel().startsWith("BIÊN LAI");
+
         StringBuilder sb = new StringBuilder();
-        sb.append("<html><head><meta charset=\"UTF-8\"/><style>")
-                .append("body{font-family:'ArialCustom',sans-serif;font-size:12px;color:#1a1714;margin:24px;}")
-                .append("h1{text-align:center;font-size:18px;margin:0 0 4px;letter-spacing:1px;}")
-                .append(".sub{text-align:center;font-size:11px;color:#555;margin-bottom:14px;}")
-                .append("table{width:100%;}")
-                .append(".meta td{padding:2px 0;font-size:12px;}")
-                .append(".meta .lbl{color:#555;width:150px;}")
-                .append("table.items{border-collapse:collapse;margin-top:12px;}")
-                .append("table.items th{border-bottom:1.5px solid #333;padding:6px 4px;font-size:11px;text-align:left;}")
-                .append("table.items td{border-bottom:1px solid #ddd;padding:6px 4px;font-size:11.5px;}")
-                .append(".num{text-align:right;}")
-                .append(".itemname{font-weight:600;padding-top:9px;border-bottom:none;}")
-                .append(".totals td{padding:3px 0;font-size:12.5px;}")
-                .append(".totals .val{text-align:right;font-weight:bold;}")
-                .append(".grand{font-size:15px;color:#0f3d24;}")
-                .append(".grand td{border-top:1.5px solid #333;padding-top:8px;}")
-                .append(".note{margin-top:16px;font-size:11px;color:#555;text-align:center;font-style:italic;}")
-                .append(".thanks{margin-top:6px;text-align:center;font-weight:bold;font-size:13px;color:#0f3d24;}")
-                .append("</style></head><body>");
+        sb.append("<html><head><meta charset=\"UTF-8\"/><style>").append(commonCss()).append("</style></head><body>");
+        sb.append(buildHeaderBlock(r));
+        sb.append(isReceipt ? buildReceiptBody(r) : buildInvoiceBody(r));
+        sb.append("<div class=\"note\">Quý khách được phép khiếu nại hoàn tiền trong vòng 48h kể từ ngày thanh toán.</div>");
+        sb.append("<div class=\"thanks\">CẢM ƠN QUÝ KHÁCH VÀ HẸN GẶP LẠI!</div>");
+        sb.append("</body></html>");
+        return sb.toString();
+    }
 
+    private String commonCss() {
+        return "body{font-family:'ArialCustom',sans-serif;font-size:12px;color:#1a1714;margin:24px;}"
+                + ".biz-name{text-align:center;font-size:16px;font-weight:bold;color:#0f3d24;}"
+                + ".biz-sub{text-align:center;font-size:10.5px;color:#555;margin-bottom:10px;}"
+                + "h1{text-align:center;font-size:17px;margin:8px 0 2px;letter-spacing:1px;}"
+                + ".sub{text-align:center;font-size:11px;color:#555;margin-bottom:14px;font-weight:bold;}"
+                + ".section-title{font-size:11.5px;font-weight:bold;color:#0f3d24;margin:14px 0 4px;"
+                +   "border-bottom:1px solid #ccc;padding-bottom:3px;}"
+                + "table{width:100%;}"
+                + ".meta td{padding:2px 0;font-size:12px;}"
+                + ".meta .lbl{color:#555;width:160px;}"
+                + "table.items{border-collapse:collapse;margin-top:6px;}"
+                + "table.items th{border-bottom:1.5px solid #333;padding:6px 4px;font-size:11px;text-align:left;}"
+                + "table.items td{border-bottom:1px solid #ddd;padding:6px 4px;font-size:11.5px;}"
+                + ".num{text-align:right;}"
+                + ".totals .val{text-align:right;font-weight:bold;}"
+                + ".totals td{padding:3px 0;font-size:12.5px;}"
+                + ".grand{font-size:14px;color:#0f3d24;}"
+                + ".grand td{border-top:1.5px solid #333;padding-top:8px;}"
+                + ".amount-words{margin-top:8px;font-size:12px;font-style:italic;}"
+                + ".sign-table{margin-top:28px;}"
+                + ".sign-col{width:50%;text-align:center;vertical-align:top;font-size:12px;}"
+                + ".sign-title{font-weight:bold;}"
+                + ".sign-hint{font-size:10.5px;color:#666;margin-top:2px;}"
+                + ".sign-space{height:56px;}"
+                + ".sign-name{font-weight:bold;}"
+                + ".note{margin-top:14px;font-size:11px;color:#555;text-align:center;font-style:italic;}"
+                + ".thanks{margin-top:6px;text-align:center;font-weight:bold;font-size:13px;color:#0f3d24;}";
+    }
+
+    private String buildHeaderBlock(ReceiptData r) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("<div class=\"biz-name\">").append(BIZ_NAME).append("</div>");
+        sb.append("<div class=\"biz-sub\">").append(esc(BIZ_ADDRESS))
+                .append(" &#160;|&#160; Hotline: ").append(esc(BIZ_HOTLINE))
+                .append(" &#160;|&#160; Email: ").append(esc(BIZ_EMAIL)).append("</div>");
         sb.append("<h1>").append(esc(r.getDocumentLabel())).append("</h1>");
-        sb.append("<div class=\"sub\">PetClinic – 123 Đường ABC, TP. Hà Nội – (028) 123 456 789</div>");
+        if (r.getDocumentLabel() != null && r.getDocumentLabel().startsWith("BIÊN LAI")) {
+            sb.append("<div class=\"sub\">").append(receiptSubtitle(r.getDocumentLabel())).append("</div>");
+        }
+        return sb.toString();
+    }
 
+    private String receiptSubtitle(String label) {
+        if ("BIÊN LAI LẦN 1".equals(label)) return "THU TIỀN ĐẶT CỌC / TRẢ TRƯỚC";
+        if ("BIÊN LAI LẦN 2".equals(label)) return "QUYẾT TOÁN HOÀN THÀNH DỊCH VỤ";
+        return "";
+    }
+
+    private String buildInvoiceBody(ReceiptData r) {
+        StringBuilder sb = new StringBuilder();
         sb.append("<table class=\"meta\">");
-        sb.append(row("Mã đơn hàng:", esc(r.getInvoiceCode())));
-        sb.append(row("Ngày/giờ:",    esc(r.getIssuedAtDisplay())));
-        sb.append(row("Nhân viên:",   esc(r.getStaffName())));
-        sb.append(row("Khách hàng:",  esc(r.getCustomerName())));
+        sb.append(row("Mã hóa đơn:", esc(r.getInvoiceCode())));
+        sb.append(row("Ngày/giờ:",   esc(r.getIssuedAtDisplay())));
+        sb.append(row("Nhân viên:",  esc(r.getStaffName())));
         sb.append("</table>");
 
+        sb.append("<div class=\"section-title\">THÔNG TIN KHÁCH HÀNG</div><table class=\"meta\">");
+        sb.append(row("Khách hàng:", esc(r.getCustomerName())));
+        sb.append(row("Điện thoại:", r.getCustomerPhone() != null ? esc(r.getCustomerPhone()) : "-"));
+        sb.append("</table>");
+
+        if (r.getPetName() != null && !r.getPetName().isBlank()) {
+            sb.append("<div class=\"section-title\">THÔNG TIN THÚ CƯNG</div><table class=\"meta\">");
+            sb.append(row("Tên Pet:", esc(r.getPetName())));
+            sb.append("</table>");
+        }
+
+        sb.append("<div class=\"section-title\">CHI TIẾT DỊCH VỤ &amp; SẢN PHẨM</div>");
         sb.append("<table class=\"items\">");
-        sb.append("<tr><th>Sản phẩm / Dịch vụ</th><th class=\"num\">SL</th><th class=\"num\">Đ.Giá</th>")
-                .append("<th class=\"num\">CK</th><th class=\"num\">T.Tiền</th></tr>");
+        sb.append("<tr><th>STT</th><th>Tên Dịch vụ / Sản phẩm</th><th class=\"num\">SL</th>")
+                .append("<th class=\"num\">Đơn giá (đ)</th><th class=\"num\">Thành tiền (đ)</th></tr>");
+        int idx = 1;
         for (ReceiptLineItem li : r.getItems()) {
-            sb.append("<tr><td colspan=\"5\" class=\"itemname\">").append(esc(li.getName())).append("</td></tr>");
-            sb.append("<tr><td></td><td class=\"num\">").append(fmt(li.getQuantity()))
-                    .append("</td><td class=\"num\">").append(fmtMoney(li.getUnitPrice()))
-                    .append("</td><td class=\"num\">").append(fmtMoney(li.getDiscount()))
-                    .append("</td><td class=\"num\">").append(fmtMoney(li.getLineTotal())).append("</td></tr>");
+            sb.append("<tr><td>").append(idx++).append("</td><td>").append(esc(li.getName())).append("</td>")
+                    .append("<td class=\"num\">").append(fmt(li.getQuantity())).append("</td>")
+                    .append("<td class=\"num\">").append(fmtMoney(li.getUnitPrice())).append("</td>")
+                    .append("<td class=\"num\">").append(fmtMoney(li.getLineTotal())).append("</td></tr>");
         }
         sb.append("</table>");
 
         sb.append("<table class=\"totals\" style=\"margin-top:10px;\">");
-        sb.append(totalRow("Tổng số lượng", fmt(r.getTotalQuantity())));
-        sb.append(totalRow("Tổng tiền hàng", fmtMoney(r.getSubTotal()) + "đ"));
-        sb.append(totalRow("Chiết khấu", fmtMoney(r.getDiscountAmount()) + "đ"));
-        sb.append(totalRowCls("Tổng phải trả", fmtMoney(r.getTotalPayable()) + "đ", "grand"));
-
-        if ("HÓA ĐƠN".equals(r.getDocumentLabel()) && r.getPrepaidAmount() != null) {
-            sb.append(totalRow("Đã trả trước", fmtMoney(r.getPrepaidAmount()) + "đ"));
-            sb.append(totalRowCls("Khách còn phải trả", fmtMoney(r.getAmountDue()) + "đ", "grand"));
-            sb.append(totalRow("Tiền trả lại", fmtMoney(r.getChangeAmount()) + "đ"));
-        }
-
-        if (r.getPaidStatusLabel() != null) {
-            sb.append(totalRow("Đã trả (" + esc(r.getPaidStatusLabel()) + ")", fmtMoney(r.getPaidAmount()) + "đ"));
-        }
-        if (r.getRemainingAmount() != null) {
-            sb.append(totalRow("Còn phải thanh toán vào ngày " + esc(r.getRemainingDueDate()),
-                    fmtMoney(r.getRemainingAmount()) + "đ"));
-        }
-        if ("BIÊN LAI LẦN 2".equals(r.getDocumentLabel())) {
-            sb.append(totalRow("Tiền trả lại", fmtMoney(r.getChangeAmount()) + "đ"));
+        sb.append(totalRow("Tạm tính:", fmtMoney(r.getSubTotal()) + " đ"));
+        sb.append(totalRow("Chiết khấu:", fmtMoney(r.getDiscountAmount()) + " đ"));
+        sb.append(totalRowCls("TỔNG GIÁ TRỊ HĐ:", fmtMoney(r.getTotalPayable()) + " đ", "grand"));
+        if (r.getPrepaidAmount() != null) {
+            sb.append(totalRow("Đã trả trước:", "- " + fmtMoney(r.getPrepaidAmount()) + " đ"));
+            sb.append(totalRowCls("CÒN LẠI PHẢI THANH TOÁN:", fmtMoney(r.getAmountDue()) + " đ", "grand"));
         }
         sb.append("</table>");
 
         if (r.getNote() != null && !r.getNote().isBlank()) {
-            sb.append("<div class=\"note\">Ghi chú: ").append(esc(r.getNote())).append("</div>");
+            sb.append("<div class=\"note\">* Ghi chú: ").append(esc(r.getNote())).append("</div>");
         }
-        sb.append("<div class=\"note\">Quý khách được phép khiếu nại hoàn tiền trong vòng 48h kể từ ngày thanh toán.</div>");
-        sb.append("<div class=\"thanks\">CẢM ƠN QUÝ KHÁCH VÀ HẸN GẶP LẠI!</div>");
-        sb.append("</body></html>");
+        return sb.toString();
+    }
+
+    private String buildReceiptBody(ReceiptData r) {
+        StringBuilder sb = new StringBuilder();
+        String suffix = "BIÊN LAI LẦN 2".equals(r.getDocumentLabel()) ? "-02" : "-01";
+        sb.append("<table class=\"meta\">");
+        sb.append(row("Liên kết Hóa đơn tổng:", esc(r.getInvoiceCode())));
+        sb.append(row("Mã biên lai:", esc("BL-" + r.getInvoiceIdRaw() + suffix)));
+        sb.append(row("Thời gian:", esc(r.getIssuedAtDisplay())));
+        sb.append(row("Người nộp tiền:", esc(r.getCustomerName())
+                + (r.getCustomerPhone() != null ? " (" + esc(r.getCustomerPhone()) + ")" : "")));
+        sb.append(row("Nội dung thu:", esc(r.getPurposeText())));
+        sb.append(row("Hình thức thanh toán:", esc(r.getPaymentMethodDisplay())));
+        sb.append("</table>");
+
+        sb.append("<table class=\"totals\" style=\"margin-top:10px;\">");
+        sb.append(totalRowCls("Số tiền thực thu:", fmtMoney(r.getPaidAmount()) + " đ", "grand"));
+        sb.append("</table>");
+        sb.append("<div class=\"amount-words\">Bằng chữ: <em>").append(esc(r.getAmountInWords())).append("</em></div>");
+
+        if (r.getRemainingAmount() != null && r.getRemainingAmount().signum() > 0) {
+            sb.append("<div class=\"note\">Còn lại phải thanh toán vào ngày ")
+                    .append(esc(r.getRemainingDueDate())).append(": ")
+                    .append(fmtMoney(r.getRemainingAmount())).append(" đ</div>");
+        }
+
+        sb.append("<table class=\"sign-table\"><tr>")
+                .append("<td class=\"sign-col\"><div class=\"sign-title\">Người nộp tiền</div>")
+                .append("<div class=\"sign-hint\">(Ký, ghi rõ họ tên)</div>")
+                .append("<div class=\"sign-space\"></div><div class=\"sign-name\">")
+                .append(esc(r.getCustomerName())).append("</div></td>")
+                .append("<td class=\"sign-col\"><div class=\"sign-title\">Người thu tiền / Thủ quỹ</div>")
+                .append("<div class=\"sign-hint\">(Hệ thống xác thực điện tử)</div>")
+                .append("<div class=\"sign-space\"></div><div class=\"sign-name\">")
+                .append(esc(r.getStaffName())).append("</div></td>")
+                .append("</tr></table>");
         return sb.toString();
     }
 
@@ -340,5 +408,27 @@ public class ReceiptService {
     }
     private String fmtMoney(BigDecimal v) {
         return v == null ? "0" : String.format("%,.0f", v.doubleValue());
+    }
+
+    // Helper mới
+    private String mapPaymentMethod(String method) {
+        if (method == null) return "-";
+        return switch (method) {
+            case "Cash" -> "Tiền mặt";
+            case "BankTransfer" -> "Chuyển khoản ngân hàng (QR PayOS)";
+            case "E-Wallet" -> "Ví điện tử / Chuyển khoản";
+            default -> method;
+        };
+    }
+
+    private String buildPurposeText(Appointment appt) {
+        if (appt == null) return "Thanh toán dịch vụ tại PetClinic";
+        StringBuilder sb = new StringBuilder("Thanh toán dịch vụ");
+        if (appt.getServiceName() != null && !appt.getServiceName().isBlank())
+            sb.append(" ").append(appt.getServiceName());
+        if (appt.getPetName() != null && !appt.getPetName().isBlank())
+            sb.append(" cho thú cưng ").append(appt.getPetName());
+        sb.append(" - Lịch hẹn #").append(appt.getAppointmentID());
+        return sb.toString();
     }
 }

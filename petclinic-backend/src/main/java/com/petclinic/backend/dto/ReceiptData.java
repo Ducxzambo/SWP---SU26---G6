@@ -11,6 +11,11 @@ public class ReceiptData {
     private String issuedAtDisplay;
     private String staffName;
     private String customerName;
+    private String customerPhone;
+    private String petName;
+    private String paymentMethodDisplay;
+    private String amountInWords;
+    private String purposeText;
 
     private List<ReceiptLineItem> items = new ArrayList<>();
 
@@ -72,4 +77,15 @@ public class ReceiptData {
     public void        setRemainingDueDate(String v)  { remainingDueDate = v; }
     public String      getNote()                      { return note; }
     public void        setNote(String v)              { note = v; }
+
+    public String getCustomerPhone()               { return customerPhone; }
+    public void   setCustomerPhone(String v)        { customerPhone = v; }
+    public String getPetName()                      { return petName; }
+    public void   setPetName(String v)              { petName = v; }
+    public String getPaymentMethodDisplay()         { return paymentMethodDisplay; }
+    public void   setPaymentMethodDisplay(String v) { paymentMethodDisplay = v; }
+    public String getAmountInWords()                { return amountInWords; }
+    public void   setAmountInWords(String v)        { amountInWords = v; }
+    public String getPurposeText()                  { return purposeText; }
+    public void   setPurposeText(String v)          { purposeText = v; }
 }

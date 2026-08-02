@@ -137,25 +137,15 @@ public class InvoiceServlet extends HttpServlet {
         }
     }
 
-    // 1. Tiền mặt: thu đủ amountDue, validate + tính tiền thối
+    // 1. Tiền mặt: thu đủ amountDue, validate
     private void handleCash(HttpServletRequest req, HttpSession session, Staff staff, Invoice invoice,
                             BigDecimal amountDue, boolean isSettlementStage, String from,
                             HttpServletResponse resp) throws Exception {
         int invoiceId = invoice.getInvoiceID();
-        String redirectBack = req.getContextPath() + "/receptionist/invoice?invoiceId=" + invoiceId + "&from=" + from;
-
-        BigDecimal tendered = parseAmount(req.getParameter("cashReceived"));
-        if (tendered == null || tendered.compareTo(amountDue) < 0) {
-            session.setAttribute("flashError",
-                    "Số tiền khách đưa không đủ để thanh toán " + formatVnd(amountDue) + "đ.");
-            resp.sendRedirect(redirectBack);
-            return;
-        }
-        BigDecimal change = tendered.subtract(amountDue);
 
         invoiceDAO.insertPayment(invoiceId, amountDue, "Cash", staff.getStaffID());
         session.setAttribute("flashSuccess", "Đã ghi nhận thu tiền mặt " + formatVnd(amountDue) + "đ.");
-        afterPaymentSuccess(session, invoiceId, isSettlementStage, true, change);
+        afterPaymentSuccess(session, invoiceId, isSettlementStage, true, BigDecimal.ZERO);
         resp.sendRedirect(req.getContextPath() + "/receptionist/invoice/receipt?invoiceId=" + invoiceId + "&from=" + from);
     }
 
@@ -222,10 +212,6 @@ public class InvoiceServlet extends HttpServlet {
                                      boolean isSettlementStage, boolean isFullThisTx, BigDecimal change) {
         session.setAttribute("lastPayIsSettlement_" + invoiceId, isSettlementStage);
         session.setAttribute("lastPayIsFull_" + invoiceId, isFullThisTx);
-        if (change.signum() > 0) {
-            session.setAttribute("lastCashChangeInvoiceId", invoiceId);
-            session.setAttribute("lastCashChange", change);
-        }
         try {
             Invoice invoice = invoiceDAO.findById(invoiceId);
             Appointment appt = appointmentDAO.findById(invoice.getAppointmentID());

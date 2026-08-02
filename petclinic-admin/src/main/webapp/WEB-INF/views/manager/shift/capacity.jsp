@@ -20,6 +20,25 @@
         .cap-inputs input { width:64px; padding:4px 6px; border:1px solid var(--border); border-radius:6px; text-align:center; }
         .bulk-shift-checks { display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
         .bulk-shift-checks label { display:flex; align-items:center; gap:5px; font-size:13px; font-weight:400; }
+        .cap-day-list { }
+        .cap-day-block { border-bottom: 1px solid var(--border); }
+        .cap-day-block:last-child { border-bottom: none; }
+        .cap-day-header {
+            display:flex; align-items:center; gap:10px;
+            padding:12px 20px; cursor:pointer; user-select:none;
+            transition:var(--transition);
+        }
+        .cap-day-header:hover { background:var(--teal-50); }
+        .cap-day-header.open { background:var(--teal-50); }
+        .cap-day-toggle {
+            width:24px; height:24px; border-radius:6px; border:1.5px solid var(--teal-400);
+            background:#fff; color:var(--teal-700); font-size:15px; font-weight:700; line-height:1;
+            cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0;
+        }
+        .cap-day-date { font-weight:600; color:var(--text); flex-shrink:0; }
+        .cap-day-body { padding:0 20px 16px 54px; }
+        .cap-day-toolbar { display:flex; gap:8px; padding:10px 20px; border-bottom:1px solid var(--border); }
+        .cap-day-toolbar button { font-size:12px; }
     </style>
 </head>
 <body>
@@ -91,60 +110,63 @@
             </div>
         </div>
 
-        <%-- ── Bảng chi tiết theo từng ngày x từng ca (vẫn sửa được thủ công) ── --%>
+        <%-- ── Bảng chi tiết theo ngày (thu gọn — bấm + để xem/sửa từng ca) ── --%>
         <form action="${pageContext.request.contextPath}/manager/capacity" method="post">
             <div class="card">
                 <div class="card-header"><span class="card-title">Chi tiết từ ${fromDate} đến ${toDate}</span></div>
-                <div class="card-body" style="overflow-x:auto;padding:0;">
-                    <table class="cap-table">
-                        <thead>
-                        <tr>
-                            <th>Ngày</th>
-                            <c:forEach var="s" items="${shifts}">
-                                <th>Ca ${s}</th>
-                            </c:forEach>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        <c:forEach begin="0" end="${daysAhead - 1}" var="offset">
-                            <c:set var="d" value="${fromDate.plusDays(offset)}"/>
-                            <c:set var="isAlert" value="${false}"/>
-                            <c:if test="${not empty sessionScope.capacityAlertFrom and not empty sessionScope.capacityAlertTo}">
-                                <c:if test="${!d.isBefore(sessionScope.capacityAlertFrom) and !d.isAfter(sessionScope.capacityAlertTo)}">
+
+                <div class="cap-day-toolbar">
+                    <button type="button" class="btn btn-outline btn-sm" onclick="toggleAllCapDays(true)">Mở tất cả</button>
+                    <button type="button" class="btn btn-outline btn-sm" onclick="toggleAllCapDays(false)">Thu gọn tất cả</button>
+                </div>
+
+                <div class="cap-day-list">
+                    <c:forEach begin="0" end="${daysAhead - 1}" var="offset">
+                        <c:set var="d" value="${fromDate.plusDays(offset)}"/>
+                        <c:set var="dStr" value="${d}"/>
+                        <c:set var="inAlertRange"
+                               value="${not empty sessionScope.capacityAlertFrom
+                                 and not empty sessionScope.capacityAlertTo
+                                 and dStr.toString() >= sessionScope.capacityAlertFrom
+                                 and dStr.toString() <= sessionScope.capacityAlertTo}"/>
+                        <div class="cap-day-block">
+                            <div class="cap-day-header" onclick="toggleCapDay(this)">
+                                <span class="cap-day-toggle">+</span>
+                                <span class="cap-day-date">${d}</span>
+                                <c:if test="${inAlertRange}">
+                                    <span class="cap-alert-note">⚠ Có thay đổi nhân sự</span>
                                 </c:if>
-                            </c:if>
-                            <c:set var="dStr" value="${d}"/>
-                            <c:set var="inAlertRange"
-                                    value="${not empty sessionScope.capacityAlertFrom
-                                             and not empty sessionScope.capacityAlertTo
-                                             and dStr.toString() >= sessionScope.capacityAlertFrom
-                                             and dStr.toString() <= sessionScope.capacityAlertTo}"/>
-                            <tr class="${inAlertRange ? 'alert-row' : ''}">
-                                <td class="date-cell">
-                                    ${d}
-                                    <c:if test="${inAlertRange}">
-                                        <span class="cap-alert-note">⚠ Có thay đổi nhân sự</span>
-                                    </c:if>
-                                </td>
-                                <c:forEach var="s" items="${shifts}">
-                                    <c:set var="row" value="${existing[d][s]}"/>
-                                    <td>
-                                        <div class="cap-inputs">
-                                            <label>Groomer</label>
-                                            <input type="number" min="0" step="1"
-                                                   name="groomCap_${d}_${s}"
-                                                   value="${not empty row ? row.groomCap : 0}">
-                                            <label>Vet</label>
-                                            <input type="number" min="0" step="1"
-                                                   name="vetCap_${d}_${s}"
-                                                   value="${not empty row ? row.vetCap : 0}">
-                                        </div>
-                                    </td>
-                                </c:forEach>
-                            </tr>
-                        </c:forEach>
-                        </tbody>
-                    </table>
+                            </div>
+                            <div class="cap-day-body" style="display:none;">
+                                <table class="cap-table">
+                                    <thead>
+                                    <tr>
+                                        <c:forEach var="s" items="${shifts}"><th>Ca ${s}</th></c:forEach>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    <tr>
+                                        <c:forEach var="s" items="${shifts}">
+                                            <c:set var="row" value="${existing[d][s]}"/>
+                                            <td>
+                                                <div class="cap-inputs">
+                                                    <label>Groomer</label>
+                                                    <input type="number" min="0" step="1"
+                                                           name="groomCap_${d}_${s}"
+                                                           value="${not empty row ? row.groomCap : 0}">
+                                                    <label>Vet</label>
+                                                    <input type="number" min="0" step="1"
+                                                           name="vetCap_${d}_${s}"
+                                                           value="${not empty row ? row.vetCap : 0}">
+                                                </div>
+                                            </td>
+                                        </c:forEach>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </c:forEach>
                 </div>
             </div>
             <div class="form-actions">
@@ -158,5 +180,26 @@
     </main>
 </div>
 <script src="${pageContext.request.contextPath}/js/dashboard.js"></script>
+<script>
+    function toggleCapDay(header) {
+        var block = header.closest('.cap-day-block');
+        var body  = block.querySelector('.cap-day-body');
+        var btn   = header.querySelector('.cap-day-toggle');
+        var isOpen = body.style.display !== 'none';
+        body.style.display = isOpen ? 'none' : '';
+        btn.textContent = isOpen ? '+' : '−';
+        header.classList.toggle('open', !isOpen);
+    }
+    function toggleAllCapDays(open) {
+        document.querySelectorAll('.cap-day-block').forEach(function (block) {
+            var body = block.querySelector('.cap-day-body');
+            var btn  = block.querySelector('.cap-day-toggle');
+            var header = block.querySelector('.cap-day-header');
+            body.style.display = open ? '' : 'none';
+            btn.textContent = open ? '−' : '+';
+            header.classList.toggle('open', open);
+        });
+    }
+</script>
 </body>
 </html>
