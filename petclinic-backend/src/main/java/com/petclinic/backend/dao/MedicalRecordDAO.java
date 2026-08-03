@@ -224,15 +224,15 @@ public class MedicalRecordDAO {
      * Append a stock-out transaction for audit trail (mirrors StockTransactions table).
      */
     private void insertStockTransaction(Connection conn, PrescriptionItem item,
-                                        int performedByStaffID) throws SQLException {
-        String sql = """
-                INSERT INTO StockTransactions (ItemType, ItemID, QuantityChange, Reason, PerformedByID)
-                VALUES ('Medicine', ?, ?, 'Used', ?)
-                """;
+                                        int performedByVetID) throws SQLException {
+        String sql = "INSERT INTO StockTransactions " +
+                "(ItemType, ItemID, QuantityChange, Reason, PerformedByID, " +
+                "TransactionDate, ProviderID, TransactionType, PurchasePrice) " +
+                "VALUES ('Medicine', ?, ?, 'Used', ?, GETDATE(), NULL, 'Export', NULL)";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, item.getMedicineID());
-            ps.setBigDecimal(2, item.getQuantity().negate()); // negative = stock out
-            ps.setInt(3, performedByStaffID);
+            ps.setBigDecimal(2, item.getQuantity().negate()); // âm = xuất kho
+            ps.setInt(3, performedByVetID);
             ps.executeUpdate();
         }
     }

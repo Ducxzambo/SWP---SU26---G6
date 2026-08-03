@@ -25,8 +25,9 @@ public class ExaminationService {
     private final StaffDAO         staffDAO         = new StaffDAO();
     private final PaymentService   paymentService   = new PaymentService();
     private final AssignmentService assignmentSvc = new AssignmentService();
+    private final SupplyDAO    supplyDAO    = new SupplyDAO();
 
-    // ══ CHECK-IN ══════════════════════════════════════════════════════════════
+    //CHECK-IN
     public enum CheckInResult { SUCCESS, NOT_FOUND, WRONG_STATUS, ALREADY_CHECKED_IN }
 
     /**
@@ -72,7 +73,7 @@ public class ExaminationService {
         appointmentDAO.assignStaffToCategory(appointmentID, categoryName, staffID);
     }
 
-    // ══ WALK-IN: LOOKUP CUSTOMER BY PHONE ════════════════════════════════════
+    //WALK-IN: LOOKUP CUSTOMER BY PHONE
     public Customer findCustomerByPhone(String phone) throws SQLException {
         return customerDAO.findByPhone(phone);
     }
@@ -81,7 +82,7 @@ public class ExaminationService {
         return petDAO.findByCustomerId(customerID);
     }
 
-    // ══ WALK-IN: TẠO LỊCH HẸN NHIỀU DỊCH VỤ, MỖI DỊCH VỤ 1 STAFF RIÊNG ═══════
+    //WALK-IN: TẠO LỊCH HẸN NHIỀU DỊCH VỤ, MỖI DỊCH VỤ 1 STAFF RIÊNG
 
     /**
      * Walk-in cho khách/pet ĐÃ tồn tại. serviceIDs và staffIDs đi song song theo index
@@ -182,7 +183,7 @@ public class ExaminationService {
         return invoiceId;
     }
 
-    // ══ SLOT INFO ══════════════════════════════════════════════════════════════
+    //  SLOT INFO
     public int getCurrentShiftCount() throws SQLException {
         int shift = AppointmentDAO.shiftOf(LocalTime.now());
         if (shift == -1) return 0;
@@ -195,7 +196,7 @@ public class ExaminationService {
         return appointmentDAO.isSlotFull(LocalDate.now(), shift);
     }
 
-    // ══ VET QUEUE (category = Chẩn đoán / Điều trị) ═══════════════════
+    //VET QUEUE
     public enum StartExamResult { SUCCESS, NOT_FOUND, WRONG_STATUS }
 
     public StartExamResult startExamination(int appointmentID, int vetID) throws SQLException {
@@ -222,11 +223,12 @@ public class ExaminationService {
     // ══ SAVE MEDICAL RECORD ═══════════════════════════════════════════════════
     public enum SaveRecordResult {
         SUCCESS, APPOINTMENT_NOT_FOUND, WRONG_STATUS,
-        RECORD_ALREADY_EXISTS, INSUFFICIENT_STOCK, DB_ERROR
+        RECORD_ALREADY_EXISTS, INSUFFICIENT_STOCK, DB_ERROR, INSUFFICIENT_SUPPLY_STOCK
     }
 
     public SaveRecordResult saveMedicalRecord(MedicalRecord record,
                                               List<PrescriptionItem> items,
+                                              List<SupplyUsageItem> supplies,
                                               String followUpDate) throws SQLException {
         Appointment appt = appointmentDAO.findById(record.getAppointmentID());
         if (appt == null)                           return SaveRecordResult.APPOINTMENT_NOT_FOUND;
@@ -248,6 +250,16 @@ public class ExaminationService {
             }
         }
 
+        // Snapshot giá vật tư trước khi lưu
+        if (supplies != null) {
+            for (SupplyUsageItem sup : supplies) {
+                if (sup.getUnitPrice() == null || sup.getUnitPrice().compareTo(BigDecimal.ZERO) == 0) {
+                    Supply s = supplyDAO.findById(sup.getSupplyID());
+                    if (s != null) sup.setUnitPrice(s.getUnitPrice());
+                }
+            }
+        }
+
         try {
             medicalRecordDAO.save(record, items);
         } catch (SQLException e) {
@@ -255,10 +267,18 @@ public class ExaminationService {
                 return SaveRecordResult.INSUFFICIENT_STOCK;
             throw e;
         }
-        // KHÔNG tự động chuyển Status → Done ở đây. Appointment có thể trộn
-        // category (VD Khám + Grooming), nên vet lưu xong chỉ là 1 phần việc.
-        // Status vẫn giữ "InProgress"; lễ tân là người xác nhận Done cuối cùng
-        // qua finalizeAppointment(), sau khi kiểm tra MỌI category đã có record.
+
+        // Lưu vật tư tiêu hao (tách transaction riêng, sau khi MedicalRecord đã commit)
+        if (supplies != null && !supplies.isEmpty()) {
+            try {
+                supplyDAO.saveUsageItems(record.getAppointmentID(), record.getStaffID(), supplies);
+            } catch (SQLException e) {
+                if (e.getMessage() != null && e.getMessage().contains("Insufficient stock"))
+                    return SaveRecordResult.INSUFFICIENT_SUPPLY_STOCK;
+                throw e;
+            }
+        }
+
         return SaveRecordResult.SUCCESS;
     }
 
@@ -335,7 +355,7 @@ public class ExaminationService {
 
 
 
-    // ══ LỊCH SỬ LỊCH HẸN + HOÀN TẤT (Receptionist) ══════════════════════════════
+    //LỊCH SỬ LỊCH HẸN + HOÀN TẤT (Receptionist)
 
     /** Toàn bộ lịch hẹn trong 1 ngày (mọi trạng thái) — dùng cho tab "Lịch sử" của lễ tân. */
     public List<Appointment> getAppointmentHistory(LocalDate date, Integer shift) throws SQLException {
@@ -369,5 +389,31 @@ public class ExaminationService {
 
         boolean updated = appointmentDAO.finalizeAppointment(appointmentID);
         return updated ? FinalizeResult.SUCCESS : FinalizeResult.WRONG_STATUS;
+    }
+
+    //VẬT TƯ TIÊU HAO
+
+    /** Danh sách vật tư còn hàng — dùng cho dropdown trong form grooming/khám. */
+    public List<Supply> getSuppliesInStock() throws SQLException {
+        return supplyDAO.findAllInStock();
+    }
+
+    /**
+     * Lưu vật tư đã dùng trong 1 appointment (trừ kho + ghi StockTransaction).
+     * Gọi sau khi groomer/vet submit form.
+     */
+    public void saveSupplyUsage(int appointmentID, int staffID,
+                                List<SupplyUsageItem> items) throws SQLException {
+        supplyDAO.saveUsageItems(appointmentID, staffID, items);
+    }
+
+    /** Lấy danh sách vật tư đã dùng của 1 appointment — để hiện trên hóa đơn. */
+    public List<SupplyUsageItem> getSupplyUsage(int appointmentID) throws SQLException {
+        return supplyDAO.findByAppointmentId(appointmentID);
+    }
+
+    /** Tổng tiền vật tư của 1 appointment — để cộng vào InvoiceItems. */
+    public java.math.BigDecimal getSupplyTotal(int appointmentID) throws SQLException {
+        return supplyDAO.sumByAppointmentId(appointmentID);
     }
 }

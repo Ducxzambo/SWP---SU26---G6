@@ -2,6 +2,7 @@
 <%@ taglib prefix="c"   uri="http://java.sun.com/jsp/jstl/core" %>
 <%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
 <%@ page import="com.petclinic.backend.model.Medicine" %>
+<%@ page import="com.petclinic.backend.model.Supply" %>
 <%@ page import="java.util.List" %>
 <%
     // Build medicine JSON safely server-side (handles quotes, backslashes, etc.)
@@ -180,6 +181,7 @@
         <div class="sidebar-logo">🐾 PetClinic</div>
         <nav>
             <a href="${pageContext.request.contextPath}/vet/examination" class="nav-item active"> Hàng chờ khám</a>
+            <a href="${pageContext.request.contextPath}/vet/examination?action=history" class="nav-item">Lịch sử</a>
         </nav>
         <div class="sidebar-user">
              ${sessionScope.staff.fullName}
@@ -291,6 +293,47 @@
                     </div>
                 </div>
             </c:if>
+
+            <%-- Vật tư tiêu hao --%>
+            <c:if test="${not empty appt.supplyUsageItems}">
+                <p style="font-size:12px;font-weight:600;color:var(--text-soft);
+                                      text-transform:uppercase;letter-spacing:.5px;margin:10px 0 6px;">
+                    Vật tư
+                </p>
+                <table class="rx-table">
+                    <thead>
+                    <tr><th>#</th><th>Vật tư</th><th>Ghi chú</th>
+                        <th>Số lượng</th><th>Đơn giá</th><th>Thành tiền</th></tr>
+                    </thead>
+                    <tbody>
+                    <c:set var="histSupTotal" value="0"/>
+                    <c:forEach items="${appt.supplyUsageItems}" var="su" varStatus="ss">
+                        <tr>
+                            <td>${ss.count}</td>
+                            <td><c:out value="${su.supplyName}"/>
+                                <span style="color:var(--text-soft);font-size:12px;">
+                                                (<c:out value="${su.supplyUnit}"/>)
+                                            </span>
+                            </td>
+                            <td><c:out value="${not empty su.notes ? su.notes : '—'}"/></td>
+                            <td>${su.quantity}</td>
+                            <td><fmt:formatNumber value="${su.unitPrice}" type="number" groupingUsed="true"/>đ</td>
+                            <td><fmt:formatNumber value="${su.lineTotal}" type="number" groupingUsed="true"/>đ</td>
+                        </tr>
+                        <c:set var="histSupTotal" value="${histSupTotal + su.lineTotal}"/>
+                    </c:forEach>
+                    </tbody>
+                    <tfoot>
+                    <tr>
+                        <td colspan="5" style="text-align:right;font-weight:600;">Tổng</td>
+                        <td style="font-weight:600;color:var(--teal-700);">
+                            <fmt:formatNumber value="${histSupTotal}" type="number" groupingUsed="true"/>đ
+                        </td>
+                    </tr>
+                    </tfoot>
+                </table>
+            </c:if>
+
         </c:if>
 
 
@@ -522,6 +565,50 @@
                     </div>
                 </div>
 
+                    <%-- 7. Vật tư  --%>
+                <div class="card" style="margin-bottom:16px;">
+                    <div class="card-header">
+                        <span class="card-title">Vật tư</span>
+                        <span style="font-size:12px;color:var(--text-soft);">Để trống nếu không dùng vật tư</span>
+                    </div>
+                    <div class="card-body">
+                        <table class="rx-table" id="supplyTable">
+                            <thead>
+                            <tr>
+                                <th style="width:40%">Vật tư</th>
+                                <th style="width:28%">Ghi chú</th>
+                                <th style="width:18%">Số lượng</th>
+                                <th style="width:8%">Còn kho</th>
+                                <th style="width:6%"></th>
+                            </tr>
+                            </thead>
+                            <tbody id="supplyBody"></tbody>
+                        </table>
+                        <button type="button" class="add-row-btn" onclick="addSupplyRow()">+ Thêm vật tư</button>
+
+                            <%-- Supply data JSON — build server-side giống MEDS --%>
+                        <%
+                            List<com.petclinic.backend.model.Supply> __supplies =
+                                    (List<com.petclinic.backend.model.Supply>) request.getAttribute("supplies");
+                            StringBuilder __supJson = new StringBuilder("[");
+                            if (__supplies != null) {
+                                for (int __i = 0; __i < __supplies.size(); __i++) {
+                                    com.petclinic.backend.model.Supply __s = __supplies.get(__i);
+                                    if (__i > 0) __supJson.append(",");
+                                    __supJson.append("{")
+                                            .append("\"id\":").append(__s.getSupplyID()).append(",")
+                                            .append("\"name\":\"").append(jsonEscape(__s.getName())).append("\",")
+                                            .append("\"unit\":\"").append(jsonEscape(__s.getUnit())).append("\",")
+                                            .append("\"stock\":").append(__s.getStockQty())
+                                            .append("}");
+                                }
+                            }
+                            __supJson.append("]");
+                        %>
+                        <script type="application/json" id="supplyData"><%= __supJson.toString() %></script>
+                    </div>
+                </div>
+
                     <%-- Submit --%>
                 <div style="display:flex;gap:12px;justify-content:flex-end;padding-bottom:40px;">
                     <a href="${pageContext.request.contextPath}/vet/examination" class="btn btn-outline btn-lg">Hủy</a>
@@ -548,6 +635,41 @@
 <script>
     // ── Medicine data ─────────────────────────────────────────────────────────
     const MEDS = JSON.parse(document.getElementById('medData')?.textContent || '[]');
+    const SUPPLIES = JSON.parse(document.getElementById('supplyData')?.textContent || '[]');
+
+    function buildSupplyOptions() {
+        return '<option value="">— Chọn vật tư —</option>' +
+            SUPPLIES.map(s =>
+                '<option value="' + s.id + '" data-unit="' + s.unit + '" data-stock="' + s.stock + '">'
+                + s.name + ' (' + s.unit + ') — còn ' + s.stock + '</option>'
+            ).join('');
+    }
+
+    function addSupplyRow() {
+        const tr = document.createElement('tr');
+        tr.innerHTML =
+            '<td><select name="supplyID[]" class="form-control" onchange="onSupplyChange(this)" style="padding-left:10px;">'
+            + buildSupplyOptions()
+            + '</select></td>'
+            + '<td><input type="text" name="supplyNote[]" class="form-control" placeholder="Ghi chú sử dụng..."></td>'
+            + '<td><input type="number" name="supplyQty[]" class="form-control" min="1" step="1" value="1" style="width:80px;"></td>'
+            + '<td class="sup-stk" style="color:var(--text-soft);font-size:13px;">—</td>'
+            + '<td><button type="button" class="rm-btn" onclick="this.closest(\'tr\').remove()" title="Xóa">×</button></td>';
+        document.getElementById('supplyBody').appendChild(tr);
+    }
+
+    function onSupplyChange(sel) {
+        const opt = sel.options[sel.selectedIndex];
+        const cell = sel.closest('tr').querySelector('.sup-stk');
+        if (opt.value) {
+            const stock = opt.dataset.stock;
+            cell.textContent = stock + ' ' + (opt.dataset.unit || '');
+            cell.style.color = parseInt(stock) < 5 ? 'var(--red-400)' : 'var(--text-soft)';
+        } else {
+            cell.textContent = '—';
+            cell.style.color = 'var(--text-soft)';
+        }
+    }
 
     function buildMedOptions() {
         return '<option value="">— Chọn thuốc —</option>' +
@@ -623,6 +745,28 @@
             if (qty > stock) {
                 if (!confirm('Thuốc "' + opt.text.split(' (')[0] + '" chỉ còn ' + stock + ', bạn muốn kê ' + qty + '. Tiếp tục?')) {
                     e.preventDefault(); return;
+                }
+            }
+        }
+
+        // Validate vật tư
+        const supSels = document.querySelectorAll('[name="supplyID[]"]');
+        const supQtys = document.querySelectorAll('[name="supplyQty[]"]');
+        for (let i = 0; i < supSels.length; i++) {
+            if (!supSels[i].value) continue;
+            const qty = parseInt(supQtys[i]?.value || 0);
+            if (qty < 1) {
+                e.preventDefault();
+                alert('Số lượng vật tư phải lớn hơn 0.');
+                return;
+            }
+            const opt = supSels[i].options[supSels[i].selectedIndex];
+            const stock = parseInt(opt.dataset.stock || 0);
+            if (qty > stock) {
+                if (!confirm('Vật tư "' + opt.text.split(' (')[0] + '" chỉ còn ' + stock
+                    + ', bạn muốn dùng ' + qty + '. Tiếp tục?')) {
+                    e.preventDefault();
+                    return;
                 }
             }
         }

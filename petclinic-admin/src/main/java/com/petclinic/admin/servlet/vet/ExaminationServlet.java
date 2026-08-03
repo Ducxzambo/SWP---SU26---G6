@@ -94,12 +94,13 @@ public class ExaminationServlet extends HttpServlet {
             record.setTreatmentPlan(buildTreatmentPlan(req));
             record.setGeneralConclusion(req.getParameter("conclusion"));
 
+            List<SupplyUsageItem> supplies = parseSupplyItems(req);
             List<PrescriptionItem> items = parsePrescriptionItems(req);
             String followUpDate = req.getParameter("followUpDate");
 
             String submitAction = req.getParameter("submitAction"); // "save" hoặc "complete"
 
-            SaveRecordResult result = examinationService.saveMedicalRecord(record, items, followUpDate);
+            SaveRecordResult result = examinationService.saveMedicalRecord(record, items, supplies, followUpDate);
             switch (result) {
                 case SUCCESS -> {
                     if ("complete".equals(submitAction)) {
@@ -144,6 +145,9 @@ public class ExaminationServlet extends HttpServlet {
                 case INSUFFICIENT_STOCK ->
                         forwardFormWithError(req, resp, appointmentID,
                                 "Thuốc không đủ tồn kho. Vui lòng kiểm tra lại đơn thuốc.");
+                case INSUFFICIENT_SUPPLY_STOCK ->
+                        forwardFormWithError(req, resp, appointmentID,
+                                "Vật tư không đủ tồn kho. Vui lòng kiểm tra lại.");
                 case WRONG_STATUS ->
                         forwardFormWithError(req, resp, appointmentID,
                                 "Lịch hẹn không ở trạng thái InProgress.");
@@ -254,6 +258,7 @@ public class ExaminationServlet extends HttpServlet {
             List<Medicine>      medicines    = examinationService.getMedicinesInStock();
             List<Service>       labTests     = examinationService.getLabTests();
             List<Service>       treatmentPlans = examinationService.getTreatmentPlans();
+            List<Supply>        supplies = examinationService.getSuppliesInStock();
 
             Set<Integer> preSelectedLabIds = appt.getServicesByCategory("Chẩn đoán")
                     .stream().map(s -> s.getServiceID()).collect(Collectors.toSet());
@@ -265,6 +270,7 @@ public class ExaminationServlet extends HttpServlet {
             req.setAttribute("medicines",      medicines);
             req.setAttribute("labTests",       labTests);
             req.setAttribute("treatmentPlans", treatmentPlans);
+            req.setAttribute("supplies",       supplies);
             req.setAttribute("preSelectedLabIds",   preSelectedLabIds);
             req.setAttribute("preSelectedTreatIds", preSelectedTreatIds);
             req.getRequestDispatcher("/WEB-INF/views/vet/examination-detail.jsp").forward(req, resp);
@@ -323,6 +329,27 @@ public class ExaminationServlet extends HttpServlet {
             }
         }
         return sb.toString().trim();
+    }
+
+    private List<SupplyUsageItem> parseSupplyItems(HttpServletRequest req) {
+        String[] supplyIDs  = req.getParameterValues("supplyID[]");
+        String[] quantities = req.getParameterValues("supplyQty[]");
+        String[] notes      = req.getParameterValues("supplyNote[]");
+
+        List<SupplyUsageItem> items = new ArrayList<>();
+        if (supplyIDs == null) return items;
+
+        for (int i = 0; i < supplyIDs.length; i++) {
+            String sidStr = supplyIDs[i];
+            if (sidStr == null || sidStr.isBlank()) continue;
+            SupplyUsageItem item = new SupplyUsageItem();
+            item.setSupplyID(Integer.parseInt(sidStr));
+            item.setQuantity(new BigDecimal(
+                    quantities != null && i < quantities.length ? quantities[i] : "1"));
+            if (notes != null && i < notes.length) item.setNotes(notes[i]);
+            items.add(item);
+        }
+        return items;
     }
 
     private List<PrescriptionItem> parsePrescriptionItems(HttpServletRequest req) {
