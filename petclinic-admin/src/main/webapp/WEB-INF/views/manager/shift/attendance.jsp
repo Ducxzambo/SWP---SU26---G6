@@ -24,6 +24,8 @@
         .attendance-toolbar { display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; margin-bottom:14px; }
         .attendance-search { display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap; }
         .row-hidden { display:none !important; }
+        .nav-item-stats { display:inline-block; margin-top:16px; padding:8px 14px; border-radius:6px; background:#0a2e2a; color:#ffffff; text-decoration:none; transition:var(--transition); }
+        .nav-item-stats:hover { display:inline-block; margin-top:16px; padding:8px 14px; border-radius:6px; background:#7dd4c8; color:#1a1714; text-decoration:none; transition:var(--transition); }
     </style>
 </head>
 <body>
@@ -38,6 +40,7 @@
                 Check-in chỉ áp dụng cho các ca trong ngày và trước khi ca kết thúc.
             </p>
         </div>
+
 
         <%@ include file="/WEB-INF/views/common/_flash.jsp" %>
 
@@ -249,6 +252,9 @@
                 </c:otherwise>
             </c:choose>
         </div>
+
+        <a href="${pageContext.request.contextPath}/manager/attendance/statistics"
+           class="nav-item-stats">Vi phạm chấm công</a>
     </main>
 </div>
 <script src="${pageContext.request.contextPath}/js/dashboard.js"></script>

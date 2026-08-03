@@ -291,17 +291,15 @@ public class AppointmentServlet extends HttpServlet {
         String reason = req.getParameter("cancelReason");
         String trimmedReason = reason != null && !reason.isBlank() ? reason.trim() : null;
 
-        boolean refundRequested = isChecked(req.getParameter("refundRequested"));
-        if (refundRequested && "Confirmed".equals(appt.getStatus())) {
-            if (!recordRefundRequest(req, id, trimmedReason)) {
-                resp.sendRedirect(req.getContextPath() + "/appointments/detail?id=" + id);
-                return;
-            }
+        boolean isConfirmed = "Confirmed".equals(appt.getStatus());
+        if (isConfirmed && !recordRefundRequest(req, id, trimmedReason)) {
+            resp.sendRedirect(req.getContextPath() + "/appointments/detail?id=" + id);
+            return;
         }
 
         apptDAO.cancel(id, trimmedReason);
         req.getSession().setAttribute("flashSuccess",
-                refundRequested && "Confirmed".equals(appt.getStatus())
+                isConfirmed
                         ? "Đã huỷ lịch khám và ghi nhận yêu cầu hoàn tiền. Chúng tôi sẽ liên hệ xử lý trong thời gian sớm nhất."
                         : "Đã huỷ lịch khám thành công.");
         resp.sendRedirect(req.getContextPath() + "/appointments");
@@ -340,10 +338,6 @@ public class AppointmentServlet extends HttpServlet {
         refundReq.setAccountName(accountName);
         refundDAO.createRequest(refundReq);
         return true;
-    }
-
-    private boolean isChecked(String param) {
-        return "1".equals(param) || "on".equalsIgnoreCase(param) || "true".equalsIgnoreCase(param);
     }
 
     private String trimOrNull(String s) {

@@ -166,31 +166,14 @@
     if (typeof window.resetRefundPanel === 'function') window.resetRefundPanel();
   }
 
-  /**
-   * BUG FIX: hàm này TRƯỚC ĐÂY chỉ tồn tại trong refund.js — file đó (1) chỉ
-   * được <script> include khi appt.status == 'Confirmed', và (2) tự thoát
-   * sớm (return) nếu #refundPanel không tồn tại trong DOM. Với appointment
-   * đang Pending, cả 2 điều kiện trên đều không thoả, nên
-   * window.updateConfirmButtonState() không hề được định nghĩa — bấm
-   * checkbox "Tôi xác nhận muốn huỷ lịch hẹn này" ném ReferenceError và nút
-   * "Xác nhận huỷ" bị kẹt ở trạng thái disabled vĩnh viễn.
-   *
-   * Định nghĩa hàm này ở đây (appointment.js luôn được load cho mọi trạng
-   * thái appointment) để đảm bảo nút luôn bật/tắt đúng theo checkbox xác
-   * nhận, bất kể appointment có đang Confirmed hay không. Khi refund.js
-   * cũng được load (chỉ với Confirmed), các field ngân hàng
-   * (#refundRequested/#refundBankSelect/...) sẽ tồn tại và được cộng thêm
-   * vào điều kiện — logic dưới đây đã tự kiểm tra sự tồn tại của các field
-   * đó nên dùng chung được cho cả 2 trường hợp, không cần định nghĩa lại.
-   */
   function updateConfirmButtonState() {
     const btn = document.getElementById('btnConfirmCancel');
     const confirmCb = document.getElementById('confirmCheck');
     if (!btn || !confirmCb) return;
 
     let ok = confirmCb.checked;
-    const refundCb = document.getElementById('refundRequested');
-    if (refundCb && refundCb.checked) {
+    const refundPanelEl = document.getElementById('refundPanel');
+    if (refundPanelEl) {
       const bank    = document.getElementById('refundBankSelect');
       const accNo   = document.getElementById('refundAccountNumber');
       const accName = document.getElementById('refundAccountName');

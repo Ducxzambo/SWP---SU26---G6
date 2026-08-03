@@ -122,6 +122,8 @@
                   </c:if>
                   <c:if test="${appt.status == 'Done'}">
                     <span class="badge badge-success">Đã đóng</span>
+                    <a href="${pageContext.request.contextPath}/receptionist/invoice?appointmentId=${appt.appointmentID}&from=history"
+                       class="btn btn-outline btn-sm">Xem hóa đơn</a>
                   </c:if>
                 </td>
               </tr>

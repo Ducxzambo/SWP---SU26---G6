@@ -56,9 +56,9 @@
 <body>
 
 <div class="r-actions no-print">
-  <a href="${ctx}/receptionist/invoice?invoiceId=${receipt.invoiceIdRaw}&from=${from}" class="r-btn r-btn-back">← Quay lại</a>
+  <a href="${ctx}/receptionist/invoice?invoiceId=${receipt.invoiceIdRaw}&from=${from}" class="r-btn r-btn-back">← Quay lại hóa đơn</a>
   <button type="button" class="r-btn r-btn-print" onclick="window.print()">In / Xuất PDF</button>
-  <a href="${ctx}/receptionist/invoice/receipt?invoiceId=${receipt.invoiceIdRaw}&format=pdf" class="r-btn r-btn-pdf">Tải file PDF</a>
+  <a href="${ctx}/receptionist/invoice/receipt?invoiceId=${receipt.invoiceIdRaw}&from=${from}&format=pdf" class="r-btn r-btn-pdf">Tải file PDF</a>
 </div>
 
 <div class="receipt-box">
@@ -78,7 +78,12 @@
     <c:when test="${isReceipt}">
       <div class="r-meta"><span>Liên kết hóa đơn tổng</span><strong>${receipt.invoiceCode}</strong></div>
       <div class="r-meta"><span>Mã biên lai</span>
-        <strong>BL-${receipt.invoiceIdRaw}${receipt.documentLabel == 'BIÊN LAI LẦN 2' ? '-02' : '-01'}</strong></div>
+        <strong>
+          <c:choose>
+            <c:when test="${not empty receipt.paymentCode}"><c:out value="${receipt.paymentCode}"/></c:when>
+            <c:otherwise>BL-${receipt.invoiceIdRaw}${receipt.documentLabel == 'BIÊN LAI LẦN 2' ? '-02' : '-01'}</c:otherwise>
+          </c:choose>
+        </strong>
       <div class="r-meta"><span>Thời gian</span><strong>${receipt.issuedAtDisplay}</strong></div>
       <div class="r-meta"><span>Người nộp tiền</span>
         <strong><c:out value="${receipt.customerName}"/><c:if test="${not empty receipt.customerPhone}"> (${receipt.customerPhone})</c:if></strong></div>

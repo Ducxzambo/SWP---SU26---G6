@@ -13,6 +13,7 @@ import jakarta.servlet.http.*;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.sql.SQLException;
 
 @WebServlet("/receptionist/invoice")
 public class InvoiceServlet extends HttpServlet {
@@ -33,6 +34,20 @@ public class InvoiceServlet extends HttpServlet {
 
         int invoiceId = parseId(req.getParameter("invoiceId"));
         String from = normalizeFrom(req.getParameter("from"));
+        if (invoiceId <= 0) {
+            int apptId = parseId(req.getParameter("appointmentId"));
+            if (apptId > 0) {
+                Invoice byAppt = null;
+                try {
+                    byAppt = invoiceDAO.findByAppointment(apptId);
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                    req.setAttribute("flashError", "Lỗi hệ thống: " + e.getMessage());
+                    resp.sendRedirect(req.getContextPath() + "/receptionist/checkin");
+                }
+                if (byAppt != null) invoiceId = byAppt.getInvoiceID();
+            }
+        }
         if (invoiceId <= 0) { resp.sendRedirect(req.getContextPath() + "/receptionist/checkin"); return; }
 
         try {

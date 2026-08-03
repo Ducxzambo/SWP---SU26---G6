@@ -1,5 +1,6 @@
 package com.petclinic.backend.dao;
 
+import com.petclinic.backend.dto.StaffAttendanceSummary;
 import com.petclinic.backend.model.StaffAttendance;
 import com.petclinic.backend.util.DBConnection;
 
@@ -169,6 +170,40 @@ public class StaffAttendanceDAO {
             if (keyword != null && !keyword.isBlank()) ps.setString(idx++, "%" + keyword.trim() + "%");
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) list.add(mapRow(rs));
+            }
+        }
+        return list;
+    }
+
+    public List<StaffAttendanceSummary> getAttendanceSummary(LocalDate fromDate, LocalDate toDate) throws SQLException {
+        StringBuilder sql = new StringBuilder(
+                "SELECT s.StaffID, s.FullName, r.RoleName, " +
+                        "SUM(CASE WHEN a.Status = 'Late' THEN 1 ELSE 0 END) AS LateCount, " +
+                        "SUM(CASE WHEN a.Status = 'Absent' THEN 1 ELSE 0 END) AS AbsentCount, " +
+                        "SUM(CASE WHEN a.Status = 'OnLeave' THEN 1 ELSE 0 END) AS OnLeaveCount " +
+                        "FROM Staff s " +
+                        "JOIN Roles r ON r.RoleID = s.RoleID " +
+                        "LEFT JOIN StaffAttendance a ON a.StaffID = s.StaffID ");
+        List<Object> joinParams = new ArrayList<>();
+        if (fromDate != null) { sql.append("AND a.WorkDate >= ? "); joinParams.add(Date.valueOf(fromDate)); }
+        if (toDate != null)   { sql.append("AND a.WorkDate <= ? "); joinParams.add(Date.valueOf(toDate)); }
+        sql.append("WHERE s.IsActive = 1 GROUP BY s.StaffID, s.FullName, r.RoleName ORDER BY s.FullName");
+
+        List<StaffAttendanceSummary> list = new ArrayList<>();
+        try (Connection c = DBConnection.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql.toString())) {
+            for (int i = 0; i < joinParams.size(); i++) ps.setObject(i + 1, joinParams.get(i));
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    StaffAttendanceSummary sum = new StaffAttendanceSummary();
+                    sum.setStaffID(rs.getInt("StaffID"));
+                    sum.setStaffName(rs.getString("FullName"));
+                    sum.setRoleName(rs.getString("RoleName"));
+                    sum.setLateCount(rs.getInt("LateCount"));
+                    sum.setAbsentCount(rs.getInt("AbsentCount"));
+                    sum.setOnLeaveCount(rs.getInt("OnLeaveCount"));
+                    list.add(sum);
+                }
             }
         }
         return list;

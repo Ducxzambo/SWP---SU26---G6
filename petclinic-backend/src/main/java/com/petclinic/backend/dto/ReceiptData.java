@@ -16,6 +16,7 @@ public class ReceiptData {
     private String paymentMethodDisplay;
     private String amountInWords;
     private String purposeText;
+    private String paymentCode;
 
     private List<ReceiptLineItem> items = new ArrayList<>();
 
@@ -88,4 +89,6 @@ public class ReceiptData {
     public void   setAmountInWords(String v)        { amountInWords = v; }
     public String getPurposeText()                  { return purposeText; }
     public void   setPurposeText(String v)          { purposeText = v; }
+    public String getPaymentCode()            { return paymentCode; }
+    public void   setPaymentCode(String v)    { paymentCode = v; }
 }

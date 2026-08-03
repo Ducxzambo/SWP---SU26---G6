@@ -26,55 +26,42 @@ public class ReceiptService {
     private static final String BIZ_HOTLINE = "(028) 123 456 789";
     private static final String BIZ_EMAIL   = "petclinicweb123@gmail.com";
 
-//    //  1. Hóa đơn 1 - trước khi Invoice tồn tại, khách đang ở booking/confirm
-//    public ReceiptData buildPreBookingInvoice(String customerName,
-//                                              List<Service> services, List<Vaccine> vaccines) {
-//        ReceiptData r = new ReceiptData();
-//        r.setDocumentLabel("HÓA ĐƠN 1");
-//        r.setInvoiceCode("Chưa phát hành");
-//        r.setIssuedAtDisplay(java.time.LocalDateTime.now().format(DT_FMT));
-//        r.setCustomerName(customerName);
-//        r.setStaffName("Đặt lịch trực tuyến");
-//
-//        BigDecimal qty = BigDecimal.ZERO, sub = BigDecimal.ZERO;
-//        if (services != null) {
-//            for (Service s : services) {
-//                ReceiptLineItem li = lineOf(s.getName(), BigDecimal.ONE, s.getPrice());
-//                r.getItems().add(li);
-//                qty = qty.add(BigDecimal.ONE);
-//                sub = sub.add(li.getLineTotal());
-//            }
-//        }
-//        if (vaccines != null) {
-//            for (Vaccine v : vaccines) {
-//                ReceiptLineItem li = lineOf(v.getName(), BigDecimal.ONE, v.getUnitPrice());
-//                r.getItems().add(li);
-//                qty = qty.add(BigDecimal.ONE);
-//                sub = sub.add(li.getLineTotal());
-//            }
-//        }
-//        r.setTotalQuantity(qty);
-//        r.setSubTotal(sub);
-//        r.setDiscountAmount(BigDecimal.ZERO);
-//        r.setTotalPayable(sub);
-//        return r;
-//    }
-//
-//    // Biến thể cho lịch nội trú
-//    public ReceiptData buildPreBookingInvoiceInpatient(String customerName, BigDecimal depositAmount) {
-//        ReceiptData r = new ReceiptData();
-//        r.setDocumentLabel("HÓA ĐƠN 1");
-//        r.setInvoiceCode("Chưa phát hành");
-//        r.setIssuedAtDisplay(java.time.LocalDateTime.now().format(DT_FMT));
-//        r.setCustomerName(customerName);
-//        r.setStaffName("Đặt lịch trực tuyến");
-//        r.getItems().add(lineOf("Đặt cọc nội trú", BigDecimal.ONE, depositAmount));
-//        r.setTotalQuantity(BigDecimal.ONE);
-//        r.setSubTotal(depositAmount);
-//        r.setDiscountAmount(BigDecimal.ZERO);
-//        r.setTotalPayable(depositAmount);
-//        return r;
-//    }
+    public ReceiptData buildReceiptForPayment(Invoice invoice, Appointment appt, Customer customer, Payment payment) {
+        ReceiptData r = baseFromInvoice(invoice, appt, customer);
+
+        List<Payment> payments = invoice.getPayments(); // DESC by PaidAt
+        boolean isEarliest = !payments.isEmpty()
+                && payment.getPaymentID() == payments.get(payments.size() - 1).getPaymentID();
+
+        BigDecimal cumulativeThroughThis = BigDecimal.ZERO;
+        for (int i = payments.size() - 1; i >= 0; i--) {
+            Payment p = payments.get(i);
+            cumulativeThroughThis = cumulativeThroughThis.add(p.getAmount() != null ? p.getAmount() : BigDecimal.ZERO);
+            if (p.getPaymentID() == payment.getPaymentID()) break;
+        }
+        boolean completesTotal = invoice.getTotalAmount() != null
+                && cumulativeThroughThis.compareTo(invoice.getTotalAmount()) >= 0;
+
+        r.setDocumentLabel(completesTotal ? "BIÊN LAI LẦN 2" : "BIÊN LAI LẦN 1");
+        r.setPaidStatusLabel(completesTotal ? "Paid" : "PrePaid");
+        r.setPaymentCode(payment.getPaymentCode());
+        r.setIssuedAtDisplay(payment.getPaidAt() != null ? payment.getPaidAt().format(DT_FMT) : r.getIssuedAtDisplay());
+        r.setStaffName(payment.getProcessedByName() != null ? payment.getProcessedByName() : "Hệ thống (tự động)");
+        r.setPaymentMethodDisplay(mapPaymentMethod(payment.getMethod()));
+        r.setPaidAmount(payment.getAmount());
+        r.setAmountInWords(VietnameseNumberUtil.readMoney(payment.getAmount()));
+
+        if (!completesTotal) {
+            BigDecimal remaining = invoice.getTotalAmount() != null
+                    ? invoice.getTotalAmount().subtract(cumulativeThroughThis) : BigDecimal.ZERO;
+            if (remaining.signum() < 0) remaining = BigDecimal.ZERO;
+            r.setRemainingAmount(remaining);
+            r.setRemainingDueDate(appt != null ? appt.getFormattedAppointmentDate() : "-");
+        }
+        r.setNote(completesTotal ? "Thanh toán hoàn tất."
+                : (isEarliest ? "Đặt cọc / trả trước." : "Thanh toán một phần."));
+        return r;
+    }
 
     //  2. "BIÊN LAI LẦN 1" - vừa thanh toán xong lúc đặt lịch (full hoặc 50%)
     public ReceiptData buildPrepayReceipt(Invoice invoice, Appointment appt, Customer customer,
@@ -159,6 +146,30 @@ public class ReceiptService {
         return li;
     }
 
+    public ReceiptData buildRefundReceipt(Refund refund) {
+        ReceiptData r = new ReceiptData();
+        r.setDocumentLabel("BIÊN LAI HOÀN TIỀN");
+        r.setInvoiceIdRaw(refund.getRefundID());
+        r.setInvoiceCode("HT-" + String.format("%06d", refund.getRefundID()));
+        r.setPaymentCode("HT_" + refund.getRefundID());
+        r.setIssuedAtDisplay(refund.getRefundedAt() != null
+                ? refund.getRefundedAt().format(DT_FMT) : java.time.LocalDateTime.now().format(DT_FMT));
+        r.setCustomerName(refund.getCustomerName());
+        r.setCustomerPhone(refund.getCustomerPhone());
+        r.setPetName(refund.getPetName());
+        r.setStaffName("Quản lý PetClinic");
+        r.setPaymentMethodDisplay(
+                (refund.getBankCode() != null ? refund.getBankCode() : "-") + " - "
+                        + (refund.getAccountNumber() != null ? refund.getAccountNumber() : "-")
+                        + (refund.getAccountName() != null ? " (" + refund.getAccountName() + ")" : ""));
+        r.setPaidAmount(refund.getPaidAmount());
+        r.setAmountInWords(VietnameseNumberUtil.readMoney(refund.getPaidAmount()));
+        r.setPurposeText("Hoàn tiền lịch hẹn #" + refund.getAppointmentID());
+        r.setNote(refund.getReason() != null && !refund.getReason().isBlank()
+                ? "Lý do: " + refund.getReason() : null);
+        return r;
+    }
+
     private ReceiptData baseFromInvoice(Invoice invoice, Appointment appt, Customer customer) {
         ReceiptData r = new ReceiptData();
         r.setInvoiceIdRaw(invoice.getInvoiceID());
@@ -176,6 +187,7 @@ public class ReceiptService {
                 : java.time.LocalDateTime.now().format(DT_FMT));
         r.setStaffName(last != null && last.getProcessedByName() != null
                 ? last.getProcessedByName() : "Hệ thống (tự động)");
+        r.setPaymentCode(last != null ? last.getPaymentCode() : null);
         r.setPaymentMethodDisplay(mapPaymentMethod(last != null ? last.getMethod() : null));
 
         BigDecimal qty = BigDecimal.ZERO, itemsSum = BigDecimal.ZERO;
@@ -277,6 +289,7 @@ public class ReceiptService {
     private String receiptSubtitle(String label) {
         if ("BIÊN LAI LẦN 1".equals(label)) return "THU TIỀN ĐẶT CỌC / TRẢ TRƯỚC";
         if ("BIÊN LAI LẦN 2".equals(label)) return "QUYẾT TOÁN HOÀN THÀNH DỊCH VỤ";
+        if ("BIÊN LAI HOÀN TIỀN".equals(label)) return "XÁC NHẬN CHUYỂN KHOẢN HOÀN TIỀN CHO KHÁCH HÀNG";
         return "";
     }
 
@@ -317,7 +330,7 @@ public class ReceiptService {
         sb.append(totalRow("Chiết khấu:", fmtMoney(r.getDiscountAmount()) + " đ"));
         sb.append(totalRowCls("TỔNG GIÁ TRỊ HĐ:", fmtMoney(r.getTotalPayable()) + " đ", "grand"));
         if (r.getPrepaidAmount() != null) {
-            sb.append(totalRow("Đã trả trước:", "- " + fmtMoney(r.getPrepaidAmount()) + " đ"));
+            sb.append(totalRow("Đã trả trước:", fmtMoney(r.getPrepaidAmount()) + " đ"));
             sb.append(totalRowCls("CÒN LẠI PHẢI THANH TOÁN:", fmtMoney(r.getAmountDue()) + " đ", "grand"));
         }
         sb.append("</table>");
@@ -330,19 +343,23 @@ public class ReceiptService {
 
     private String buildReceiptBody(ReceiptData r) {
         StringBuilder sb = new StringBuilder();
+        boolean isRefund = "BIÊN LAI HOÀN TIỀN".equals(r.getDocumentLabel());
         String suffix = "BIÊN LAI LẦN 2".equals(r.getDocumentLabel()) ? "-02" : "-01";
+        String receiptCode = (r.getPaymentCode() != null && !r.getPaymentCode().isBlank())
+                ? r.getPaymentCode() : ("BL-" + r.getInvoiceIdRaw() + suffix);
+
         sb.append("<table class=\"meta\">");
-        sb.append(row("Liên kết Hóa đơn tổng:", esc(r.getInvoiceCode())));
-        sb.append(row("Mã biên lai:", esc("BL-" + r.getInvoiceIdRaw() + suffix)));
+        sb.append(row(isRefund ? "Mã yêu cầu hoàn tiền:" : "Liên kết Hóa đơn tổng:", esc(r.getInvoiceCode())));
+        sb.append(row("Mã biên lai:", esc(receiptCode)));
         sb.append(row("Thời gian:", esc(r.getIssuedAtDisplay())));
-        sb.append(row("Người nộp tiền:", esc(r.getCustomerName())
-                + (r.getCustomerPhone() != null ? " (" + esc(r.getCustomerPhone()) + ")" : "")));
-        sb.append(row("Nội dung thu:", esc(r.getPurposeText())));
-        sb.append(row("Hình thức thanh toán:", esc(r.getPaymentMethodDisplay())));
+        sb.append(row(isRefund ? "Khách nhận tiền hoàn:" : "Người nộp tiền:",
+                esc(r.getCustomerName()) + (r.getCustomerPhone() != null ? " (" + esc(r.getCustomerPhone()) + ")" : "")));
+        sb.append(row(isRefund ? "Chuyển đến:" : "Nội dung thu:", esc(r.getPurposeText())));
+        sb.append(row(isRefund ? "Hình thức hoàn tiền:" : "Hình thức thanh toán:", esc(r.getPaymentMethodDisplay())));
         sb.append("</table>");
 
         sb.append("<table class=\"totals\" style=\"margin-top:10px;\">");
-        sb.append(totalRowCls("Số tiền thực thu:", fmtMoney(r.getPaidAmount()) + " đ", "grand"));
+        sb.append(totalRowCls(isRefund ? "Số tiền đã hoàn:" : "Số tiền thực thu:", fmtMoney(r.getPaidAmount()) + " đ", "grand"));
         sb.append("</table>");
         sb.append("<div class=\"amount-words\">Bằng chữ: <em>").append(esc(r.getAmountInWords())).append("</em></div>");
 
@@ -352,15 +369,18 @@ public class ReceiptService {
                     .append(fmtMoney(r.getRemainingAmount())).append(" đ</div>");
         }
 
+        String payerLabel = isRefund ? "Người chi tiền (PetClinic)" : "Người nộp tiền";
+        String payerName  = isRefund ? r.getStaffName() : r.getCustomerName();
+        String payeeLabel = isRefund ? "Người nhận tiền hoàn" : "Người thu tiền / Thủ quỹ";
+        String payeeName  = isRefund ? r.getCustomerName() : r.getStaffName();
+
         sb.append("<table class=\"sign-table\"><tr>")
-                .append("<td class=\"sign-col\"><div class=\"sign-title\">Người nộp tiền</div>")
-                .append("<div class=\"sign-hint\">(Ký, ghi rõ họ tên)</div>")
-                .append("<div class=\"sign-space\"></div><div class=\"sign-name\">")
-                .append(esc(r.getCustomerName())).append("</div></td>")
-                .append("<td class=\"sign-col\"><div class=\"sign-title\">Người thu tiền / Thủ quỹ</div>")
+                .append("<td class=\"sign-col\"><div class=\"sign-title\">").append(payerLabel).append("</div>")
+                .append("<div class=\"sign-hint\">(Ký, ghi rõ họ tên nếu cần)</div>")
+                .append("<div class=\"sign-space\"></div><div class=\"sign-name\">").append(esc(payerName)).append("</div></td>")
+                .append("<td class=\"sign-col\"><div class=\"sign-title\">").append(payeeLabel).append("</div>")
                 .append("<div class=\"sign-hint\">(Hệ thống xác thực điện tử)</div>")
-                .append("<div class=\"sign-space\"></div><div class=\"sign-name\">")
-                .append(esc(r.getStaffName())).append("</div></td>")
+                .append("<div class=\"sign-space\"></div><div class=\"sign-name\">").append(esc(payeeName)).append("</div></td>")
                 .append("</tr></table>");
         return sb.toString();
     }
