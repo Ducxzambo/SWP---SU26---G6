@@ -181,6 +181,7 @@
         <div class="sidebar-logo">🐾 PetClinic</div>
         <nav>
             <a href="${pageContext.request.contextPath}/vet/examination" class="nav-item active"> Hàng chờ khám</a>
+            <a href="${pageContext.request.contextPath}/vet/examination?action=history" class="nav-item">Lịch sử</a>
         </nav>
         <div class="sidebar-user">
              ${sessionScope.staff.fullName}
@@ -469,7 +470,7 @@
                             <c:otherwise>
                                 <div class="alert alert-warning">
                                     <span class="alert-icon">⚠</span>
-                                    Chưa có danh sách xét nghiệm. Vui lòng chạy script SQL bp02_extend.sql.
+                                    Chưa có danh sách xét nghiệm.
                                 </div>
                             </c:otherwise>
                         </c:choose>

@@ -10,6 +10,8 @@
   <meta charset="UTF-8">
   <title>${receipt.documentLabel} ${receipt.invoiceCode} - PetClinic</title>
   <style>
+    *, *::before, *::after { box-sizing: border-box; }
+
     @media print {
       .no-print { display:none !important; }
       body { margin:0; background:#fff; }
@@ -30,8 +32,12 @@
     .r-subtitle { text-align:center; font-size:12px; font-weight:700; color:#555; margin-bottom:16px; }
     .r-section-title { font-size:12px; font-weight:700; color:#0f3d24; margin:16px 0 6px;
       border-bottom:1px solid #eee; padding-bottom:4px; }
-    .r-meta  { font-size:13px; margin-bottom:5px; display:flex; justify-content:space-between; gap:10px; }
-    .r-meta span:first-child { color:#666; flex-shrink:0; }
+    .r-meta {
+      font-size:13px; margin-bottom:8px; display:flex; flex-wrap:wrap;
+      justify-content:space-between; align-items:baseline; gap:6px 10px;
+    }
+    .r-meta span:first-child { color:#666; flex:0 0 auto; }
+    .r-meta strong { flex:1 1 auto; min-width:0; text-align:right; overflow-wrap:break-word; word-break:break-word; }
     table.r-items { width:100%; border-collapse:collapse; margin:10px 0; font-size:12.5px; }
     table.r-items th { border-bottom:2px solid #333; padding:6px 2px; text-align:left;
       font-size:10.5px; text-transform:uppercase; letter-spacing:.3px; }
@@ -87,11 +93,14 @@
       <div class="r-meta"><span>Thời gian</span><strong>${receipt.issuedAtDisplay}</strong></div>
       <div class="r-meta"><span>Người nộp tiền</span>
         <strong><c:out value="${receipt.customerName}"/><c:if test="${not empty receipt.customerPhone}"> (${receipt.customerPhone})</c:if></strong></div>
-      <div class="r-meta"><span>Nội dung thu</span><strong style="text-align:right;max-width:260px;"><c:out value="${receipt.purposeText}"/></strong></div>
-      <div class="r-meta"><span>Hình thức thanh toán</span><strong><c:out value="${receipt.paymentMethodDisplay}"/></strong></div>
+        <div class="r-meta"><span>Nội dung thu</span><strong><c:out value="${receipt.purposeText}"/></strong></div>
+        <div class="r-meta"><span>Hình thức thanh toán</span><strong><c:out value="${receipt.paymentMethodDisplay}"/></strong></div>
 
       <table class="r-totals">
-        <tr class="r-grand"><td>Số tiền thực thu</td><td class="val"><fmt:formatNumber value="${receipt.paidAmount}" type="number" groupingUsed="true"/>đ</td></tr>
+        <tr class="r-grand">
+          <td>Số tiền thực thu</td>
+          <td class="val"><fmt:formatNumber value="${receipt.paidAmount}" type="number" groupingUsed="true"/>đ</td>
+        </tr>
       </table>
       <div class="r-words">Bằng chữ: <em><c:out value="${receipt.amountInWords}"/></em></div>
 
@@ -134,7 +143,15 @@
 
       <div class="r-section-title">CHI TIẾT DỊCH VỤ &amp; SẢN PHẨM</div>
       <table class="r-items">
-        <thead><tr><th>#</th><th>Sản phẩm / Dịch vụ</th><th class="num">SL</th><th class="num">Đ.Giá</th><th class="num">T.Tiền</th></tr></thead>
+        <thead>
+        <tr>
+          <th>#</th>
+          <th>Sản phẩm / Dịch vụ</th>
+          <th class="num">SL</th>
+          <th class="num">Đ.Giá</th>
+          <th class="num">T.Tiền</th>
+        </tr>
+        </thead>
         <tbody>
         <c:forEach var="li" items="${receipt.items}" varStatus="vs">
           <tr>
@@ -164,9 +181,10 @@
     </c:otherwise>
   </c:choose>
 
-  <div class="r-note">Quý khách được phép khiếu nại hoàn tiền trong vòng 48h kể từ ngày thanh toán.</div>
-  <div class="r-thanks">CẢM ƠN QUÝ KHÁCH VÀ HẸN GẶP LẠI!</div>
-</div>
+        <c:if test="${receipt.documentLabel == 'BIÊN LAI LẦN 1' || receipt.documentLabel == 'BIÊN LAI LẦN 2'}">
+          <div class="r-thanks">CẢM ƠN QUÝ KHÁCH VÀ HẸN GẶP LẠI!</div>
+        </c:if>
+      </div>
 
 </body>
 </html>

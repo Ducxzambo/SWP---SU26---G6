@@ -45,6 +45,7 @@
     <div class="r-title">${receipt.documentLabel}</div>
     <div class="r-subtitle">XÁC NHẬN CHUYỂN KHOẢN HOÀN TIỀN CHO KHÁCH HÀNG</div>
 
+    <div class="r-meta"><span>Mã yêu cầu hoàn tiền</span><strong><c:out value="${receipt.invoiceCode}"/></strong></div>
     <div class="r-meta"><span>Mã biên lai</span><strong><c:out value="${receipt.paymentCode}"/></strong></div>
     <div class="r-meta"><span>Thời gian</span><strong>${receipt.issuedAtDisplay}</strong></div>
     <div class="r-meta"><span>Khách hàng</span>
@@ -52,8 +53,9 @@
     <c:if test="${not empty receipt.petName}">
         <div class="r-meta"><span>Thú cưng</span><strong><c:out value="${receipt.petName}"/></strong></div>
     </c:if>
-    <div class="r-meta"><span>Nội dung</span><strong style="text-align:right;max-width:260px;"><c:out value="${receipt.purposeText}"/></strong></div>
-    <div class="r-meta"><span>Chuyển đến</span><strong><c:out value="${receipt.paymentMethodDisplay}"/></strong></div>
+    <div class="r-meta"><span>Nội dung hoàn tiền</span><strong style="text-align:right;max-width:260px;"><c:out value="${receipt.purposeText}"/></strong></div>
+    <div class="r-meta"><span>Hình thức hoàn tiền</span><strong><c:out value="${receipt.paymentMethodDisplay}"/></strong></div>
+
 
     <table class="r-totals">
         <tr class="r-grand"><td>Số tiền đã hoàn</td>
@@ -64,9 +66,6 @@
     <c:if test="${not empty receipt.note}">
         <div class="r-note">* Ghi chú: <c:out value="${receipt.note}"/></div>
     </c:if>
-
-    <div class="r-note">Quý khách được phép khiếu nại trong vòng 48h kể từ ngày hoàn tiền.</div>
-    <div class="r-thanks">PETCLINIC XIN CẢM ƠN!</div>
 </div>
 
 </body>

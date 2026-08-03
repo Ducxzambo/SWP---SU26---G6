@@ -25,20 +25,20 @@
         <%@ include file="/WEB-INF/views/common/_flash.jsp" %>
         <%@ include file="/WEB-INF/views/manager/refunds/_subnav.jsp" %>
 
-        <form action="${pageContext.request.contextPath}/manager/refunds/create" method="get" class="search-bar">
-            <div class="input-wrap">
+        <form action="${pageContext.request.contextPath}/manager/refunds/create" method="get" class="refund-search-bar">
+            <div class="refund-search-input-wrap">
                 <span class="input-icon"></span>
                 <input type="text" name="q" class="form-control"
-                       placeholder="Tìm theo tên khách hàng hoặc thú cưng..."
-                       value="<c:out value='${keyword}'/>">
+                       placeholder="Tìm theo tên khách hàng hoặc tên thú cưng..."
+                       value="<c:out value='${keyword}'/>"
+                       onchange="this.form.submit()">
             </div>
-            <select name="status" class="form-control no-icon">
+            <select name="status" class="form-control no-icon refund-status-select" onchange="this.form.submit()">
                 <option value="">Tất cả trạng thái</option>
                 <option value="Cancelled" ${status == 'Cancelled' ? 'selected' : ''}>Đã huỷ</option>
                 <option value="NoShow" ${status == 'NoShow' ? 'selected' : ''}>Vắng mặt</option>
                 <option value="Done" ${status == 'Done' ? 'selected' : ''}>Hoàn thành</option>
             </select>
-            <button type="submit" class="btn btn-secondary">Tìm</button>
         </form>
 
         <div class="card">
@@ -55,6 +55,7 @@
                         <thead>
                         <tr>
                             <th>#</th>
+                            <th>Mã hóa đơn</th>
                             <th>Khách hàng</th>
                             <th>Thú cưng</th>
                             <th>Ngày hẹn</th>
@@ -67,6 +68,7 @@
                         <c:forEach items="${appointments}" var="a">
                             <tr>
                                 <td>${a.appointmentID}</td>
+                                <td><c:out value="${empty a.invoiceCode ? '-' : a.invoiceCode}"/></td>
                                 <td><c:out value="${a.customerName}"/></td>
                                 <td><c:out value="${empty a.petName ? 'Chưa chọn' : a.petName}"/></td>
                                 <td>${a.formattedAppointmentDate}</td>

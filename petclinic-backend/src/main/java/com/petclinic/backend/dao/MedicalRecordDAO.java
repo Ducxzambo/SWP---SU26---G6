@@ -1,5 +1,6 @@
 package com.petclinic.backend.dao;
 
+import com.petclinic.backend.dao.MedicineDAO;
 import com.petclinic.backend.model.MedicalRecord;
 import com.petclinic.backend.model.PrescriptionItem;
 import com.petclinic.backend.util.DBConnection;
@@ -122,6 +123,7 @@ public class MedicalRecordDAO {
         mr.setSymptoms(rs.getString("Symptoms"));
         mr.setDiagnosis(rs.getString("Diagnosis"));
         mr.setTreatmentPlan(rs.getString("TreatmentPlan"));
+        mr.setGeneralConclusion(rs.getString("GeneralConclusion"));
         Timestamp ts = rs.getTimestamp("CreatedAt");
         if (ts != null) mr.setCreatedAt(ts.toLocalDateTime());
         mr.setStaffName(rs.getString("StaffName"));
@@ -164,8 +166,8 @@ public class MedicalRecordDAO {
     private int insertRecord(Connection conn, MedicalRecord r) throws SQLException {
         String sql = """
                 INSERT INTO MedicalRecords
-                    (AppointmentID, PetID, StaffID, Weight, Temperature, Symptoms, Diagnosis, TreatmentPlan)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    (AppointmentID, PetID, StaffID, Weight, Temperature, Symptoms, Diagnosis, TreatmentPlan, GeneralConclusion)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """;
         try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setInt(1, r.getAppointmentID());
@@ -178,6 +180,7 @@ public class MedicalRecordDAO {
             ps.setString(6, r.getSymptoms());
             ps.setString(7, r.getDiagnosis());
             ps.setString(8, r.getTreatmentPlan());
+            ps.setString(9, r.getGeneralConclusion());
             ps.executeUpdate();
             try (ResultSet keys = ps.getGeneratedKeys()) {
                 if (keys.next()) return keys.getInt(1);
@@ -202,15 +205,15 @@ public class MedicalRecordDAO {
     }
 
     private void insertStockTransaction(Connection conn, PrescriptionItem item,
-                                        int performedByStaffID) throws SQLException {
-        String sql = """
-            INSERT INTO StockTransactions (ItemType, ItemID, QuantityChange, Reason, PerformedByID, TransactionType)
-            VALUES ('Medicine', ?, ?, 'Used', ?, 'Export')
-            """;
+                                        int performedByVetID) throws SQLException {
+        String sql = "INSERT INTO StockTransactions " +
+                "(ItemType, ItemID, QuantityChange, Reason, PerformedByID, " +
+                "TransactionDate, ProviderID, TransactionType, PurchasePrice) " +
+                "VALUES ('Medicine', ?, ?, 'Used', ?, GETDATE(), NULL, 'Export', NULL)";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, item.getMedicineID());
-            ps.setBigDecimal(2, item.getQuantity().negate());
-            ps.setInt(3, performedByStaffID);
+            ps.setBigDecimal(2, item.getQuantity().negate()); // âm = xuất kho
+            ps.setInt(3, performedByVetID);
             ps.executeUpdate();
         }
     }

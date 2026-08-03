@@ -34,6 +34,7 @@ public class Appointment {
     private String serviceName;
     private String categoryName;
     private Integer recordID; // RecordID của MedicalRecord/GroomingRecord nếu status = Done (nullable)
+    private String invoiceCode;
 
     private String           petSpeciesName;
     private String           petBreedName;
@@ -96,6 +97,8 @@ public class Appointment {
     public void             setPetGender(String v)    { petGender = v; }
     public java.math.BigDecimal getPetWeight() { return petWeight; }
     public void             setPetWeight(java.math.BigDecimal v) { petWeight = v; }
+    public String getInvoiceCode()                { return invoiceCode; }
+    public void   setInvoiceCode(String v)        { invoiceCode = v; }
 
     public List<AppointmentService> getServices()                     { return services; }
     public void                     setServices(List<AppointmentService> v) {

@@ -30,6 +30,11 @@ public class StaffAttendanceStatsServlet extends HttpServlet {
             LocalDate fromDate = parseDate(req.getParameter("fromDate"));
             LocalDate toDate   = parseDate(req.getParameter("toDate"));
 
+            if (toDate != null && fromDate != null && toDate.isBefore(fromDate)) {
+                req.setAttribute("error", "Không tải được thống kê chấm công: Ngày bắt đầu không thể sau ngày kết thúc.");
+                req.getRequestDispatcher("/WEB-INF/views/manager/shift/attendance-stats.jsp").forward(req, resp);
+                return;
+            }
             List<StaffAttendanceSummary> summary = attendanceDAO.getAttendanceSummary(fromDate, toDate);
             long alertCount = summary.stream().filter(StaffAttendanceSummary::isAnyAlert).count();
 

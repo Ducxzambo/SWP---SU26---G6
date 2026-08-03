@@ -1,10 +1,9 @@
 package com.petclinic.backend.dao;
 
-import com.petclinic.backend.service.BookingService;
 import com.petclinic.backend.model.Appointment;
 import com.petclinic.backend.model.AppointmentService;
-import com.petclinic.backend.dao.AppointmentServiceDAO;
-import com.petclinic.backend.model.AppointmentServiceItem;
+import com.petclinic.backend.service.BookingService;
+import com.petclinic.backend.service.ExaminationService;
 import com.petclinic.backend.util.DBConnection;
 
 import java.sql.*;
@@ -213,20 +212,6 @@ public class AppointmentDAO {
         }
     }
 
-    // Gán 1 nhân viên cho mọi dịch vụ thuộc 1 category trong 1 appointment (gán hàng loạt lúc check-in).
-    public void assignStaffToCategory(int appointmentID, String categoryName, int staffID) throws SQLException {
-        String sql = "UPDATE aps SET aps.AssignedStaffID = ? " +
-                "FROM AppointmentServices aps " +
-                "JOIN Services s ON s.ServiceID = aps.ServiceID " +
-                "JOIN ServiceCategories sc ON sc.CategoryID = s.CategoryID " +
-                "WHERE aps.AppointmentID = ? AND sc.Name = ?";
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setInt(1, staffID); ps.setInt(2, appointmentID); ps.setString(3, categoryName);
-            ps.executeUpdate();
-        }
-    }
-
     // Vet queue (BP-02)
     public List<Appointment> findStaffQueue(int staffID, LocalDate date, String categoryFilter,
                                             String excludeIfRecordExistsIn) throws SQLException {
@@ -276,8 +261,7 @@ public class AppointmentDAO {
         try (Connection c = DBConnection.getConnection();
              PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setInt(1, a.getCustomerID());
-            if (a.getPetID() != null) ps.setInt(2, a.getPetID());
-            else ps.setNull(2, Types.INTEGER);
+            ps.setInt(2, a.getPetID());
             ps.setDate(3, Date.valueOf(a.getAppointmentDate()));
             ps.setTime(4, Time.valueOf(a.getStartTime()));
             ps.setTime(5, Time.valueOf(a.getEndTime()));
@@ -598,8 +582,7 @@ public class AppointmentDAO {
         Appointment a = new Appointment();
         a.setAppointmentID(rs.getInt("AppointmentID"));
         a.setCustomerID(rs.getInt("CustomerID"));
-        int pid = rs.getInt("PetID");
-        a.setPetID(rs.wasNull() ? null : pid);
+        a.setPetID(rs.getInt("PetID"));
         Date d = rs.getDate("AppointmentDate"); if (d != null) a.setAppointmentDate(d.toLocalDate());
         Time st = rs.getTime("StartTime");       if (st != null) a.setStartTime(st.toLocalTime());
         Time et = rs.getTime("EndTime");         if (et != null) a.setEndTime(et.toLocalTime());
@@ -717,6 +700,87 @@ public class AppointmentDAO {
             }
         }
         return list;
+    }
+
+    // Tìm appointment đủ điều kiện tạo yêu cầu hoàn tiền: Status Done/Cancelled/NoShow
+    // và hoá đơn tương ứng đang PrePaid/Paid. Kèm InvoiceCode để hiển thị & sắp xếp mặc định.
+    public List<Appointment> findRefundEligibleAppointments(String keyword) throws SQLException {
+        StringBuilder sql = new StringBuilder(
+                "SELECT a.*, p.Name AS PetName, c.FullName AS CustomerName, i.InvoiceCode AS InvoiceCode "
+                        + "FROM Appointments a "
+                        + "LEFT JOIN Pets p ON a.PetID = p.PetID "
+                        + "JOIN Customers c ON a.CustomerID = c.CustomerID "
+                        + "JOIN Invoices i ON i.AppointmentID = a.AppointmentID "
+                        + "WHERE a.Status IN ('Done','Cancelled','NoShow') "
+                        + "AND i.Status IN ('PrePaid','Paid') ");
+        List<Object> params = new ArrayList<>();
+
+        if (keyword != null && !keyword.isBlank()) {
+            sql.append("AND (c.FullName LIKE ? OR p.Name LIKE ?) ");
+            String like = "%" + keyword.trim() + "%";
+            params.add(like);
+            params.add(like);
+        }
+        sql.append("ORDER BY i.InvoiceCode ASC");
+
+        List<Appointment> list = new ArrayList<>();
+        try (Connection c = DBConnection.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql.toString())) {
+            for (int i = 0; i < params.size(); i++) ps.setObject(i + 1, params.get(i));
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Appointment a = mapRow(rs);
+                    a.setCustomerName(rs.getString("CustomerName"));
+                    a.setInvoiceCode(rs.getString("InvoiceCode"));
+                    list.add(a);
+                }
+            }
+        }
+        return list;
+    }
+
+    public void assignStaffToCategory(int appointmentID, String categoryName, int staffID)
+            throws SQLException {
+        String sql =
+                "UPDATE AppointmentServices SET AssignedStaffID = ? " +
+                        "WHERE AppointmentID = ? " +
+                        "AND ServiceID IN (" +
+                        "SELECT s.ServiceID FROM Services s " +
+                        "JOIN ServiceCategories sc ON sc.CategoryID = s.CategoryID " +
+                        "WHERE sc.Name = ?)";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, staffID);
+            ps.setInt(2, appointmentID);
+            ps.setString(3, categoryName);
+            ps.executeUpdate();
+        }
+    }
+
+    public Integer findLeastLoadedStaffByCategory(String categoryName, LocalDate date)
+            throws SQLException {
+        String roleName = (ExaminationService.CAT_GROOMING.equals(categoryName))
+                ? "Groomer" : "Veterinarian";
+        String sql =
+                "SELECT TOP 1 st.StaffID " +
+                        "FROM Staff st " +
+                        "JOIN Roles r ON r.RoleID = st.RoleID " +
+                        "LEFT JOIN AppointmentServices aps ON aps.AssignedStaffID = st.StaffID " +
+                        "AND EXISTS (SELECT 1 FROM Appointments a " +
+                        "WHERE a.AppointmentID = aps.AppointmentID " +
+                        "AND a.AppointmentDate = ? " +
+                        "AND a.Status NOT IN ('Cancelled','NoShow')) " +
+                        "WHERE r.RoleName = ? AND st.IsActive = 1 " +
+                        "GROUP BY st.StaffID " +
+                        "ORDER BY COUNT(aps.AppointmentServiceID) ASC";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setDate(1, Date.valueOf(date));
+            ps.setString(2, roleName);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getInt(1) : null;
+            }
+        }
     }
 
     private String placeholders(int count) {

@@ -90,26 +90,62 @@ public class ExaminationServlet extends HttpServlet {
             record.setSymptoms(req.getParameter("symptoms"));
             record.setDiagnosis(buildDiagnosis(req));
             record.setTreatmentPlan(buildTreatmentPlan(req));
+            record.setGeneralConclusion(req.getParameter("conclusion"));
 
+            List<SupplyUsageItem> supplies = parseSupplyItems(req);
             List<PrescriptionItem> items = parsePrescriptionItems(req);
             String followUpDate = req.getParameter("followUpDate");
 
-            SaveRecordResult result = examinationService.saveMedicalRecord(record, items, followUpDate);
+            String submitAction = req.getParameter("submitAction"); // "save" hoặc "complete"
+
+            SaveRecordResult result = examinationService.saveMedicalRecord(record, items, supplies, followUpDate);
             switch (result) {
                 case SUCCESS -> {
-                    req.getSession().setAttribute("flashSuccess",
-                            "Bệnh án đã lưu thành công. Hóa đơn đã được cập nhật.");
-                    List<Integer> selectedServiceIds = parseSelectedServiceIds(req);
-                    invoiceSyncService.syncAfterExamination(appointmentID, vet.getStaffID(),
-                            selectedServiceIds, items);
-                    resp.sendRedirect(req.getContextPath() + "/vet/examination");
+                    if ("complete".equals(submitAction)) {
+                        // Lưu xong → hoàn thành luôn
+                        ExaminationService.CompleteResult cr =
+                                examinationService.completeExamination(appointmentID);
+                        if (cr == ExaminationService.CompleteResult.SUCCESS) {
+                            triggerInvoice(appointmentID);
+                            req.getSession().setAttribute("flashSuccess",
+                                    "Khám hoàn tất! Hóa đơn đang được tạo...");
+                            resp.sendRedirect(req.getContextPath() + "/vet/examination");
+                        } else {
+                            forwardFormWithError(req, resp, appointmentID,
+                                    "Lưu bệnh án thành công nhưng không thể hoàn tất: " + cr);
+                        }
+                    } else {
+                        // Chỉ lưu, ở lại form
+                        req.getSession().setAttribute("flashSuccess", "Đã lưu bệnh án thành công.");
+                        resp.sendRedirect(req.getContextPath()
+                                + "/vet/examination?action=form&appointmentID=" + appointmentID);
+                    }
+                }
+                case RECORD_ALREADY_EXISTS -> {
+                    // Bệnh án đã có → chỉ xử lý nút "Hoàn thành"
+                    if ("complete".equals(submitAction)) {
+                        ExaminationService.CompleteResult cr =
+                                examinationService.completeExamination(appointmentID);
+                        if (cr == ExaminationService.CompleteResult.SUCCESS) {
+                            triggerInvoice(appointmentID);
+                            req.getSession().setAttribute("flashSuccess",
+                                    "Khám hoàn tất! Hóa đơn đang được tạo...");
+                            resp.sendRedirect(req.getContextPath() + "/vet/examination");
+                        } else {
+                            forwardFormWithError(req, resp, appointmentID,
+                                    "Không thể hoàn tất: " + cr);
+                        }
+                    } else {
+                        forwardFormWithError(req, resp, appointmentID,
+                                "Bệnh án cho lịch khám này đã tồn tại.");
+                    }
                 }
                 case INSUFFICIENT_STOCK ->
                         forwardFormWithError(req, resp, appointmentID,
                                 "Thuốc không đủ tồn kho. Vui lòng kiểm tra lại đơn thuốc.");
-                case RECORD_ALREADY_EXISTS ->
+                case INSUFFICIENT_SUPPLY_STOCK ->
                         forwardFormWithError(req, resp, appointmentID,
-                                "Bệnh án cho lịch khám này đã tồn tại.");
+                                "Vật tư không đủ tồn kho. Vui lòng kiểm tra lại.");
                 case WRONG_STATUS ->
                         forwardFormWithError(req, resp, appointmentID,
                                 "Lịch hẹn không ở trạng thái InProgress.");
@@ -219,6 +255,7 @@ public class ExaminationServlet extends HttpServlet {
             List<Medicine>      medicines    = examinationService.getMedicinesInStock();
             List<Service>       labTests     = examinationService.getLabTests();
             List<Service>       treatmentPlans = examinationService.getTreatmentPlans();
+            List<Supply>        supplies = examinationService.getSuppliesInStock();
 
             Set<Integer> preSelectedLabIds = appt.getServicesByCategory("Chẩn đoán")
                     .stream().map(s -> s.getServiceID()).collect(Collectors.toSet());
@@ -230,6 +267,7 @@ public class ExaminationServlet extends HttpServlet {
             req.setAttribute("medicines",      medicines);
             req.setAttribute("labTests",       labTests);
             req.setAttribute("treatmentPlans", treatmentPlans);
+            req.setAttribute("supplies",       supplies);
             req.setAttribute("preSelectedLabIds",   preSelectedLabIds);
             req.setAttribute("preSelectedTreatIds", preSelectedTreatIds);
             req.getRequestDispatcher("/WEB-INF/views/vet/examination-detail.jsp").forward(req, resp);
@@ -288,6 +326,27 @@ public class ExaminationServlet extends HttpServlet {
             }
         }
         return sb.toString().trim();
+    }
+
+    private List<SupplyUsageItem> parseSupplyItems(HttpServletRequest req) {
+        String[] supplyIDs  = req.getParameterValues("supplyID[]");
+        String[] quantities = req.getParameterValues("supplyQty[]");
+        String[] notes      = req.getParameterValues("supplyNote[]");
+
+        List<SupplyUsageItem> items = new ArrayList<>();
+        if (supplyIDs == null) return items;
+
+        for (int i = 0; i < supplyIDs.length; i++) {
+            String sidStr = supplyIDs[i];
+            if (sidStr == null || sidStr.isBlank()) continue;
+            SupplyUsageItem item = new SupplyUsageItem();
+            item.setSupplyID(Integer.parseInt(sidStr));
+            item.setQuantity(new BigDecimal(
+                    quantities != null && i < quantities.length ? quantities[i] : "1"));
+            if (notes != null && i < notes.length) item.setNotes(notes[i]);
+            items.add(item);
+        }
+        return items;
     }
 
     private List<PrescriptionItem> parsePrescriptionItems(HttpServletRequest req) {

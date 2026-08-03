@@ -3,6 +3,8 @@ package com.petclinic.backend.service;
 
 import com.petclinic.backend.dao.AppointmentDAO;
 import com.petclinic.backend.dao.InvoiceDAO;
+import com.petclinic.backend.dao.RefundDAO;
+import com.petclinic.backend.dao.StaffDAO;
 import com.petclinic.backend.dto.ReceiptData;
 import com.petclinic.backend.dto.ReceiptLineItem;
 import com.petclinic.backend.model.*;
@@ -20,6 +22,8 @@ public class ReceiptService {
 
     private final InvoiceDAO     invoiceDAO     = new InvoiceDAO();
     private final AppointmentDAO appointmentDAO = new AppointmentDAO();
+    private final RefundDAO      refundDAO      = new RefundDAO();
+    private final StaffDAO staffDAO       = new StaffDAO();
 
     private static final String BIZ_NAME    = "PetClinic";
     private static final String BIZ_ADDRESS = "123 Đường ABC, TP. Hà Nội";
@@ -146,22 +150,27 @@ public class ReceiptService {
         return li;
     }
 
-    public ReceiptData buildRefundReceipt(Refund refund) {
+    public ReceiptData buildRefundReceipt(Refund refund) throws SQLException {
         ReceiptData r = new ReceiptData();
         r.setDocumentLabel("BIÊN LAI HOÀN TIỀN");
         r.setInvoiceIdRaw(refund.getRefundID());
-        r.setInvoiceCode("HT-" + String.format("%06d", refund.getRefundID()));
-        r.setPaymentCode("HT_" + refund.getRefundID());
+        r.setInvoiceCode("REF-" + String.format("%06d", refund.getRefundID()));
+
+        Invoice linkedInvoice = invoiceDAO.findByAppointment(refund.getAppointmentID());
+        String linkedInvoiceCode = (linkedInvoice != null && linkedInvoice.getInvoiceCode() != null)
+                ? linkedInvoice.getInvoiceCode()
+                : ("INV" + String.format("%06d", refund.getAppointmentID()));
+        int refundSeq = refundDAO.countRefundsUpToForAppointment(refund.getAppointmentID(), refund.getRefundID());
+        String refundSuffix = refundSeq >= 2 ? "-02" : "-01";
+        r.setPaymentCode("REF-" + linkedInvoiceCode + refundSuffix);
+
         r.setIssuedAtDisplay(refund.getRefundedAt() != null
                 ? refund.getRefundedAt().format(DT_FMT) : java.time.LocalDateTime.now().format(DT_FMT));
         r.setCustomerName(refund.getCustomerName());
         r.setCustomerPhone(refund.getCustomerPhone());
         r.setPetName(refund.getPetName());
-        r.setStaffName("Quản lý PetClinic");
-        r.setPaymentMethodDisplay(
-                (refund.getBankCode() != null ? refund.getBankCode() : "-") + " - "
-                        + (refund.getAccountNumber() != null ? refund.getAccountNumber() : "-")
-                        + (refund.getAccountName() != null ? " (" + refund.getAccountName() + ")" : ""));
+        r.setStaffName(staffDAO.findById(refund.getProcessedByID()).getFullName());
+        r.setPaymentMethodDisplay("CK");
         r.setPaidAmount(refund.getPaidAmount());
         r.setAmountInWords(VietnameseNumberUtil.readMoney(refund.getPaidAmount()));
         r.setPurposeText("Hoàn tiền lịch hẹn #" + refund.getAppointmentID());
@@ -232,13 +241,16 @@ public class ReceiptService {
 
     public String renderHtml(ReceiptData r) {
         boolean isReceipt = r.getDocumentLabel() != null && r.getDocumentLabel().startsWith("BIÊN LAI");
+        boolean showClosingNote = "BIÊN LAI LẦN 1".equals(r.getDocumentLabel())
+                || "BIÊN LAI LẦN 2".equals(r.getDocumentLabel());
 
         StringBuilder sb = new StringBuilder();
         sb.append("<html><head><meta charset=\"UTF-8\"/><style>").append(commonCss()).append("</style></head><body>");
         sb.append(buildHeaderBlock(r));
         sb.append(isReceipt ? buildReceiptBody(r) : buildInvoiceBody(r));
-        sb.append("<div class=\"note\">Quý khách được phép khiếu nại hoàn tiền trong vòng 48h kể từ ngày thanh toán.</div>");
-        sb.append("<div class=\"thanks\">CẢM ƠN QUÝ KHÁCH VÀ HẸN GẶP LẠI!</div>");
+        if (showClosingNote) {
+            sb.append("<div class=\"thanks\">CẢM ƠN QUÝ KHÁCH VÀ HẸN GẶP LẠI!</div>");
+        }
         sb.append("</body></html>");
         return sb.toString();
     }
@@ -354,7 +366,7 @@ public class ReceiptService {
         sb.append(row("Thời gian:", esc(r.getIssuedAtDisplay())));
         sb.append(row(isRefund ? "Khách nhận tiền hoàn:" : "Người nộp tiền:",
                 esc(r.getCustomerName()) + (r.getCustomerPhone() != null ? " (" + esc(r.getCustomerPhone()) + ")" : "")));
-        sb.append(row(isRefund ? "Chuyển đến:" : "Nội dung thu:", esc(r.getPurposeText())));
+        sb.append(row(isRefund ? "Nội dung hoàn tiền:" : "Nội dung thu:", esc(r.getPurposeText())));
         sb.append(row(isRefund ? "Hình thức hoàn tiền:" : "Hình thức thanh toán:", esc(r.getPaymentMethodDisplay())));
         sb.append("</table>");
 
@@ -434,9 +446,9 @@ public class ReceiptService {
     private String mapPaymentMethod(String method) {
         if (method == null) return "-";
         return switch (method) {
-            case "Cash" -> "Tiền mặt";
-            case "BankTransfer" -> "Chuyển khoản ngân hàng (QR PayOS)";
-            case "E-Wallet" -> "Ví điện tử / Chuyển khoản";
+            case "Cash" -> "TM";
+            case "BankTransfer" -> "CK";
+            case "E-Wallet" -> "CK";
             default -> method;
         };
     }

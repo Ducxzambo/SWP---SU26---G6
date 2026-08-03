@@ -21,6 +21,8 @@ public class RefundService {
     private final CustomerDAO customerDAO = new CustomerDAO();
     private final EmailService emailService = new EmailService();
 
+
+
     public List<Refund> listRefunds(String statusFilter, String sortBy) throws SQLException {
         return refundDAO.search(statusFilter, sortBy);
     }
@@ -109,10 +111,11 @@ public class RefundService {
 
     // Tạo yêu cầu mớ, staff tự khởi tạo
     public List<Appointment> getEligibleAppointments(String keyword, String statusFilter) throws SQLException {
-        List<String> statuses = (statusFilter != null && ELIGIBLE_APPOINTMENT_STATUSES.contains(statusFilter))
-                ? List.of(statusFilter)
-                : ELIGIBLE_APPOINTMENT_STATUSES;
-        return appointmentDAO.findByStatuses(statuses, keyword);
+        List<Appointment> appointments = appointmentDAO.findRefundEligibleAppointments(keyword);
+        if (statusFilter != null && ELIGIBLE_APPOINTMENT_STATUSES.contains(statusFilter)) {
+            appointments.removeIf(a -> !statusFilter.equals(a.getStatus()));
+        }
+        return appointments;
     }
 
     public Appointment getEligibleAppointment(int appointmentId) throws SQLException {

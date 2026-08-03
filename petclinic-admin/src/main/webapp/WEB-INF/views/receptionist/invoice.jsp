@@ -177,7 +177,6 @@
 
               <div class="pay-method-card">
                 <div class="pay-method-head">
-                  <div class="pay-method-icon">💵</div>
                   <div class="pay-method-title">Tiền mặt</div>
                   <div class="pay-method-amount"><fmt:formatNumber value="${amountDue}" type="number" groupingUsed="true"/>đ</div>
                 </div>
@@ -192,7 +191,6 @@
 
               <div class="pay-method-card">
                 <div class="pay-method-head">
-                  <div class="pay-method-icon">🏦</div>
                   <div class="pay-method-title">Chuyển khoản (QR PayOS)</div>
                   <div class="pay-method-amount"><fmt:formatNumber value="${amountDue}" type="number" groupingUsed="true"/>đ</div>
                 </div>
@@ -211,7 +209,6 @@
 
               <div class="pay-method-card">
                 <div class="pay-method-head">
-                  <div class="pay-method-icon">💵🏦</div>
                   <div class="pay-method-title">Tiền mặt + Chuyển khoản</div>
                 </div>
                 <p class="pay-method-desc">Khách trả một phần bằng tiền mặt, phần còn lại quét QR chuyển khoản.</p>

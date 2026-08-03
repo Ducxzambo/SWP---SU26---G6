@@ -1009,6 +1009,23 @@ select.form-control {
     transform: translateY(-1px);
 }
 
+/* Refund picker search bar */
+.refund-search-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    align-items: center;
+}
+.refund-search-input-wrap {
+    position: relative;
+    flex: 1 1 auto;
+}
+.refund-search-input-wrap .form-control { width: 100%; }
+.refund-status-select {
+    flex: 0 0 200px;
+    width: 200px;
+}
+
 /* ── Responsive ──────────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
     .sidebar {

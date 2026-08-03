@@ -2,6 +2,7 @@ package com.petclinic.backend.service;
 
 import com.petclinic.backend.dao.*;
 import com.petclinic.backend.model.*;
+import com.petclinic.backend.service.PaymentService;
 
 import java.math.BigDecimal;
 import java.sql.SQLException;
@@ -23,21 +24,41 @@ public class ExaminationService {
     private final CustomerDAO      customerDAO      = new CustomerDAO();
     private final PetDAO           petDAO           = new PetDAO();
     private final StaffDAO         staffDAO         = new StaffDAO();
-    private final PaymentService   paymentService   = new PaymentService();
+    private final PaymentService paymentService   = new PaymentService();
+    private final SupplyDAO    supplyDAO    = new SupplyDAO();
 
-    public enum CheckInResult { SUCCESS, NOT_FOUND, WRONG_STATUS, ALREADY_CHECKED_IN, PET_NOT_ASSIGNED }
+    //CHECK-IN
+    public enum CheckInResult { SUCCESS, NOT_FOUND, WRONG_STATUS, ALREADY_CHECKED_IN }
 
     public CheckInResult checkIn(int appointmentID) throws SQLException {
         Appointment appt = appointmentDAO.findById(appointmentID);
-        if (appt == null)                       return CheckInResult.NOT_FOUND;
-        if (appt.isPetUnassigned()) return CheckInResult.PET_NOT_ASSIGNED;
-        if ("Arrived".equals(appt.getStatus())) return CheckInResult.ALREADY_CHECKED_IN;
+        if (appt == null)                          return CheckInResult.NOT_FOUND;
+        if ("Arrived".equals(appt.getStatus()))    return CheckInResult.ALREADY_CHECKED_IN;
         if (!"Confirmed".equals(appt.getStatus())) return CheckInResult.WRONG_STATUS;
+
         appointmentDAO.updateStatus(appointmentID, "Arrived");
+
+        // Auto-assign: với mỗi category trong appointment, gán staff ít lịch nhất
+        java.util.Set<String> categories = new java.util.LinkedHashSet<>();
+        for (AppointmentService s : appt.getServices()) {
+            if (s.getCategoryName() != null) categories.add(s.getCategoryName());
+        }
+        for (String cat : categories) {
+            Integer staffID = appointmentDAO.findLeastLoadedStaffByCategory(cat, LocalDate.now());
+            if (staffID != null) {
+                appointmentDAO.assignStaffToCategory(appointmentID, cat, staffID);
+            }
+        }
         return CheckInResult.SUCCESS;
     }
 
-    // Gán 1 nhân viên cho 1 dòng dịch vụ cụ thể trong appointment
+    /** Lễ tân đổi staff phụ trách toàn bộ dịch vụ của 1 category trong appointment. */
+    public void reassignStaffByCategory(int appointmentID, String categoryName, int newStaffID)
+            throws SQLException {
+        appointmentDAO.assignStaffToCategory(appointmentID, categoryName, newStaffID);
+    }
+
+    /** Gán 1 nhân viên cho 1 dòng dịch vụ cụ thể trong appointment (dùng ở bảng check-in). */
     public void assignStaffToServiceLine(int appointmentServiceID, int staffID) throws SQLException {
         appointmentDAO.assignStaffToService(appointmentServiceID, staffID);
     }
@@ -47,35 +68,7 @@ public class ExaminationService {
         appointmentDAO.assignStaffToCategory(appointmentID, categoryName, staffID);
     }
 
-    public CheckInResult assignPetAndCheckIn(int appointmentID, int petID) throws SQLException {
-        Appointment appt = appointmentDAO.findById(appointmentID);
-        if (appt == null) return CheckInResult.NOT_FOUND;
-        if (!"Confirmed".equals(appt.getStatus())) return CheckInResult.WRONG_STATUS;
-        appointmentDAO.assignPet(appointmentID, petID);
-        appointmentDAO.updateStatus(appointmentID, "Arrived");
-        return CheckInResult.SUCCESS;
-    }
-
-    public CheckInResult createPetAndCheckIn(int appointmentID, int customerID,
-                                             String petName, String species,
-                                             String breed, String gender) throws SQLException {
-        Appointment appt = appointmentDAO.findById(appointmentID);
-        if (appt == null) return CheckInResult.NOT_FOUND;
-        if (!"Confirmed".equals(appt.getStatus())) return CheckInResult.WRONG_STATUS;
-
-        Pet pet = new Pet();
-        pet.setCustomerID(customerID);
-        pet.setName(petName);
-        pet.setSpeciesName(species != null && !species.isBlank() ? species : "Chưa rõ");
-        pet.setBreedName(breed != null && !breed.isBlank() ? breed : "Chưa rõ");
-        pet.setGender(gender);
-        int petID = petDAO.insert(pet);
-
-        appointmentDAO.assignPet(appointmentID, petID);
-        appointmentDAO.updateStatus(appointmentID, "Arrived");
-        return CheckInResult.SUCCESS;
-    }
-
+    //WALK-IN: LOOKUP CUSTOMER BY PHONE
     public Customer findCustomerByPhone(String phone) throws SQLException {
         return customerDAO.findByPhone(phone);
     }
@@ -171,6 +164,7 @@ public class ExaminationService {
         return invoiceId;
     }
 
+    //  SLOT INFO
     public int getCurrentShiftCount() throws SQLException {
         int shift = AppointmentDAO.shiftOf(LocalTime.now());
         if (shift == -1) return 0;
@@ -183,6 +177,7 @@ public class ExaminationService {
         return appointmentDAO.isSlotFull(LocalDate.now(), shift);
     }
 
+    //VET QUEUE
     public enum StartExamResult { SUCCESS, NOT_FOUND, WRONG_STATUS }
 
     public StartExamResult startExamination(int appointmentID, int vetID) throws SQLException {
@@ -193,13 +188,28 @@ public class ExaminationService {
         return StartExamResult.SUCCESS;
     }
 
+    public enum CompleteResult { SUCCESS, NOT_FOUND, WRONG_STATUS, NO_RECORD }
+
+    /** Bác sĩ xác nhận hoàn thành khám: chỉ chuyển status → Done, không save thêm gì. */
+    public CompleteResult completeExamination(int appointmentID) throws SQLException {
+        Appointment appt = appointmentDAO.findById(appointmentID);
+        if (appt == null)                            return CompleteResult.NOT_FOUND;
+        if (!"InProgress".equals(appt.getStatus())) return CompleteResult.WRONG_STATUS;
+        if (medicalRecordDAO.findByAppointmentId(appointmentID) == null)
+            return CompleteResult.NO_RECORD;
+        appointmentDAO.updateStatus(appointmentID, "Done");
+        return CompleteResult.SUCCESS;
+    }
+
+    // ══ SAVE MEDICAL RECORD ═══════════════════════════════════════════════════
     public enum SaveRecordResult {
         SUCCESS, APPOINTMENT_NOT_FOUND, WRONG_STATUS,
-        RECORD_ALREADY_EXISTS, INSUFFICIENT_STOCK, DB_ERROR
+        RECORD_ALREADY_EXISTS, INSUFFICIENT_STOCK, DB_ERROR, INSUFFICIENT_SUPPLY_STOCK
     }
 
     public SaveRecordResult saveMedicalRecord(MedicalRecord record,
                                               List<PrescriptionItem> items,
+                                              List<SupplyUsageItem> supplies,
                                               String followUpDate) throws SQLException {
         Appointment appt = appointmentDAO.findById(record.getAppointmentID());
         if (appt == null)                           return SaveRecordResult.APPOINTMENT_NOT_FOUND;
@@ -221,6 +231,16 @@ public class ExaminationService {
             }
         }
 
+        // Snapshot giá vật tư trước khi lưu
+        if (supplies != null) {
+            for (SupplyUsageItem sup : supplies) {
+                if (sup.getUnitPrice() == null || sup.getUnitPrice().compareTo(BigDecimal.ZERO) == 0) {
+                    Supply s = supplyDAO.findById(sup.getSupplyID());
+                    if (s != null) sup.setUnitPrice(s.getUnitPrice());
+                }
+            }
+        }
+
         try {
             medicalRecordDAO.save(record, items);
         } catch (SQLException e) {
@@ -228,6 +248,18 @@ public class ExaminationService {
                 return SaveRecordResult.INSUFFICIENT_STOCK;
             throw e;
         }
+
+        // Lưu vật tư tiêu hao (tách transaction riêng, sau khi MedicalRecord đã commit)
+        if (supplies != null && !supplies.isEmpty()) {
+            try {
+                supplyDAO.saveUsageItems(record.getAppointmentID(), record.getStaffID(), supplies);
+            } catch (SQLException e) {
+                if (e.getMessage() != null && e.getMessage().contains("Insufficient stock"))
+                    return SaveRecordResult.INSUFFICIENT_SUPPLY_STOCK;
+                throw e;
+            }
+        }
+
         return SaveRecordResult.SUCCESS;
     }
 
@@ -323,5 +355,31 @@ public class ExaminationService {
             }
         }
         return updated ? FinalizeResult.SUCCESS : FinalizeResult.WRONG_STATUS;
+    }
+
+    //VẬT TƯ TIÊU HAO
+
+    /** Danh sách vật tư còn hàng — dùng cho dropdown trong form grooming/khám. */
+    public List<Supply> getSuppliesInStock() throws SQLException {
+        return supplyDAO.findAllInStock();
+    }
+
+    /**
+     * Lưu vật tư đã dùng trong 1 appointment (trừ kho + ghi StockTransaction).
+     * Gọi sau khi groomer/vet submit form.
+     */
+    public void saveSupplyUsage(int appointmentID, int staffID,
+                                List<SupplyUsageItem> items) throws SQLException {
+        supplyDAO.saveUsageItems(appointmentID, staffID, items);
+    }
+
+    /** Lấy danh sách vật tư đã dùng của 1 appointment — để hiện trên hóa đơn. */
+    public List<SupplyUsageItem> getSupplyUsage(int appointmentID) throws SQLException {
+        return supplyDAO.findByAppointmentId(appointmentID);
+    }
+
+    /** Tổng tiền vật tư của 1 appointment — để cộng vào InvoiceItems. */
+    public BigDecimal getSupplyTotal(int appointmentID) throws SQLException {
+        return supplyDAO.sumByAppointmentId(appointmentID);
     }
 }

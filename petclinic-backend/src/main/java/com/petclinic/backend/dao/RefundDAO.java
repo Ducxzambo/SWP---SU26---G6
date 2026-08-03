@@ -101,6 +101,18 @@ public class RefundDAO {
         }
     }
 
+    public int countRefundsUpToForAppointment(int appointmentId, int refundId) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM Refunds WHERE AppointmentID = ? AND RefundID <= ?";
+        try (Connection c = DBConnection.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, appointmentId);
+            ps.setInt(2, refundId);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getInt(1) : 1;
+            }
+        }
+    }
+
     private Refund mapJoinedRefund(ResultSet rs) throws SQLException {
         Refund r = mapRefund(rs);
         Date apptDate = rs.getDate("AppointmentDate");
