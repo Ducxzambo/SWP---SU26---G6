@@ -193,12 +193,6 @@
                                                     <form action="${pageContext.request.contextPath}/receptionist/checkin" method="post" style="display:inline-flex;gap:4px;">
                                                         <input type="hidden" name="action" value="assignStaff">
                                                         <input type="hidden" name="appointmentServiceID" value="${svc.appointmentServiceID}">
-                                                        <select name="staffID" style="font-size:11px;padding:2px 4px;" onchange="this.form.submit()">
-                                                            <option value="">— Gán —</option>
-                                                                <c:forEach items="${vets}" var="v">
-                                                                    <option value="${v.staffID}"><c:out value="${v.fullName}"/></option>
-                                                                </c:forEach>
-                                                        </select>
                                                     </form>
                                                 </c:otherwise>
                                             </c:choose>

@@ -36,11 +36,30 @@ public class ExaminationService {
      */
     public CheckInResult checkIn(int appointmentID) throws SQLException {
         Appointment appt = appointmentDAO.findById(appointmentID);
-        if (appt == null)                       return CheckInResult.NOT_FOUND;
-        if ("Arrived".equals(appt.getStatus())) return CheckInResult.ALREADY_CHECKED_IN;
+        if (appt == null)                          return CheckInResult.NOT_FOUND;
+        if ("Arrived".equals(appt.getStatus()))    return CheckInResult.ALREADY_CHECKED_IN;
         if (!"Confirmed".equals(appt.getStatus())) return CheckInResult.WRONG_STATUS;
+
         appointmentDAO.updateStatus(appointmentID, "Arrived");
+
+        // Auto-assign: với mỗi category trong appointment, gán staff ít lịch nhất
+        java.util.Set<String> categories = new java.util.LinkedHashSet<>();
+        for (AppointmentService s : appt.getServices()) {
+            if (s.getCategoryName() != null) categories.add(s.getCategoryName());
+        }
+        for (String cat : categories) {
+            Integer staffID = appointmentDAO.findLeastLoadedStaffByCategory(cat, LocalDate.now());
+            if (staffID != null) {
+                appointmentDAO.assignStaffToCategory(appointmentID, cat, staffID);
+            }
+        }
         return CheckInResult.SUCCESS;
+    }
+
+    /** Lễ tân đổi staff phụ trách toàn bộ dịch vụ của 1 category trong appointment. */
+    public void reassignStaffByCategory(int appointmentID, String categoryName, int newStaffID)
+            throws SQLException {
+        appointmentDAO.assignStaffToCategory(appointmentID, categoryName, newStaffID);
     }
 
     /** Gán 1 nhân viên cho 1 dòng dịch vụ cụ thể trong appointment (dùng ở bảng check-in). */
@@ -185,6 +204,19 @@ public class ExaminationService {
         if (!"Arrived".equals(appt.getStatus())) return StartExamResult.WRONG_STATUS;
         appointmentDAO.updateStatus(appointmentID, "InProgress");
         return StartExamResult.SUCCESS;
+    }
+
+    public enum CompleteResult { SUCCESS, NOT_FOUND, WRONG_STATUS, NO_RECORD }
+
+    /** Bác sĩ xác nhận hoàn thành khám: chỉ chuyển status → Done, không save thêm gì. */
+    public CompleteResult completeExamination(int appointmentID) throws SQLException {
+        Appointment appt = appointmentDAO.findById(appointmentID);
+        if (appt == null)                            return CompleteResult.NOT_FOUND;
+        if (!"InProgress".equals(appt.getStatus())) return CompleteResult.WRONG_STATUS;
+        if (medicalRecordDAO.findByAppointmentId(appointmentID) == null)
+            return CompleteResult.NO_RECORD;
+        appointmentDAO.updateStatus(appointmentID, "Done");
+        return CompleteResult.SUCCESS;
     }
 
     // ══ SAVE MEDICAL RECORD ═══════════════════════════════════════════════════

@@ -2,6 +2,7 @@ package com.petclinic.admin.servlet.receptionist;
 
 import com.petclinic.backend.dao.AppointmentDAO;
 import com.petclinic.backend.dao.InvoiceDAO;
+import com.petclinic.backend.dao.StaffDAO;
 import com.petclinic.backend.model.Appointment;
 import com.petclinic.backend.model.Invoice;
 import com.petclinic.backend.model.Staff;
@@ -31,6 +32,8 @@ public class AppointmentHistoryServlet extends HttpServlet {
 
     private final ExaminationService examinationService = new ExaminationService();
     private final InvoiceDAO invoiceDAO = new InvoiceDAO();
+    private final StaffDAO staffDAO = new StaffDAO();
+
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
@@ -46,6 +49,10 @@ public class AppointmentHistoryServlet extends HttpServlet {
             List<Appointment> history = examinationService.getAppointmentHistory(filterDate, shiftFilter);
 
             req.setAttribute("history",     history);
+            List<Staff> vets     = staffDAO.findAllVets();
+            List<Staff> groomers = staffDAO.findAllGroomers();
+            req.setAttribute("vets",     vets);
+            req.setAttribute("groomers", groomers);
             req.setAttribute("filterDate",  filterDate.toString());
             req.setAttribute("shiftFilter", shiftFilter != null ? shiftFilter.toString() : "");
             req.setAttribute("isToday",     filterDate.equals(LocalDate.now()));
@@ -69,6 +76,25 @@ public class AppointmentHistoryServlet extends HttpServlet {
 
         String action = req.getParameter("action");
         HttpSession session = req.getSession(false);
+
+        if ("reassignStaff".equals(action)) {
+            String apptIdStr  = req.getParameter("appointmentID");
+            String catName    = req.getParameter("categoryName");
+            String staffIdStr = req.getParameter("staffID");
+            if (apptIdStr == null || catName == null || staffIdStr == null) {
+                session.setAttribute("flashError", "Thiếu thông tin đổi nhân viên.");
+                resp.sendRedirect(req.getContextPath() + "/receptionist/history"); return;
+            }
+            try {
+                examinationService.reassignStaffByCategory(
+                        Integer.parseInt(apptIdStr), catName, Integer.parseInt(staffIdStr));
+                session.setAttribute("flashSuccess", "Đã cập nhật nhân viên phụ trách.");
+            } catch (Exception e) {
+                e.printStackTrace();
+                session.setAttribute("flashError", "Lỗi khi đổi nhân viên: " + e.getMessage());
+            }
+            resp.sendRedirect(req.getContextPath() + "/receptionist/history"); return;
+        }
 
         if (!"finalize".equals(action)) {
             resp.sendRedirect(req.getContextPath() + "/receptionist/history");

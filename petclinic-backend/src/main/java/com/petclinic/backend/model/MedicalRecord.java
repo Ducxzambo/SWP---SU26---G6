@@ -16,6 +16,7 @@ public class MedicalRecord {
     private String        diagnosis;
     private String        treatmentPlan;
     private LocalDateTime createdAt;
+    private String generalConclusion;
 
     // ── Transient fields ─────────────────────────────────────────────────────
     private String petName;
@@ -50,6 +51,13 @@ public class MedicalRecord {
     public void          setStaffName(String v)   { staffName = v; }
     public List<PrescriptionItem> getPrescriptions()              { return prescriptions; }
     public void                   setPrescriptions(List<PrescriptionItem> v){ prescriptions = v; }
+    public String getGeneralConclusion() {
+        return generalConclusion;
+    }
+
+    public void setGeneralConclusion(String generalConclusion) {
+        this.generalConclusion = generalConclusion;
+    }
 
     public String getPetName() {
         return petName;

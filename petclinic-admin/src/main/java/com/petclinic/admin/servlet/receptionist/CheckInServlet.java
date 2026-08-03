@@ -115,8 +115,30 @@ public class CheckInServlet extends HttpServlet {
             int appointmentID = Integer.parseInt(appointmentIdStr);
             CheckInResult result = examinationService.checkIn(appointmentID);
             switch (result) {
-                case SUCCESS ->
+                case SUCCESS -> {
+                    // Build thông báo staff đã auto-assign
+                    try {
+                        Appointment checked = examinationService.getAppointment(
+                                Integer.parseInt(appointmentIdStr));
+                        if (checked != null && checked.getServices() != null) {
+                            java.util.LinkedHashMap<String, String> catStaff = new java.util.LinkedHashMap<>();
+                            for (AppointmentService s : checked.getServices()) {
+                                if (s.getCategoryName() != null && s.getStaffName() != null)
+                                    catStaff.put(s.getCategoryName(), s.getStaffName());
+                            }
+                            if (!catStaff.isEmpty()) {
+                                StringBuilder msg = new StringBuilder("Check-in thành công! Đã phân công: ");
+                                catStaff.forEach((cat, name) -> msg.append(name).append(" (").append(cat).append("), "));
+                                msg.setLength(msg.length() - 2);
+                                session.setAttribute("flashSuccess", msg.toString());
+                            } else {
+                                session.setAttribute("flashSuccess", "Check-in thành công! (Chưa có nhân viên phù hợp để phân công.)");
+                            }
+                        }
+                    } catch (Exception ignored) {
                         session.setAttribute("flashSuccess", "Check-in thành công!");
+                    }
+                }
                 case ALREADY_CHECKED_IN ->
                         session.setAttribute("flashWarning", "Thú cưng này đã được check-in trước đó.");
                 case WRONG_STATUS ->

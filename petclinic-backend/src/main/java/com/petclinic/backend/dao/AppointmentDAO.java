@@ -5,6 +5,7 @@ import com.petclinic.backend.model.Appointment;
 import com.petclinic.backend.model.AppointmentService;
 import com.petclinic.backend.dao.AppointmentServiceDAO;
 import com.petclinic.backend.model.AppointmentServiceItem;
+import com.petclinic.backend.service.ExaminationService;
 import com.petclinic.backend.util.DBConnection;
 
 import java.sql.*;
@@ -16,6 +17,7 @@ import java.util.stream.Collectors;
 
 public class AppointmentDAO {
     private AppointmentServiceDAO appointmentServiceDAO = new AppointmentServiceDAO();
+
 
     public static final int MAX_PER_SHIFT = 10;
 
@@ -215,19 +217,6 @@ public class AppointmentDAO {
         }
     }
 
-    /** Gán 1 nhân viên cho MỌI dịch vụ thuộc 1 category trong 1 appointment (gán hàng loạt lúc check-in). */
-    public void assignStaffToCategory(int appointmentID, String categoryName, int staffID) throws SQLException {
-        String sql = "UPDATE aps SET aps.AssignedStaffID = ? " +
-                "FROM AppointmentServices aps " +
-                "JOIN Services s ON s.ServiceID = aps.ServiceID " +
-                "JOIN ServiceCategories sc ON sc.CategoryID = s.CategoryID " +
-                "WHERE aps.AppointmentID = ? AND sc.Name = ?";
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setInt(1, staffID); ps.setInt(2, appointmentID); ps.setString(3, categoryName);
-            ps.executeUpdate();
-        }
-    }
 
     // ── Vet queue (BP-02) ───────────────────────────────────────────────────────
 
@@ -745,6 +734,51 @@ public class AppointmentDAO {
                     if (a != null) a.getServices().add(mapServiceItem(rs));
                 }
             }
+        }
+    }
+
+    public Integer findLeastLoadedStaffByCategory(String categoryName, LocalDate date)
+            throws SQLException {
+        String roleName = (ExaminationService.CAT_GROOMING.equals(categoryName))
+                ? "Groomer" : "Veterinarian";
+        String sql =
+                "SELECT TOP 1 st.StaffID " +
+                        "FROM Staff st " +
+                        "JOIN Roles r ON r.RoleID = st.RoleID " +
+                        "LEFT JOIN AppointmentServices aps ON aps.AssignedStaffID = st.StaffID " +
+                        "AND EXISTS (SELECT 1 FROM Appointments a " +
+                        "WHERE a.AppointmentID = aps.AppointmentID " +
+                        "AND a.AppointmentDate = ? " +
+                        "AND a.Status NOT IN ('Cancelled','NoShow')) " +
+                        "WHERE r.RoleName = ? AND st.IsActive = 1 " +
+                        "GROUP BY st.StaffID " +
+                        "ORDER BY COUNT(aps.AppointmentServiceID) ASC";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setDate(1, Date.valueOf(date));
+            ps.setString(2, roleName);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getInt(1) : null;
+            }
+        }
+    }
+
+    /** Gán staff cho TẤT CẢ dịch vụ thuộc category trong 1 appointment. */
+    public void assignStaffToCategory(int appointmentID, String categoryName, int staffID)
+            throws SQLException {
+        String sql =
+                "UPDATE AppointmentServices SET AssignedStaffID = ? " +
+                        "WHERE AppointmentID = ? " +
+                        "AND ServiceID IN (" +
+                        "SELECT s.ServiceID FROM Services s " +
+                        "JOIN ServiceCategories sc ON sc.CategoryID = s.CategoryID " +
+                        "WHERE sc.Name = ?)";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, staffID);
+            ps.setInt(2, appointmentID);
+            ps.setString(3, categoryName);
+            ps.executeUpdate();
         }
     }
 

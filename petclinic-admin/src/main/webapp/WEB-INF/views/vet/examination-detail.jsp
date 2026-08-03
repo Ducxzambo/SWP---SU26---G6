@@ -253,6 +253,18 @@
                 </div>
             </div>
 
+            <div class="card" style="margin-bottom:16px;">
+                <div class="card-header"><span class="card-title">Kết luận chung</span></div>
+                <div class="card-body">
+                    <c:choose>
+                        <c:when test="${not empty record.generalConclusion}">
+                            <p style="white-space:pre-wrap;font-size:14px;"><c:out value="${record.generalConclusion}"/></p>
+                        </c:when>
+                        <c:otherwise><p style="color:var(--text-soft)">—</p></c:otherwise>
+                    </c:choose>
+                </div>
+            </div>
+
             <%-- Prescription --%>
             <c:if test="${record.hasPrescription()}">
                 <div class="card">
@@ -463,6 +475,17 @@
                     </div>
                 </div>
 
+                <div class="card" style="margin-bottom:16px;" >
+                    <div class="card-header">
+                        <span class="card-title"> Kết luận chung</span>
+                    </div>
+                    <div class="card-body">
+                    <textarea name="conclusion" class="form-control" rows="3"
+                              placeholder="Nhận xét tổng thể sau khám, hướng xử trí tiếp theo..."
+                    ><c:out value="${record != null ? record.generalConclusion : ''}"/></textarea>
+                    </div>
+                </div>
+
                     <%-- 5. Follow-up date --%>
                 <div class="card" style="margin-bottom:16px;">
                     <div class="card-header"><span class="card-title"> Ngày tái khám</span></div>
@@ -502,8 +525,9 @@
                     <%-- Submit --%>
                 <div style="display:flex;gap:12px;justify-content:flex-end;padding-bottom:40px;">
                     <a href="${pageContext.request.contextPath}/vet/examination" class="btn btn-outline btn-lg">Hủy</a>
-                    <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
-                        Lưu bệnh án & Hoàn thành khám
+                    <button type="submit" name="submitAction" value="save"
+                            class="btn btn-secondary" id="btnSave">
+                            Lưu bệnh án
                     </button>
                 </div>
             </form>

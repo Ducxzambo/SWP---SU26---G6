@@ -131,6 +131,7 @@ public class MedicalRecordDAO {
         mr.setSymptoms(rs.getString("Symptoms"));
         mr.setDiagnosis(rs.getString("Diagnosis"));
         mr.setTreatmentPlan(rs.getString("TreatmentPlan"));
+        mr.setGeneralConclusion(rs.getString("GeneralConclusion"));
         Timestamp ts = rs.getTimestamp("CreatedAt");
         if (ts != null) mr.setCreatedAt(ts.toLocalDateTime());
         mr.setStaffName(rs.getString("StaffName"));
@@ -181,8 +182,8 @@ public class MedicalRecordDAO {
     private int insertRecord(Connection conn, MedicalRecord r) throws SQLException {
         String sql = """
                 INSERT INTO MedicalRecords
-                    (AppointmentID, PetID, StaffID, Weight, Temperature, Symptoms, Diagnosis, TreatmentPlan)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    (AppointmentID, PetID, StaffID, Weight, Temperature, Symptoms, Diagnosis, TreatmentPlan, GeneralConclusion)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """;
         try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setInt(1, r.getAppointmentID());
@@ -195,6 +196,7 @@ public class MedicalRecordDAO {
             ps.setString(6, r.getSymptoms());
             ps.setString(7, r.getDiagnosis());
             ps.setString(8, r.getTreatmentPlan());
+            ps.setString(9, r.getGeneralConclusion());
             ps.executeUpdate();
             try (ResultSet keys = ps.getGeneratedKeys()) {
                 if (keys.next()) return keys.getInt(1);
