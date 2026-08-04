@@ -156,8 +156,8 @@
 
         <%-- Tab lọc theo ca - tự động chọn ca hiện tại khi xem hôm nay --%>
         <div class="shift-tabs">
-            <a href="${pageContext.request.contextPath}/manager/attendance?date=${filterDate}"
-               class="shift-tab ${empty shiftFilter ? 'active' : ''}">Tất cả ca</a>
+            <a href="${pageContext.request.contextPath}/manager/attendance?date=${filterDate}&shift="
+                     class="shift-tab ${empty shiftFilter ? 'active' : ''}">Tất cả ca</a>
             <a href="${pageContext.request.contextPath}/manager/attendance?date=${filterDate}&shift=1"
                class="shift-tab ${shiftFilter == '1' ? 'active' : ''}">
                 Ca 1 (08:00–10:00)

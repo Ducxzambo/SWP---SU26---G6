@@ -57,5 +57,11 @@ public class RefundReceiptServlet extends HttpServlet {
         }
     }
 
-    private int parseId(String s) { try { return Integer.parseInt(s); } catch (Exception e) { return -1; } }
+    private int parseId(String s) {
+        try {
+            return Integer.parseInt(s);
+        } catch (Exception e) {
+            return -1;
+        }
+    }
 }

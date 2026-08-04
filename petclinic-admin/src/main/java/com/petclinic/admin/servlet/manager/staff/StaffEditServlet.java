@@ -14,7 +14,7 @@ import java.io.IOException;
 import java.time.LocalDate;
 import java.util.List;
 
-@WebServlet("/manager/staff/edit")
+@WebServlet("/admin/staff/edit")
 public class StaffEditServlet extends HttpServlet {
 
     private final StaffService staffService = new StaffService();
@@ -31,7 +31,7 @@ public class StaffEditServlet extends HttpServlet {
             if (idParam != null && !idParam.isBlank()) {
                 staff = staffService.getForManagement(Integer.parseInt(idParam));
                 if (staff == null) {
-                    resp.sendRedirect(req.getContextPath() + "/manager/staff");
+                    resp.sendRedirect(req.getContextPath() + "/admin/staff");
                     return;
                 }
             }
@@ -43,7 +43,7 @@ public class StaffEditServlet extends HttpServlet {
 
             req.getRequestDispatcher("/WEB-INF/views/manager/staff/edit.jsp").forward(req, resp);
         } catch (NumberFormatException e) {
-            resp.sendRedirect(req.getContextPath() + "/manager/staff");
+            resp.sendRedirect(req.getContextPath() + "/admin/staff");
         } catch (Exception e) {
             e.printStackTrace();
             req.setAttribute("error", "Không tải được biểu mẫu: " + e.getMessage());
@@ -80,11 +80,11 @@ public class StaffEditServlet extends HttpServlet {
                 String password = req.getParameter("password");
                 int newID = staffService.createStaff(staff, password);
                 req.getSession().setAttribute("flashSuccess", "Đã thêm nhân viên mới.");
-                resp.sendRedirect(req.getContextPath() + "/manager/staff/detail?id=" + newID);
+                resp.sendRedirect(req.getContextPath() + "/admin/staff/detail?id=" + newID);
             } else {
                 staffService.updateStaff(staff);
                 req.getSession().setAttribute("flashSuccess", "Đã cập nhật thông tin nhân viên.");
-                resp.sendRedirect(req.getContextPath() + "/manager/staff/detail?id=" + staff.getStaffID());
+                resp.sendRedirect(req.getContextPath() + "/admin/staff/detail?id=" + staff.getStaffID());
             }
         } catch (IllegalArgumentException e) {
             renderFormError(req, resp, staff, isNew, e.getMessage());
@@ -105,7 +105,7 @@ public class StaffEditServlet extends HttpServlet {
             req.getRequestDispatcher("/WEB-INF/views/manager/staff/edit.jsp").forward(req, resp);
         } catch (Exception e) {
             e.printStackTrace();
-            resp.sendRedirect(req.getContextPath() + "/manager/staff");
+            resp.sendRedirect(req.getContextPath() + "/admin/staff");
         }
     }
 

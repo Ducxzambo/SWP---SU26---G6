@@ -1,5 +1,6 @@
 package com.petclinic.backend.model;
 
+import java.sql.Date;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -137,7 +138,8 @@ public class Appointment {
     public static final LocalTime MODIFY_DEADLINE_TIME = LocalTime.of(17, 30);
 
     public static LocalDateTime deadlineFor(LocalDate date) {
-        return LocalDateTime.of(date.minusDays(1), MODIFY_DEADLINE_TIME);
+        return LocalDateTime.of(date.minusDays(0), MODIFY_DEADLINE_TIME);
+//        return LocalDateTime.of(date.minusDays(1), MODIFY_DEADLINE_TIME);
     }
 
     public LocalDateTime getModifyDeadline() {

@@ -32,18 +32,18 @@
                 <strong>${totalItems}</strong>
             </div>
             <a class="metric-card metric-card-link"
-               href="${pageContext.request.contextPath}/manager/inventory/thresholds?stockLevel=low">
+               href="${pageContext.request.contextPath}/admin/inventory/thresholds?stockLevel=low">
                 <span class="metric-label">Tồn thấp</span>
                 <strong>${lowStockCount}</strong>
             </a>
             <a class="metric-card metric-card-link"
-               href="${pageContext.request.contextPath}/manager/inventory/thresholds?stockLevel=out">
+               href="${pageContext.request.contextPath}/admin/inventory/thresholds?stockLevel=out">
                 <span class="metric-label">Hết hàng</span>
                 <strong>${outOfStockCount}</strong>
             </a>
         </div>
 
-        <form action="${pageContext.request.contextPath}/manager/inventory" method="get" class="filter-bar">
+        <form action="${pageContext.request.contextPath}/admin/inventory" method="get" class="filter-bar">
             <div class="input-wrap">
                 <span class="input-icon"></span>
                 <input type="text" name="q" class="form-control"
@@ -62,7 +62,7 @@
                 <option value="out" ${stockLevel == 'out' ? 'selected' : ''}>Hết hàng</option>
             </select>
             <button type="submit" class="btn btn-secondary">Lọc</button>
-            <a href="${pageContext.request.contextPath}/manager/inventory" class="btn btn-outline">Xóa lọc</a>
+            <a href="${pageContext.request.contextPath}/admin/inventory" class="btn btn-outline">Xóa lọc</a>
         </form>
 
         <div class="card">

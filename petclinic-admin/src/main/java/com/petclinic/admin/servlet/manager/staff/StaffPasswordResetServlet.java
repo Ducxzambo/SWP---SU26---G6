@@ -11,7 +11,7 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
 
-@WebServlet("/manager/staff/reset-password")
+@WebServlet("/admin/staff/reset-password")
 public class StaffPasswordResetServlet extends HttpServlet {
 
     private final StaffService staffService = new StaffService();
@@ -37,6 +37,6 @@ public class StaffPasswordResetServlet extends HttpServlet {
             req.getSession().setAttribute("flashError", "Lỗi hệ thống: " + e.getMessage());
         }
 
-        resp.sendRedirect(req.getContextPath() + "/manager/staff/detail?id=" + staffID);
+        resp.sendRedirect(req.getContextPath() + "/admin/staff/detail?id=" + staffID);
     }
 }

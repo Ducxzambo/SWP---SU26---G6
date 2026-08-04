@@ -25,7 +25,7 @@
         <%@ include file="/WEB-INF/views/common/_flash.jsp" %>
         <%@ include file="/WEB-INF/views/manager/inventory/_subnav.jsp" %>
 
-        <form action="${pageContext.request.contextPath}/manager/inventory/transactions" method="get" class="filter-bar report-filter">
+        <form action="${pageContext.request.contextPath}/admin/inventory/transactions" method="get" class="filter-bar report-filter">
             <input type="date" name="fromDate" class="form-control no-icon"
                    value="<c:out value='${fromDate}'/>">
             <input type="date" name="toDate" class="form-control no-icon"
@@ -55,6 +55,7 @@
                             <th>Loại</th>
                             <th>Item</th>
                             <th>Stock</th>
+                            <th>Phiếu nhập</th>
                             <th>Số lượng</th>
                             <th>Lý do</th>
                             <th>Người thực hiện</th>
@@ -74,6 +75,14 @@
                                         <c:otherwise>
                                             <span class="badge badge-info">Stock-out</span>
                                         </c:otherwise>
+                                    </c:choose>
+                                </td>
+                                <td>
+                                    <c:choose>
+                                        <c:when test="${not empty t.receiptID}">
+                                            <a class="btn-link" href="${pageContext.request.contextPath}/admin/inventory/receipts/detail?id=${t.receiptID}">Xem phiếu</a>
+                                        </c:when>
+                                        <c:otherwise>-</c:otherwise>
                                     </c:choose>
                                 </td>
                                 <td>${t.absoluteQuantity}</td>

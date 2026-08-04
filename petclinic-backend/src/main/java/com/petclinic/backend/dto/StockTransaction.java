@@ -12,6 +12,7 @@ public class StockTransaction {
     private String reason;
     private Integer performedByID;
     private String performedByName;
+    private Integer receiptID;
     private LocalDateTime transactionDate;
 
     public int getTransactionID() {
@@ -76,6 +77,14 @@ public class StockTransaction {
 
     public void setPerformedByName(String v) {
         performedByName = v;
+    }
+
+    public Integer getReceiptID() {
+        return receiptID;
+    }
+
+    public void setReceiptID(Integer v) {
+        receiptID = v;
     }
 
     public LocalDateTime getTransactionDate() {

@@ -181,6 +181,7 @@
         <div class="sidebar-logo">🐾 PetClinic</div>
         <nav>
             <a href="${pageContext.request.contextPath}/vet/examination" class="nav-item active"> Hàng chờ khám</a>
+            <a href="${pageContext.request.contextPath}/vet/examination?action=history" class="nav-item">Lịch sử</a>
         </nav>
         <div class="sidebar-user">
              ${sessionScope.staff.fullName}
@@ -294,19 +295,18 @@
             </c:if>
 
             <%-- Vật tư tiêu hao --%>
-            <c:if test="${not empty appt.supplyUsageItems}">
-                <p style="font-size:12px;font-weight:600;color:var(--text-soft);
-                                      text-transform:uppercase;letter-spacing:.5px;margin:10px 0 6px;">
-                    Vật tư
-                </p>
-                <table class="rx-table">
+            <c:if test="${not empty record.supplyUsageItems}">
+            <div class="card">
+                <div class="card-header"><span class="card-title">Đơn thuốc</span></div>
+                <div class="card-body" style="padding:0;">
+                    <table class="data-table">
                     <thead>
                     <tr><th>#</th><th>Vật tư</th><th>Ghi chú</th>
                         <th>Số lượng</th><th>Đơn giá</th><th>Thành tiền</th></tr>
                     </thead>
                     <tbody>
                     <c:set var="histSupTotal" value="0"/>
-                    <c:forEach items="${appt.supplyUsageItems}" var="su" varStatus="ss">
+                    <c:forEach items="${record.supplyUsageItems}" var="su" varStatus="ss">
                         <tr>
                             <td>${ss.count}</td>
                             <td><c:out value="${su.supplyName}"/>
@@ -330,7 +330,9 @@
                         </td>
                     </tr>
                     </tfoot>
-                </table>
+                    </table>
+                </div>
+            </div>
             </c:if>
 
         </c:if>
@@ -469,7 +471,7 @@
                             <c:otherwise>
                                 <div class="alert alert-warning">
                                     <span class="alert-icon">⚠</span>
-                                    Chưa có danh sách xét nghiệm. Vui lòng chạy script SQL bp02_extend.sql.
+                                    Chưa có danh sách xét nghiệm.
                                 </div>
                             </c:otherwise>
                         </c:choose>
@@ -611,7 +613,7 @@
                     <%-- Submit --%>
                 <div style="display:flex;gap:12px;justify-content:flex-end;padding-bottom:40px;">
                     <a href="${pageContext.request.contextPath}/vet/examination" class="btn btn-outline btn-lg">Hủy</a>
-                    <button type="submit" name="submitAction" value="save"
+                    <button type="submit" name="submitAction" value="complete"
                             class="btn btn-secondary" id="btnSave">
                             Lưu bệnh án
                     </button>

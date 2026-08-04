@@ -1,7 +1,7 @@
 package com.petclinic.admin.servlet.manager.inventory;
 
-import com.petclinic.backend.model.Staff;
 import com.petclinic.backend.dto.StockMovementReport;
+import com.petclinic.backend.model.Staff;
 import com.petclinic.backend.service.StockService;
 import com.petclinic.backend.util.StaffAuthUtil;
 import jakarta.servlet.ServletException;
@@ -15,7 +15,13 @@ import java.io.PrintWriter;
 import java.time.LocalDate;
 import java.util.List;
 
-@WebServlet("/manager/inventory/report")
+/**
+ * Inventory &gt; Báo cáo biến động kho (movement report screen).
+ * Aggregated stock-in / stock-out / net totals per item over a date range,
+ * with a CSV export action. See StockTransactionServlet for the raw,
+ * per-transaction log this report is built from.
+ */
+@WebServlet("/admin/inventory/report")
 public class StockMovementReportServlet extends HttpServlet {
 
     private final StockService stockService = new StockService();

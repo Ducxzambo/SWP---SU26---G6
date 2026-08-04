@@ -25,14 +25,14 @@
         <%@ include file="/WEB-INF/views/common/_flash.jsp" %>
         <%@ include file="/WEB-INF/views/manager/inventory/_subnav.jsp" %>
 
-        <form action="${pageContext.request.contextPath}/manager/inventory/report" method="get" class="filter-bar report-filter">
+        <form action="${pageContext.request.contextPath}/admin/inventory/report" method="get" class="filter-bar report-filter">
             <input type="date" name="fromDate" class="form-control no-icon"
                    value="<c:out value='${fromDate}'/>">
             <input type="date" name="toDate" class="form-control no-icon"
                    value="<c:out value='${toDate}'/>">
             <button type="submit" class="btn btn-secondary">Xem báo cáo</button>
             <a class="btn btn-outline"
-               href="${pageContext.request.contextPath}/manager/inventory/report?action=export&fromDate=${fromDate}&toDate=${toDate}">
+               href="${pageContext.request.contextPath}/admin/inventory/report?action=export&fromDate=${fromDate}&toDate=${toDate}">
                 Xuất Excel CSV
             </a>
         </form>

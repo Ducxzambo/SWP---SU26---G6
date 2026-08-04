@@ -1,5 +1,7 @@
 package com.petclinic.admin.servlet.vet;
 
+import com.petclinic.backend.dao.AppointmentDAO;
+import com.petclinic.backend.dao.MedicalRecordDAO;
 import com.petclinic.backend.model.*;
 import com.petclinic.backend.service.ExaminationService;
 import com.petclinic.backend.service.ExaminationService.SaveRecordResult;
@@ -24,6 +26,8 @@ import java.util.stream.Collectors;
 @WebServlet("/vet/examination")
 public class ExaminationServlet extends HttpServlet {
 
+    private final AppointmentDAO appointmentDAO = new AppointmentDAO();
+    private final MedicalRecordDAO medicalRecordDAO = new MedicalRecordDAO();
     private final ExaminationService examinationService = new ExaminationService();
     private final InvoiceSyncService invoiceSyncService = new InvoiceSyncService();
 
@@ -92,44 +96,53 @@ public class ExaminationServlet extends HttpServlet {
             record.setTreatmentPlan(buildTreatmentPlan(req));
             record.setGeneralConclusion(req.getParameter("conclusion"));
 
-            List<SupplyUsageItem> supplies = parseSupplyItems(req);
-            List<PrescriptionItem> items = parsePrescriptionItems(req);
-            String followUpDate = req.getParameter("followUpDate");
+            // 1. LUÔN LẤY DỮ LIỆU TỪ REQUEST LÊN TRƯỚC (Dành cho lần lưu đầu tiên)
+            List<SupplyUsageItem> reqSupplies = parseSupplyItems(req);
+            List<PrescriptionItem> reqItems = parsePrescriptionItems(req);
+            List<Integer> reqSelectedServiceIds = parseSelectedServiceIds(req);
 
+            String followUpDate = req.getParameter("followUpDate");
             String submitAction = req.getParameter("submitAction"); // "save" hoặc "complete"
 
-            SaveRecordResult result = examinationService.saveMedicalRecord(record, items, supplies, followUpDate);
+            // 2. THỰC HIỆN LƯU VỚI DỮ LIỆU TỪ REQUEST
+            SaveRecordResult result = examinationService.saveMedicalRecord(record, reqItems, reqSupplies, followUpDate);
+
             switch (result) {
                 case SUCCESS -> {
+                    invoiceSyncService.syncAfterExamination(appointmentID, vet.getStaffID(),
+                            reqSelectedServiceIds, reqItems, reqSupplies);
+
                     if ("complete".equals(submitAction)) {
-                        // Lưu xong → hoàn thành luôn
+                        // Ca khám mới tinh -> Lưu xong -> Hoàn thành luôn
                         ExaminationService.CompleteResult cr =
                                 examinationService.completeExamination(appointmentID);
                         if (cr == ExaminationService.CompleteResult.SUCCESS) {
-                            triggerInvoice(appointmentID);
                             req.getSession().setAttribute("flashSuccess",
-                                    "Khám hoàn tất! Hóa đơn đang được tạo...");
+                                    "Bệnh án đã lưu thành công. Hóa đơn đã được cập nhật.");
                             resp.sendRedirect(req.getContextPath() + "/vet/examination");
                         } else {
                             forwardFormWithError(req, resp, appointmentID,
                                     "Lưu bệnh án thành công nhưng không thể hoàn tất: " + cr);
                         }
                     } else {
-                        // Chỉ lưu, ở lại form
-                        req.getSession().setAttribute("flashSuccess", "Đã lưu bệnh án thành công.");
+                        // Chỉ lưu, ở lại form - hóa đơn vẫn đã được cập nhật ở trên
+                        req.getSession().setAttribute("flashSuccess",
+                                "Đã lưu bệnh án thành công. Hóa đơn đã được cập nhật.");
                         resp.sendRedirect(req.getContextPath()
                                 + "/vet/examination?action=form&appointmentID=" + appointmentID);
                     }
                 }
                 case RECORD_ALREADY_EXISTS -> {
-                    // Bệnh án đã có → chỉ xử lý nút "Hoàn thành"
+                    // 3. BỆNH ÁN ĐÃ TỒN TẠI
                     if ("complete".equals(submitAction)) {
                         ExaminationService.CompleteResult cr =
                                 examinationService.completeExamination(appointmentID);
                         if (cr == ExaminationService.CompleteResult.SUCCESS) {
-                            triggerInvoice(appointmentID);
                             req.getSession().setAttribute("flashSuccess",
-                                    "Khám hoàn tất! Hóa đơn đang được tạo...");
+                                    "Bệnh án đã hoàn thành. Hóa đơn đang tạo...");
+                            invoiceSyncService.syncAfterExamination(appointmentID, vet.getStaffID(),
+                                    reqSelectedServiceIds, reqItems, reqSupplies);
+
                             resp.sendRedirect(req.getContextPath() + "/vet/examination");
                         } else {
                             forwardFormWithError(req, resp, appointmentID,
@@ -285,8 +298,10 @@ public class ExaminationServlet extends HttpServlet {
         try {
             int recordID = Integer.parseInt(idStr);
             MedicalRecord rec = examinationService.getMedicalRecord(recordID);
+            Appointment app = appointmentDAO.findById(rec != null ? rec.getAppointmentID() : -1);
             if (rec == null) { resp.sendRedirect(req.getContextPath() + "/vet/examination"); return; }
             req.setAttribute("record", rec);
+            req.setAttribute("appt", app);
             req.getRequestDispatcher("/WEB-INF/views/vet/examination-detail.jsp").forward(req, resp);
         } catch (Exception e) {
             e.printStackTrace();
@@ -427,11 +442,6 @@ public class ExaminationServlet extends HttpServlet {
         if (p == null || p.isBlank()) return null;
         try { return Integer.parseInt(p); } catch (NumberFormatException e) { return null; }
     }
-
-    private void triggerInvoice(int appointmentID) {
-        System.out.println("[BP-04 STUB] Generate invoice for appointmentID=" + appointmentID);
-    }
-
 
     private List<Integer> parseSelectedServiceIds(HttpServletRequest req) {
         List<Integer> ids = new ArrayList<>();

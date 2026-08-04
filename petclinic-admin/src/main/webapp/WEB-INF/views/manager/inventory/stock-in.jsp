@@ -7,7 +7,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nhập Kho - PetClinic</title>
-    <link rel="stylesheet" href="${pageContext.request.contextPath}/css/dashboard.css">
+    <link rel="stylesheet" href="${pageContext.request.contextPath}/css/dashboard.css?v=stock-in-spacing-2">
 </head>
 <body>
 
@@ -24,15 +24,36 @@
         <%@ include file="/WEB-INF/views/common/_flash.jsp" %>
         <%@ include file="/WEB-INF/views/manager/inventory/_subnav.jsp" %>
 
+        <div class="card" style="margin-bottom:18px">
+            <div class="card-header"><span class="card-title">Import Excel</span></div>
+            <div class="card-body">
+                <form action="${pageContext.request.contextPath}/admin/inventory/stock-in/import" method="post" enctype="multipart/form-data" class="form-actions stock-excel-actions">
+                    <input type="file" name="excelFile" accept=".xlsx" class="form-control no-icon stock-excel-file" required>
+                    <button type="submit" class="btn btn-primary">Import Excel</button>
+                    <a href="${pageContext.request.contextPath}/admin/inventory/stock-in/template" class="btn btn-outline">Tải file mẫu Excel</a>
+                </form>
+            </div>
+        </div>
+
         <div class="card">
             <div class="card-header">
                 <span class="card-title">Thông tin nhập kho</span>
             </div>
             <div class="card-body">
-                <form action="${pageContext.request.contextPath}/manager/inventory/stock-in"
+                <form action="${pageContext.request.contextPath}/admin/inventory/stock-in"
                       method="post" id="stockInForm">
 
                     <div class="form-row col-3">
+                        <div class="form-group">
+                            <label class="form-label" for="providerID">Nhà cung cấp <span class="required">*</span></label>
+                            <select id="providerID" name="providerID" class="form-control no-icon" required>
+                                <option value="">-- Chọn nhà cung cấp --</option>
+                                <c:forEach items="${providers}" var="provider">
+                                    <option value="${provider.providerID}"><c:out value="${provider.name}"/></option>
+                                </c:forEach>
+                            </select>
+                            <span class="form-hint">Quản lý danh sách tại <a href="${pageContext.request.contextPath}/admin/providers">Nhà cung cấp</a>.</span>
+                        </div>
                         <div class="form-group">
                             <label class="form-label" for="stockItemKey">Item có sẵn</label>
                             <select id="stockItemKey" name="stockItemKey" class="form-control no-icon">
@@ -85,14 +106,14 @@
                                    class="form-control no-icon" min="0" step="1" placeholder="10">
                             <span class="form-hint">
                                 Chỉ áp dụng khi tạo item mới. Muốn đổi ngưỡng của item đã có,
-                                dùng màn <a href="${pageContext.request.contextPath}/manager/inventory/thresholds">Ngưỡng cảnh báo</a>.
+                                dùng màn <a href="${pageContext.request.contextPath}/admin/inventory/thresholds">Ngưỡng cảnh báo</a>.
                             </span>
                         </div>
                     </div>
 
                     <div class="form-actions">
                         <button type="submit" class="btn btn-primary">Lưu nhập kho</button>
-                        <a href="${pageContext.request.contextPath}/manager/inventory" class="btn btn-outline">
+                        <a href="${pageContext.request.contextPath}/admin/inventory" class="btn btn-outline">
                             Về danh sách tồn kho
                         </a>
                     </div>
@@ -106,10 +127,13 @@
     var stockInForm = document.getElementById('stockInForm');
     var stockItemKey = document.getElementById('stockItemKey');
     var thresholdRow = document.getElementById('newItemThresholdRow');
+    var itemName = document.getElementById('itemName');
+    var itemNameGroup = itemName ? itemName.closest('.form-group') : null;
 
     function toggleNewItemFields() {
         var isExisting = !!stockItemKey.value;
         thresholdRow.style.display = isExisting ? 'none' : '';
+        if (itemNameGroup) itemNameGroup.style.display = isExisting ? 'none' : '';
     }
 
     if (stockItemKey) {

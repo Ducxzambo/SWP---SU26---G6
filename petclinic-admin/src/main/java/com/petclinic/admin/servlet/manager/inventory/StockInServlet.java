@@ -2,6 +2,7 @@ package com.petclinic.admin.servlet.manager.inventory;
 
 import com.petclinic.backend.model.InventoryItem;
 import com.petclinic.backend.model.Staff;
+import com.petclinic.backend.service.ProviderService;
 import com.petclinic.backend.service.StockService;
 import com.petclinic.backend.util.StaffAuthUtil;
 import jakarta.servlet.ServletException;
@@ -14,10 +15,17 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.List;
 
-@WebServlet("/manager/inventory/stock-in")
+/**
+ * Inventory &gt; Nhập kho (stock-in screen).
+ * Dedicated data-entry screen for restocking an existing Medicine/Vaccine
+ * or registering a brand-new one. Deliberately does NOT touch an existing
+ * item's alert threshold - see StockService.recordStockIn for why.
+ */
+@WebServlet("/admin/inventory/stock-in")
 public class StockInServlet extends HttpServlet {
 
     private final StockService stockService = new StockService();
+    private final ProviderService providerService = new ProviderService();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
@@ -28,6 +36,7 @@ public class StockInServlet extends HttpServlet {
         try {
             List<InventoryItem> allItems = stockService.getAllInventoryItems();
             req.setAttribute("allItems", allItems);
+            req.setAttribute("providers", providerService.getActive());
             req.getRequestDispatcher("/WEB-INF/views/manager/inventory/stock-in.jsp").forward(req, resp);
         } catch (Exception e) {
             e.printStackTrace();
@@ -54,7 +63,9 @@ public class StockInServlet extends HttpServlet {
             req.getSession().setAttribute("flashError", "Lỗi hệ thống khi nhập kho: " + e.getMessage());
         }
 
-        resp.sendRedirect(req.getContextPath() + "/manager/inventory/stock-in");
+        // Redirect back to this same screen (not the list) so a manager can
+        // enter several stock-in transactions in a row without re-navigating.
+        resp.sendRedirect(req.getContextPath() + "/admin/inventory/stock-in");
     }
 
     private void handleStockIn(HttpServletRequest req, Staff manager) throws Exception {
@@ -76,9 +87,11 @@ public class StockInServlet extends HttpServlet {
         BigDecimal unitPrice = parseNullableDecimal(req.getParameter("unitPrice"));
         int quantity = parseRequiredInt(req.getParameter("quantity"), "Số lượng nhập kho không hợp lệ.");
         Integer minStockLevel = parseNullableInt(req.getParameter("minStockLevel"));
+        Integer providerID = parseNullableInt(req.getParameter("providerID"));
+        if (providerID == null || providerID <= 0) throw new IllegalArgumentException("Vui lòng chọn nhà cung cấp.");
 
         stockService.recordStockIn(itemType, itemID, itemName, unit, unitPrice,
-                quantity, minStockLevel, manager.getStaffID());
+                quantity, minStockLevel, manager.getStaffID(), providerID);
     }
 
     private Integer parseNullableInt(String value) {

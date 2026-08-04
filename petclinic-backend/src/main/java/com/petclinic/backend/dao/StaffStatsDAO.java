@@ -43,9 +43,14 @@ public class StaffStatsDAO {
         List<Object> params = new ArrayList<>(joinParams);
 
         if (staffID != null) {
+            // Single-staff lookup (Staff Detail screen): show their history
+            // even if they've since been deactivated - that's the whole
+            // point of looking someone up individually.
             sql.append(" AND s.StaffID = ?");
             params.add(staffID);
         } else {
+            // Multi-staff leaderboard (Statistics screen): only compare
+            // people currently on the team.
             sql.append(" AND s.IsActive = 1");
         }
         if (roleName != null && !roleName.isBlank()) {
@@ -79,6 +84,10 @@ public class StaffStatsDAO {
         }
     }
 
+    /**
+     * Which services a given staff member has actually completed, all-time
+     * or within a range - shown on the Staff Detail screen.
+     */
     public List<StaffServiceBreakdown> getServiceBreakdown(int staffID, LocalDate fromDate,
                                                             LocalDate toDate) throws SQLException {
         StringBuilder sql = new StringBuilder("""

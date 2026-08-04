@@ -122,14 +122,14 @@ public class SupplyDAO {
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
-    private void insertUsageItem(Connection conn, SupplyUsageItem item) throws SQLException {
+    public void insertUsageItem(Connection conn, SupplyUsageItem item) throws SQLException {
         String sql = "INSERT INTO SupplyUsageItems " +
                 "(AppointmentID, SupplyID, StaffID, Quantity, UnitPrice, Notes) " +
                 "VALUES (?, ?, ?, ?, ?, ?)";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, item.getAppointmentID());
             ps.setInt(2, item.getSupplyID());
-            ps.setInt(3, item.getStaffID());
+            ps.setInt(3, 4);
             ps.setBigDecimal(4, item.getQuantity());
             ps.setBigDecimal(5, item.getUnitPrice());
             ps.setString(6, item.getNotes());
@@ -137,7 +137,7 @@ public class SupplyDAO {
         }
     }
 
-    private void insertStockTransaction(Connection conn, SupplyUsageItem item,
+    public void insertStockTransaction(Connection conn, SupplyUsageItem item,
                                         int performedByID) throws SQLException {
         String sql = "INSERT INTO StockTransactions " +
                 "(ItemType, ItemID, QuantityChange, Reason, PerformedByID, " +

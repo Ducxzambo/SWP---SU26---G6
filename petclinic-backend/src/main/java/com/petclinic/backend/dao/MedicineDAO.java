@@ -1,7 +1,7 @@
 package com.petclinic.backend.dao;
 
 import com.petclinic.backend.dto.StockMovementReport;
-import com.petclinic.backend.model.StockTransaction;
+import com.petclinic.backend.dto.StockTransaction;
 import com.petclinic.backend.model.InventoryItem;
 import com.petclinic.backend.model.Medicine;
 import com.petclinic.backend.util.DBConnection;
@@ -167,7 +167,7 @@ public class MedicineDAO {
 
     public int stockIn(String itemType, Integer itemID, String itemName, String unit,
                        BigDecimal unitPrice, int quantity, int minStockLevel,
-                       int performedByID) throws SQLException {
+                       int performedByID, Integer providerID) throws SQLException {
         Connection conn = DBConnection.getConnection();
         try {
             conn.setAutoCommit(false);
@@ -184,7 +184,7 @@ public class MedicineDAO {
             }
 
             insertStockTransaction(conn, itemType, savedItemID,
-                    BigDecimal.valueOf(quantity), "Purchase", performedByID);
+                    BigDecimal.valueOf(quantity), "Purchase", performedByID, providerID);
 
             conn.commit();
             return savedItemID;
@@ -214,10 +214,33 @@ public class MedicineDAO {
         }
     }
 
-    public List<StockTransaction> findStockTransactions(LocalDate fromDate,
-                                                        LocalDate toDate,
-                                                        String itemType,
-                                                        int limit)
+    /** Atomically deduct stock and append an audit transaction. */
+    public void stockOut(String itemType, int itemID, int quantity, String reason,
+                         int performedByID) throws SQLException {
+        String updateSql;
+        if ("Medicine".equals(itemType)) {
+            updateSql = "UPDATE Medicines SET StockQty = StockQty - ? WHERE MedicineID = ? AND StockQty >= ?";
+        } else if ("Vaccine".equals(itemType)) {
+            updateSql = "UPDATE Vaccines SET StockQty = StockQty - ? WHERE VaccineID = ? AND StockQty >= ?";
+        } else {
+            throw new SQLException("Unsupported stock item type: " + itemType);
+        }
+        try (Connection conn = DBConnection.getConnection()) {
+            conn.setAutoCommit(false);
+            try (PreparedStatement ps = conn.prepareStatement(updateSql)) {
+                ps.setInt(1, quantity); ps.setInt(2, itemID); ps.setInt(3, quantity);
+                if (ps.executeUpdate() == 0) throw new IllegalArgumentException("Insufficient stock or item not found.");
+            }
+            insertStockTransaction(conn, itemType, itemID, BigDecimal.valueOf(quantity).negate(),
+                    reason == null || reason.isBlank() ? "Manual stock-out" : reason.trim(), performedByID, null);
+            conn.commit();
+        } catch (SQLException | RuntimeException e) { throw e; }
+    }
+
+    public List<com.petclinic.backend.dto.StockTransaction> findStockTransactions(LocalDate fromDate,
+                                                                                  LocalDate toDate,
+                                                                                  String itemType,
+                                                                                  int limit)
             throws SQLException {
         StringBuilder sql = new StringBuilder("""
                 SELECT TOP (?) st.TransactionID,
@@ -228,6 +251,7 @@ public class MedicineDAO {
                        st.Reason,
                        st.PerformedByID,
                        staff.FullName AS PerformedByName,
+                       st.ReceiptID,
                        st.TransactionDate
                 FROM StockTransactions st
                 LEFT JOIN Medicines m ON st.ItemType = 'Medicine' AND st.ItemID = m.MedicineID
@@ -368,17 +392,20 @@ public class MedicineDAO {
 
     private void insertStockTransaction(Connection conn, String itemType, int itemID,
                                         BigDecimal quantityChange, String reason,
-                                        int performedByID) throws SQLException {
+                                        int performedByID, Integer providerID) throws SQLException {
         String sql = """
-            INSERT INTO StockTransactions (ItemType, ItemID, QuantityChange, Reason, PerformedByID, TransactionType)
-            VALUES (?, ?, ?, ?, ?, 'Import')
-            """;
+                INSERT INTO StockTransactions
+                    (ItemType, ItemID, QuantityChange, Reason, PerformedByID, ProviderID, TransactionType)
+                VALUES (?, ?, ?, ?, ?, ?, CASE WHEN ? >= 0 THEN 'Import' ELSE 'Export' END)
+                """;
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, itemType);
             ps.setInt(2, itemID);
             ps.setBigDecimal(3, quantityChange);
             ps.setString(4, reason);
             ps.setInt(5, performedByID);
+            if (providerID == null) ps.setNull(6, Types.INTEGER); else ps.setInt(6, providerID);
+            ps.setBigDecimal(7, quantityChange);
             ps.executeUpdate();
         }
     }
@@ -406,8 +433,8 @@ public class MedicineDAO {
         return item;
     }
 
-    private StockTransaction mapTransaction(ResultSet rs) throws SQLException {
-        StockTransaction t = new StockTransaction();
+    private com.petclinic.backend.dto.StockTransaction mapTransaction(ResultSet rs) throws SQLException {
+        com.petclinic.backend.dto.StockTransaction t = new com.petclinic.backend.dto.StockTransaction();
         t.setTransactionID(rs.getInt("TransactionID"));
         t.setItemType(rs.getString("ItemType"));
         t.setItemID(rs.getInt("ItemID"));
@@ -417,6 +444,8 @@ public class MedicineDAO {
         int staffID = rs.getInt("PerformedByID");
         t.setPerformedByID(rs.wasNull() ? null : staffID);
         t.setPerformedByName(rs.getString("PerformedByName"));
+        int receiptID = rs.getInt("ReceiptID");
+        t.setReceiptID(rs.wasNull() ? null : receiptID);
         Timestamp transactionDate = rs.getTimestamp("TransactionDate");
         if (transactionDate != null) t.setTransactionDate(transactionDate.toLocalDateTime());
         return t;

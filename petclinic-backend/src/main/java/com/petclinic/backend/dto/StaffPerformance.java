@@ -67,10 +67,12 @@ public class StaffPerformance {
         revenue = v;
     }
 
+    /** All cases ever assigned to this staff in range, regardless of outcome. */
     public int getTotalAssigned() {
         return completedCases + cancelledCases + noShowCases;
     }
 
+    /** % of assigned cases that were actually completed (0 when nothing assigned yet). */
     public double getCompletionRate() {
         int total = getTotalAssigned();
         return total == 0 ? 0.0 : (completedCases * 100.0) / total;

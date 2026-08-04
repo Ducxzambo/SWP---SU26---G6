@@ -1,5 +1,8 @@
 package com.petclinic.backend.model;
 
+import com.petclinic.backend.model.PrescriptionItem;
+import com.petclinic.backend.model.SupplyUsageItem;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -81,6 +84,11 @@ public class MedicalRecord {
     public void setPrescriptionItems(List<PrescriptionItem> prescriptionItems) {
         this.prescriptionItems = prescriptionItems;
     }
+
+    private List<SupplyUsageItem> supplyUsageItems;
+
+    public List<SupplyUsageItem> getSupplyUsageItems() { return supplyUsageItems; }
+    public void setSupplyUsageItems(List<SupplyUsageItem> v) { supplyUsageItems = v; }
 
     public boolean hasPrescription() {
         return prescriptionItems != null && !prescriptionItems.isEmpty();

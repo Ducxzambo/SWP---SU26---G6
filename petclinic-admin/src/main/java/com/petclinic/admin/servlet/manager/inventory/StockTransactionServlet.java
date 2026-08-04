@@ -1,7 +1,7 @@
 package com.petclinic.admin.servlet.manager.inventory;
 
+import com.petclinic.backend.dto.StockTransaction;
 import com.petclinic.backend.model.Staff;
-import com.petclinic.backend.model.StockTransaction;
 import com.petclinic.backend.service.StockService;
 import com.petclinic.backend.util.StaffAuthUtil;
 import jakarta.servlet.ServletException;
@@ -14,7 +14,15 @@ import java.io.IOException;
 import java.time.LocalDate;
 import java.util.List;
 
-@WebServlet("/manager/inventory/transactions")
+/**
+ * Inventory &gt; Lịch sử giao dịch kho (transaction history screen).
+ * Raw chronological log of every stock-in/stock-out movement, filterable
+ * by date range and item type. For the aggregated per-item view (with CSV
+ * export), see StockMovementReportServlet instead - the two are kept
+ * separate because "browse recent movements" and "export a summary report"
+ * are different jobs even though they read the same underlying table.
+ */
+@WebServlet("/admin/inventory/transactions")
 public class StockTransactionServlet extends HttpServlet {
 
     private final StockService stockService = new StockService();

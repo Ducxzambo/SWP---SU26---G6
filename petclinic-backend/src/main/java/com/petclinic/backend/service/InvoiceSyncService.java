@@ -21,13 +21,14 @@ public class InvoiceSyncService {
     private final AppointmentDAO appointmentDAO = new AppointmentDAO();
     private final ServiceDAO     serviceDAO     = new ServiceDAO();
     private final MedicineDAO    medicineDAO    = new MedicineDAO();
+    private final SupplyDAO      supplyDAO      = new SupplyDAO();
     private final VaccineDAO     vaccineDAO     = new VaccineDAO();
     private final InvoiceDAO     invoiceDAO     = new InvoiceDAO();
     private final PaymentService paymentService = new PaymentService();
 
     public void syncAfterExamination(int appointmentId, int staffId,
                                      List<Integer> selectedServiceIds,
-                                     List<PrescriptionItem> prescriptionItems) {
+                                     List<PrescriptionItem> prescriptionItems, List<SupplyUsageItem> supplyUsageItems) {
         try {
             Appointment appt = appointmentDAO.findById(appointmentId);
             if (appt == null) return;
@@ -37,6 +38,7 @@ public class InvoiceSyncService {
 
             addNewlySelectedServices(appointmentId, staffId, appt, invoice, selectedServiceIds);
             addPrescriptionItems(invoice, prescriptionItems);
+            addSupplyItems(invoice, supplyUsageItems);
             deductVaccineStockIfNeeded(appointmentId, staffId, invoice);
 
         } catch (Exception e) {
@@ -104,6 +106,30 @@ public class InvoiceSyncService {
             if (name == null)  name  = "Thuốc #" + item.getMedicineID();
 
             invoiceDAO.addInvoiceItemAndGrowTotal(invoice.getInvoiceID(), "Medicine", name, qty, price);
+        }
+    }
+
+    private void addSupplyItems(Invoice invoice, List<SupplyUsageItem> items) throws SQLException {
+        if (items == null || items.isEmpty()) return;
+
+        for (SupplyUsageItem item : items) {
+            if (item.getSupplyID() <= 0) continue;
+
+            BigDecimal qty   = item.getQuantity() != null ? item.getQuantity() : BigDecimal.ONE;
+            BigDecimal price = item.getUnitPrice();
+            String     name  = item.getSupplyName();
+
+            if (price == null || name == null) {
+                Supply supply = supplyDAO.findById(item.getSupplyID());
+                if (supply != null) {
+                    if (price == null) price = supply.getUnitPrice();
+                    if (name == null)  name  = supply.getName();
+                }
+            }
+            if (price == null) price = BigDecimal.ZERO;
+            if (name == null)  name  = "Vật tư #" + item.getSupplyID();
+
+            invoiceDAO.addInvoiceItemAndGrowTotal(invoice.getInvoiceID(), "Supply", name, qty, price);
         }
     }
 

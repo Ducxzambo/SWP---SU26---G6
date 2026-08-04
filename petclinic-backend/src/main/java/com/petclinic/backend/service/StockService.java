@@ -2,8 +2,10 @@ package com.petclinic.backend.service;
 
 import com.petclinic.backend.dao.MedicineDAO;
 import com.petclinic.backend.dto.StockMovementReport;
-import com.petclinic.backend.model.StockTransaction;
-import com.petclinic.backend.model.*;
+import com.petclinic.backend.dto.StockTransaction;
+import com.petclinic.backend.model.InventoryItem;
+import com.petclinic.backend.model.Medicine;
+import com.petclinic.backend.model.PrescriptionItem;
 
 import java.math.BigDecimal;
 import java.sql.SQLException;
@@ -12,7 +14,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-
 
 public class StockService {
 
@@ -51,7 +52,7 @@ public class StockService {
 
     public int recordStockIn(String itemType, Integer itemID, String itemName,
                              String unit, BigDecimal unitPrice, int quantity,
-                             Integer minStockLevel, int performedByID)
+                             Integer minStockLevel, int performedByID, Integer providerID)
             throws SQLException {
         validateItemType(itemType);
         if (quantity <= 0) {
@@ -71,12 +72,24 @@ public class StockService {
             }
         }
 
+        // Threshold is only ever set here when creating a brand-new item
+        // (Medicine or Vaccine). Adjusting the threshold of an existing
+        // item is the Thresholds screen's job, not Stock-In's - keeping
+        // that concern in one place avoids a restock accidentally
+        // overwriting an alert level someone else configured.
         int threshold = newItem
                 ? (minStockLevel == null || minStockLevel <= 0 ? DEFAULT_THRESHOLD : minStockLevel)
                 : 0;
 
         return medicineDAO.stockIn(itemType, itemID, clean(itemName), clean(unit),
-                unitPrice, quantity, threshold, performedByID);
+                unitPrice, quantity, threshold, performedByID, providerID);
+    }
+
+    public void recordStockOut(String itemType, int itemID, int quantity, String reason,
+                               int performedByID) throws SQLException {
+        validateItemType(itemType);
+        if (itemID <= 0 || quantity <= 0) throw new IllegalArgumentException("Invalid item or quantity.");
+        medicineDAO.stockOut(itemType, itemID, quantity, clean(reason), performedByID);
     }
 
     public void updateThreshold(String itemType, int itemID, int minStockLevel)

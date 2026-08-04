@@ -195,10 +195,6 @@
                   <div class="pay-method-amount"><fmt:formatNumber value="${amountDue}" type="number" groupingUsed="true"/>đ</div>
                 </div>
                 <p class="pay-method-desc">Toàn bộ số tiền còn lại sẽ được thu qua mã QR chuyển khoản.</p>
-                <div class="pay-method-redirect-hint">
-                  ↳ Bấm nút bên dưới sẽ <strong>chuyển bạn sang trang quét mã QR của PayOS</strong>.
-                  Sau khi khách chuyển khoản xong, hệ thống tự động quay lại trang này.
-                </div>
                 <form action="${pageContext.request.contextPath}/receptionist/invoice" method="post" class="pay-method-form">
                   <input type="hidden" name="invoiceId" value="${invoice.invoiceID}">
                   <input type="hidden" name="from" value="${from}">
@@ -212,10 +208,6 @@
                   <div class="pay-method-title">Tiền mặt + Chuyển khoản</div>
                 </div>
                 <p class="pay-method-desc">Khách trả một phần bằng tiền mặt, phần còn lại quét QR chuyển khoản.</p>
-                <div class="pay-method-redirect-hint">
-                  ↳ Sau khi ghi nhận tiền mặt, bạn sẽ <strong>được chuyển sang trang QR PayOS</strong>
-                  cho đúng phần còn lại. Quay lại trang này tự động sau khi chuyển khoản xong.
-                </div>
                 <form action="${pageContext.request.contextPath}/receptionist/invoice" method="post" class="pay-method-form">
                   <input type="hidden" name="invoiceId" value="${invoice.invoiceID}">
                   <input type="hidden" name="from" value="${from}">

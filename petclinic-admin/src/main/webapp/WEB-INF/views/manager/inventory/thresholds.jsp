@@ -26,7 +26,7 @@
         <%@ include file="/WEB-INF/views/common/_flash.jsp" %>
         <%@ include file="/WEB-INF/views/manager/inventory/_subnav.jsp" %>
 
-        <form action="${pageContext.request.contextPath}/manager/inventory/thresholds" method="get" class="filter-bar">
+        <form action="${pageContext.request.contextPath}/admin/inventory/thresholds" method="get" class="filter-bar">
             <div class="input-wrap">
                 <span class="input-icon"></span>
                 <input type="text" name="q" class="form-control"
@@ -45,7 +45,7 @@
                 <option value="out" ${stockLevel == 'out' ? 'selected' : ''}>Hết hàng</option>
             </select>
             <button type="submit" class="btn btn-secondary">Lọc</button>
-            <a href="${pageContext.request.contextPath}/manager/inventory/thresholds" class="btn btn-outline">Xóa lọc</a>
+            <a href="${pageContext.request.contextPath}/admin/inventory/thresholds" class="btn btn-outline">Xóa lọc</a>
         </form>
 
         <div class="card">
@@ -92,7 +92,7 @@
                                     </c:choose>
                                 </td>
                                 <td>
-                                    <form action="${pageContext.request.contextPath}/manager/inventory/thresholds"
+                                    <form action="${pageContext.request.contextPath}/admin/inventory/thresholds"
                                           method="post" class="inline-form">
                                         <input type="hidden" name="itemType" value="${item.itemType}">
                                         <input type="hidden" name="itemID" value="${item.itemID}">

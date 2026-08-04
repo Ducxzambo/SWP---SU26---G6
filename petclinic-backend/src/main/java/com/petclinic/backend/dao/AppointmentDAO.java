@@ -1,5 +1,6 @@
 package com.petclinic.backend.dao;
 
+import com.petclinic.backend.dao.AppointmentServiceDAO;
 import com.petclinic.backend.model.Appointment;
 import com.petclinic.backend.model.AppointmentService;
 import com.petclinic.backend.service.BookingService;
@@ -180,6 +181,21 @@ public class AppointmentDAO {
             }
 
             conn.commit();
+
+            Appointment appt = findById(appointmentID);
+
+            // Auto-assign: với mỗi category trong appointment, gán staff ít lịch nhất
+            Set<String> categories = new LinkedHashSet<>();
+            for (AppointmentService s : appt.getServices()) {
+                if (s.getCategoryName() != null) categories.add(s.getCategoryName());
+            }
+            for (String cat : categories) {
+                Integer staffID = findLeastLoadedStaffByCategory(cat, LocalDate.now());
+                if (staffID != null) {
+                    assignStaffToCategory(appointmentID, cat, staffID);
+                }
+            }
+
             return appointmentID;
 
         } catch (SQLException e) {
@@ -762,21 +778,27 @@ public class AppointmentDAO {
         String roleName = (ExaminationService.CAT_GROOMING.equals(categoryName))
                 ? "Groomer" : "Veterinarian";
         String sql =
-                "SELECT TOP 1 st.StaffID " +
-                        "FROM Staff st " +
+                "SELECT TOP 1 sta.StaffID " +
+                        "FROM StaffAttendance sta " +
+                        "JOIN Staff st ON sta.StaffID = st.StaffID "+
                         "JOIN Roles r ON r.RoleID = st.RoleID " +
                         "LEFT JOIN AppointmentServices aps ON aps.AssignedStaffID = st.StaffID " +
                         "AND EXISTS (SELECT 1 FROM Appointments a " +
-                        "WHERE a.AppointmentID = aps.AppointmentID " +
-                        "AND a.AppointmentDate = ? " +
-                        "AND a.Status NOT IN ('Cancelled','NoShow')) " +
+                            "WHERE a.AppointmentID = aps.AppointmentID " +
+                            "AND a.AppointmentDate = ? " +
+                            "AND a.Status NOT IN ('Cancelled','NoShow')) " +
                         "WHERE r.RoleName = ? AND st.IsActive = 1 " +
-                        "GROUP BY st.StaffID " +
+                        "AND sta.SlotShift = ? " +
+                        "AND sta.WorkDate = ? " +
+                        "GROUP BY sta.StaffID " +
                         "ORDER BY COUNT(aps.AppointmentServiceID) ASC";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setDate(1, Date.valueOf(date));
             ps.setString(2, roleName);
+            ps.setInt(3, shiftOf(LocalTime.now()));
+            ps.setDate(4, Date.valueOf(date));
+
             try (ResultSet rs = ps.executeQuery()) {
                 return rs.next() ? rs.getInt(1) : null;
             }

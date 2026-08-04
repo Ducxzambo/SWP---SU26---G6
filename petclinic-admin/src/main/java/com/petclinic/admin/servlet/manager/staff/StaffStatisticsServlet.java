@@ -1,8 +1,8 @@
 package com.petclinic.admin.servlet.manager.staff;
 
+import com.petclinic.backend.dto.StaffPerformance;
 import com.petclinic.backend.model.Role;
 import com.petclinic.backend.model.Staff;
-import com.petclinic.backend.dto.StaffPerformance;
 import com.petclinic.backend.service.StaffService;
 import com.petclinic.backend.util.StaffAuthUtil;
 import jakarta.servlet.ServletException;
@@ -17,7 +17,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
-@WebServlet("/manager/staff/statistics")
+@WebServlet("/admin/staff/statistics")
 public class StaffStatisticsServlet extends HttpServlet {
 
     private final StaffService staffService = new StaffService();

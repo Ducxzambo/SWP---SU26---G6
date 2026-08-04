@@ -11,7 +11,7 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
 
-@WebServlet("/manager/staff/status")
+@WebServlet("/admin/staff/status")
 public class StaffStatusServlet extends HttpServlet {
 
     private final StaffService staffService = new StaffService();
@@ -42,9 +42,9 @@ public class StaffStatusServlet extends HttpServlet {
 
     private String safeRedirect(HttpServletRequest req) {
         String target = req.getParameter("redirectTo");
-        if (target != null && target.startsWith("/manager/staff")) {
+        if (target != null && target.startsWith("/admin/staff")) {
             return target;
         }
-        return "/manager/staff";
+        return "/admin/staff";
     }
 }

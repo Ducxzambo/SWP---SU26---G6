@@ -3,6 +3,7 @@ package com.petclinic.backend.dao;
 import com.petclinic.backend.dao.MedicineDAO;
 import com.petclinic.backend.model.MedicalRecord;
 import com.petclinic.backend.model.PrescriptionItem;
+import com.petclinic.backend.model.SupplyUsageItem;
 import com.petclinic.backend.util.DBConnection;
 
 import java.sql.*;
@@ -12,6 +13,7 @@ import java.util.List;
 public class MedicalRecordDAO {
 
     private MedicineDAO medicineDAO = new MedicineDAO();
+    private SupplyDAO supplyDAO = new SupplyDAO();
 
     public MedicalRecord findByAppointmentId(int appointmentID) throws SQLException {
         String sql = """
@@ -32,6 +34,7 @@ public class MedicalRecordDAO {
                 if (rs.next()) {
                     MedicalRecord rec = mapRecord(rs);
                     rec.setPrescriptionItems(findPrescriptionItems(conn, rec.getRecordID()));
+                    rec.setSupplyUsageItems(findSupplyUsageItems(conn, rec.getAppointmentID()));
                     return rec;
                 }
                 return null;
@@ -269,12 +272,14 @@ public class MedicalRecordDAO {
                 while (rs.next()) {
                     MedicalRecord rec = mapRecord(rs);
                     rec.setPrescriptionItems(findPrescriptionItems(conn, rec.getRecordID()));
+                    rec.setSupplyUsageItems(findSupplyUsageItems(conn, rec.getAppointmentID()));
                     list.add(rec);
                 }
                 return list;
             }
         }
     }
+
     public MedicalRecord findById(int recordID) throws SQLException {
         String sql = """
                 SELECT mr.*,
@@ -294,9 +299,39 @@ public class MedicalRecordDAO {
                 if (rs.next()) {
                     MedicalRecord rec = mapRecord(rs);
                     rec.setPrescriptionItems(findPrescriptionItems(conn, rec.getRecordID()));
+                    rec.setSupplyUsageItems(findSupplyUsageItems(conn, rec.getAppointmentID()));
                     return rec;
                 }
                 return null;
+            }
+        }
+    }
+    private List<SupplyUsageItem> findSupplyUsageItems(Connection conn,
+                                                       int appointmentID) throws SQLException {
+        String sql = """
+            SELECT sui.*, s.Name AS SupplyName, s.Unit AS SupplyUnit
+            FROM SupplyUsageItems sui
+            JOIN Supplies s ON s.SupplyID = sui.SupplyID
+            WHERE sui.AppointmentID = ?
+            ORDER BY sui.UsedAt
+            """;
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, appointmentID);
+            try (ResultSet rs = ps.executeQuery()) {
+                List<SupplyUsageItem> list = new ArrayList<>();
+                while (rs.next()) {
+                    SupplyUsageItem i = new SupplyUsageItem();
+                    i.setUsageID(rs.getInt("UsageID"));
+                    i.setAppointmentID(rs.getInt("AppointmentID"));
+                    i.setSupplyID(rs.getInt("SupplyID"));
+                    i.setQuantity(rs.getBigDecimal("Quantity"));
+                    i.setUnitPrice(rs.getBigDecimal("UnitPrice"));
+                    i.setNotes(rs.getString("Notes"));
+                    try { i.setSupplyName(rs.getString("SupplyName")); } catch (SQLException ignored) {}
+                    try { i.setSupplyUnit(rs.getString("SupplyUnit")); } catch (SQLException ignored) {}
+                    list.add(i);
+                }
+                return list;
             }
         }
     }

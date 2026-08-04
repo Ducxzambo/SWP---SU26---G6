@@ -13,7 +13,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.List;
 
-@WebServlet("/manager/staff")
+@WebServlet("/admin/staff")
 public class StaffListServlet extends HttpServlet {
 
     private final StaffService staffService = new StaffService();

@@ -83,7 +83,7 @@
 
   <div class="confirm-info-note">
     <strong>Lưu ý:</strong> Sau khi đặt lịch, trạng thái sẽ là <strong>Chờ xác nhận</strong>.
-    Nếu có bất kỳ yêu cầu hay thay đổi, vui lòng liên hệ trước lịch hẹn 12 tiếng.
+    Nếu có bất kỳ yêu cầu hay thay đổi, vui lòng liên hệ trước 17h30 của ngày trước lịch hẹn.
     Bạn có thể mở rộng các dịch vụ khi đến khám.
   </div>
 

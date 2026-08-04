@@ -94,24 +94,27 @@ public class StaffAttendanceDAO {
         int count = 0;
         try (Connection c = DBConnection.getConnection()) {
             for (LocalDate d = from; !d.isAfter(to); d = d.plusDays(1)) {
-                StaffAttendance existing = findOne(c, staffId, d, null);
-                if (existing != null) {
-                    String sql = "UPDATE StaffAttendance SET Status = ?, Notes = ? WHERE AttendanceID = ?";
-                    try (PreparedStatement ps = c.prepareStatement(sql)) {
-                        ps.setString(1, status);
-                        ps.setString(2, notes);
-                        ps.setInt(3, existing.getAttendanceID());
-                        ps.executeUpdate();
-                    }
-                } else {
-                    String sql = "INSERT INTO StaffAttendance (StaffID, WorkDate, SlotShift, Status, Notes) " +
-                            "VALUES (?, ?, NULL, ?, ?)";
-                    try (PreparedStatement ps = c.prepareStatement(sql)) {
-                        ps.setInt(1, staffId);
-                        ps.setDate(2, Date.valueOf(d));
-                        ps.setString(3, status);
-                        ps.setString(4, notes);
-                        ps.executeUpdate();
+                for (int shift = 1; shift <= 4; shift++) {
+                    StaffAttendance existing = findOne(c, staffId, d, shift);
+                    if (existing != null) {
+                        String sql = "UPDATE StaffAttendance SET Status = ?, Notes = ? WHERE AttendanceID = ?";
+                        try (PreparedStatement ps = c.prepareStatement(sql)) {
+                            ps.setString(1, status);
+                            ps.setString(2, notes);
+                            ps.setInt(3, existing.getAttendanceID());
+                            ps.executeUpdate();
+                        }
+                    } else {
+                        String sql = "INSERT INTO StaffAttendance (StaffID, WorkDate, SlotShift, Status, Notes) " +
+                                "VALUES (?, ?, ?, ?, ?)";
+                        try (PreparedStatement ps = c.prepareStatement(sql)) {
+                            ps.setInt(1, staffId);
+                            ps.setDate(2, Date.valueOf(d));
+                            ps.setInt(3, shift);
+                            ps.setString(4, status);
+                            ps.setString(5, notes);
+                            ps.executeUpdate();
+                        }
                     }
                 }
                 count++;

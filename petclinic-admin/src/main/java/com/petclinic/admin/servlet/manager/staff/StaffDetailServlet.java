@@ -1,8 +1,8 @@
 package com.petclinic.admin.servlet.manager.staff;
 
-import com.petclinic.backend.model.Staff;
 import com.petclinic.backend.dto.StaffPerformance;
 import com.petclinic.backend.dto.StaffServiceBreakdown;
+import com.petclinic.backend.model.Staff;
 import com.petclinic.backend.service.StaffService;
 import com.petclinic.backend.util.StaffAuthUtil;
 import jakarta.servlet.ServletException;
@@ -14,7 +14,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.List;
 
-@WebServlet("/manager/staff/detail")
+@WebServlet("/admin/staff/detail")
 public class StaffDetailServlet extends HttpServlet {
 
     private final StaffService staffService = new StaffService();
@@ -44,7 +44,7 @@ public class StaffDetailServlet extends HttpServlet {
 
             req.getRequestDispatcher("/WEB-INF/views/manager/staff/detail.jsp").forward(req, resp);
         } catch (NumberFormatException e) {
-            resp.sendRedirect(req.getContextPath() + "/manager/staff");
+            resp.sendRedirect(req.getContextPath() + "/admin/staff");
         } catch (Exception e) {
             e.printStackTrace();
             req.setAttribute("error", "Không tải được hồ sơ nhân viên: " + e.getMessage());
