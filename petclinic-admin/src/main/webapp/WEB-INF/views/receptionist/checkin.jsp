@@ -354,13 +354,7 @@
                                     <c:out value="${svc.name}"/>
                                     <c:if test="${svc.price > 0}"> — <fmt:formatNumber value="${svc.price}" type="number" groupingUsed="true"/>đ</c:if>
                                 </label>
-                                <select name="staffFor_${svc.serviceID}" id="staffSel_${svc.serviceID}"
-                                        style="width:150px;font-size:12.5px;" disabled>
-                                    <option value="">— Chưa gán —</option>
-                                        <c:forEach items="${staffs}" var="v">
-                                            <option value="${v.staffID}"><c:out value="${v.fullName}"/></option>
-                                        </c:forEach>
-                                </select>
+
                             </div>
                         </c:forEach>
                     </div>

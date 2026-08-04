@@ -9,19 +9,17 @@ public class Review {
     private int           customerID;
     private int           rating;          // 1–5
     private String        comment;
-    private boolean       isPublic;        // customer consented to show publicly
+    private boolean       isPublic;
     private LocalDateTime createdAt;
 
-    // Joined display fields
     private String  serviceName;
     private String  categoryName;
-    private String  staffName;              // staff who performed the service
+    private String  staffName;
     private Integer staffID;
-    private String  petSpecies;          // for filtering (no pet name — privacy)
+    private String  petSpecies;
     private String  formattedDate;
 
-    // Display-only — anonymous label used in community page
-    private String  anonymousLabel;       // e.g. "Khách hàng ẩn danh"
+    private String  anonymousLabel;       // "Khách hàng ẩn danh"
 
     private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy");
 
@@ -55,12 +53,10 @@ public class Review {
     public String  getAnonymousLabel()        { return anonymousLabel; }
     public void    setAnonymousLabel(String v){ anonymousLabel = v; }
 
-    /** "HH:mm dd/MM/yyyy" */
     public String getFormattedCreatedAt() {
         return createdAt != null ? createdAt.format(FMT) : "";
     }
 
-    /** Stars string: ★★★★☆ */
     public String getStarsDisplay() {
         StringBuilder sb = new StringBuilder();
         for (int i = 1; i <= 5; i++) sb.append(i <= rating ? "★" : "☆");

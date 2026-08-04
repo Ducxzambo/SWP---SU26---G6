@@ -50,7 +50,7 @@
         </c:if>
 
         <div class="info-box">
-            <strong>🏥 Dành cho nhân viên</strong>
+            <strong>Dành cho nhân viên</strong>
             Trang này chỉ dành cho Bác sĩ, Lễ tân và nhân viên nội bộ.
         </div>
 
@@ -60,7 +60,7 @@
             <div class="form-group">
                 <label for="email">Email nhân viên</label>
                 <div class="input-wrap">
-                    <span class="input-icon">✉</span>
+                    <span class="input-icon"></span>
                     <input type="email" id="email" name="email" class="form-control"
                            placeholder="staff@petclinic.com"
                            value="<c:out value='${requestScope.email}'/>"
@@ -71,7 +71,7 @@
             <div class="form-group">
                 <label for="password">Mật khẩu</label>
                 <div class="input-wrap">
-                    <span class="input-icon">🔒</span>
+                    <span class="input-icon"></span>
                     <input type="password" id="password" name="password" class="form-control"
                            placeholder="••••••••" autocomplete="current-password" required>
                     <button type="button" class="toggle-pwd" id="togglePwd"

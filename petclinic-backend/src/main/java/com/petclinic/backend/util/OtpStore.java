@@ -5,13 +5,6 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Thread-safe in-memory OTP store.
- * Key  = "email:purpose" or "phone:purpose"
- * Value = OtpEntry(code, expiresAt)
- *
- * For multi-instance / production: replace with Redis or DB-backed store.
- */
 public class OtpStore {
 
     private static final Map<String, OtpEntry> STORE = new ConcurrentHashMap<>();

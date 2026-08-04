@@ -10,21 +10,11 @@ import com.petclinic.backend.util.PasswordUtil;
 
 import java.io.IOException;
 
-/**
- * Registration flow:
- *   GET  /auth/register        → show registration form
- *   POST /auth/register        → validate + send email OTP → redirect to OTP page
- *   GET  /auth/register/verify → show OTP verification form
- *   POST /auth/register/verify → verify email OTP + create account
- *
- * Phone: bắt buộc. Format-only validation (10 digits, starts with 0). No SMS sent.
- */
 @WebServlet(urlPatterns = {"/auth/register", "/auth/register/verify"})
 public class RegisterServlet extends HttpServlet {
 
     private final AuthService authService = new AuthService();
 
-    // Regex: email cơ bản, phone Việt Nam (10 chữ số, bắt đầu bằng 0)
     private static final java.util.regex.Pattern EMAIL_RE =
             java.util.regex.Pattern.compile("^[\\w.+\\-]+@[\\w\\-]+(\\.[\\w\\-]+)+$");
     private static final java.util.regex.Pattern PHONE_RE =
@@ -61,7 +51,7 @@ public class RegisterServlet extends HttpServlet {
         }
     }
 
-    // ── Step 1: validate → send email OTP ────────────────────────────────────
+    //  Step 1: validate -> send email OTP
     private void handleRegister(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
 
@@ -71,30 +61,25 @@ public class RegisterServlet extends HttpServlet {
         String password = req.getParameter("password");
         String confirm  = req.getParameter("confirmPassword");
 
-        // Required fields
         if (isEmpty(fullName) || isEmpty(email) || isEmpty(phone) || isEmpty(password)) {
             forwardRegisterWithError(req, resp, "Vui lòng nhập đầy đủ thông tin bắt buộc.");
             return;
         }
-        // Email format
         if (!EMAIL_RE.matcher(email.trim()).matches()) {
             forwardRegisterWithError(req, resp, "Email không đúng định dạng.");
             return;
         }
 
-        // Password match
         if (!password.equals(confirm)) {
             forwardRegisterWithError(req, resp, "Mật khẩu xác nhận không khớp.");
             return;
         }
-        // Password strength
         if (!PasswordUtil.isStrongPassword(password)) {
             forwardRegisterWithError(req, resp,
                     "Mật khẩu phải có ít nhất 6 ký tự, bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt.");
             return;
         }
 
-        // Phone format
         if (!PHONE_RE.matcher(phone.trim()).matches()) {
             forwardRegisterWithError(req, resp,
                     "Số điện thoại không hợp lệ. Vui lòng nhập đúng 10 chữ số, bắt đầu bằng 0.");
@@ -133,7 +118,7 @@ public class RegisterServlet extends HttpServlet {
         resp.sendRedirect(req.getContextPath() + "/auth/register/verify");
     }
 
-    // ── Step 2: verify email OTP → create account ────────────────────────────
+    // Step 2: verify email OTP -> create account
     private void handleVerify(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
 
@@ -189,8 +174,7 @@ public class RegisterServlet extends HttpServlet {
         }
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
-
+    //  Helpers
     private void forwardRegisterWithError(HttpServletRequest req, HttpServletResponse resp, String msg)
             throws ServletException, IOException {
         req.setAttribute("error",    msg);

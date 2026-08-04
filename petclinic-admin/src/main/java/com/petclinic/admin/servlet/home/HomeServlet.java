@@ -1,6 +1,5 @@
 package com.petclinic.admin.servlet.home;
 
-import com.petclinic.backend.dao.NotificationDAO;
 import com.petclinic.backend.dao.ServiceDAO;
 import com.petclinic.backend.model.Customer;
 import com.petclinic.backend.model.ServiceCategory;
@@ -16,7 +15,6 @@ import java.util.List;
 public class HomeServlet extends HttpServlet {
 
     private final ServiceDAO      serviceDAO      = new ServiceDAO();
-    private final NotificationDAO notificationDAO = new NotificationDAO();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
@@ -31,8 +29,6 @@ public class HomeServlet extends HttpServlet {
             Customer customer   = (session != null) ? (Customer) session.getAttribute("customer") : null;
 
             if (customer != null) {
-                int unread = notificationDAO.countUnread(customer.getCustomerID());
-                req.setAttribute("unreadCount", unread);
                 req.getRequestDispatcher("/WEB-INF/views/customer/home.jsp").forward(req, resp);
             } else {
                 req.getRequestDispatcher("/WEB-INF/views/guest/home.jsp").forward(req, resp);

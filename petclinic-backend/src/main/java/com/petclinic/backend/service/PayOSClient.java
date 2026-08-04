@@ -19,24 +19,6 @@ public class PayOSClient {
 
     private final Gson gson = new Gson();
 
-    /**
-     * Tạo link thanh toán PayOS — luồng KHÁCH HÀNG (booking online, mặc định).
-     */
-    public String createPaymentLink(long orderCode, int appointmentId, int invoiceId, long amountVnd, String description, boolean isFullPayment) throws Exception {
-        return createPaymentLink(orderCode, appointmentId, invoiceId, amountVnd, description, isFullPayment, "customer", null);
-    }
-
-    /**
-     * Tạo link thanh toán PayOS - dùng chung cho CẢ khách hàng (booking online)
-     * VÀ lễ tân (thu tiền hóa đơn tại quầy). Khác biệt duy nhất giữa 2
-     * luồng là returnUrl/cancelUrl để PaymentWebhookServlet biết đường quay về
-     * đúng ngữ cảnh (trang chi tiết lịch hẹn của khách, hay trang hóa đơn của
-     * lễ tân) — phần gọi PayOS API bên dưới giữ NGUYÊN, không tách logic riêng.
-     *
-     * @param source  "customer" (mặc định) hoặc "staff:checkin"/"staff:history"
-     *                (định danh lễ tân đang ở tab nào để quay về đúng chỗ).
-     * @param staffId ID nhân viên đang thực hiện thu tiền (null nếu luồng khách hàng).
-     */
     public String createPaymentLink(long orderCode, int appointmentId, int invoiceId, long amountVnd,
                                     String description, boolean isFullPayment,
                                     String source, Integer staffId) throws Exception {
@@ -95,9 +77,6 @@ public class PayOSClient {
         return responseJson.getAsJsonObject("data").get("checkoutUrl").getAsString();
     }
 
-    /**
-     * Parse và verify Webhook
-     */
     public WebhookData parseAndVerifyWebhook(String rawBody, String receivedSignature) throws Exception {
         JsonObject payload = JsonParser.parseString(rawBody).getAsJsonObject();
         String code = payload.get("code").getAsString();

@@ -4,13 +4,9 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * 1 dòng bảng Invoices — hoá đơn ứng với 1 Appointment (1-1, ràng buộc bởi
- * UNIQUE constraint trên AppointmentID). 1 Invoice có thể có nhiều Payment
- * (1-N, xem Payment.getInvoiceID()/FK_Payments_Invoices).
- */
 public class Invoice {
     private int              invoiceID;
+    private String           invoiceCode;
     private int               appointmentID;
     private int               customerID;
     private BigDecimal        totalAmount;
@@ -23,6 +19,8 @@ public class Invoice {
 
     public int        getInvoiceID()          { return invoiceID; }
     public void       setInvoiceID(int v)     { invoiceID = v; }
+    public String getInvoiceCode()              { return invoiceCode; }
+    public void   setInvoiceCode(String v)      { invoiceCode = v; }
     public int        getAppointmentID()      { return appointmentID; }
     public void       setAppointmentID(int v) { appointmentID = v; }
     public int        getCustomerID()         { return customerID; }

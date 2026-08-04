@@ -11,16 +11,8 @@ import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.util.List;
 
-/**
- * Service layer cho tính năng quản lý hoàn tiền (staff-side).
- * <p>
- * "Xác nhận hoàn tiền" chỉ đánh dấu Processed SAU KHI staff đã tự chuyển
- * khoản thủ công (quét VietQR do buildVietQrUrl() sinh ra) - hệ thống
- * không tự động gửi tiền, xem RefundListServlet/RefundDetailServlet.
- */
 public class RefundService {
 
-    /** Appointment phải ở 1 trong các trạng thái này mới được tạo yêu cầu hoàn tiền thủ công. */
     private static final List<String> ELIGIBLE_APPOINTMENT_STATUSES = List.of("Cancelled", "NoShow", "Done");
 
     private final RefundDAO refundDAO = new RefundDAO();
@@ -29,7 +21,7 @@ public class RefundService {
     private final CustomerDAO customerDAO = new CustomerDAO();
     private final EmailService emailService = new EmailService();
 
-    // ── List / detail ────────────────────────────────────────────────────────
+
 
     public List<Refund> listRefunds(String statusFilter, String sortBy) throws SQLException {
         return refundDAO.search(statusFilter, sortBy);
@@ -39,31 +31,20 @@ public class RefundService {
         return refundDAO.findById(refundId);
     }
 
-    /** Invoice (kèm Items + Payments) của appointment gắn với refund này. */
     public Invoice getInvoiceForRefund(Refund refund) throws SQLException {
         return invoiceDAO.findByAppointment(refund.getAppointmentID());
     }
 
-    /** Cùng logic trên, dùng khi chưa có Refund (màn tạo yêu cầu mới, đang xem preview). */
     public Invoice getInvoiceForAppointment(int appointmentId) throws SQLException {
         return invoiceDAO.findByAppointment(appointmentId);
     }
-
-    /** URL ảnh VietQR để staff quét chuyển khoản - null nếu thiếu thông tin ngân hàng. */
     public String buildVietQrUrl(Refund refund) {
         String message = "Hoan tien lich hen " + refund.getAppointmentID();
         return VietQrUtil.buildQuickLinkUrl(refund.getBankCode(), refund.getAccountNumber(),
                 refund.getAccountName(), refund.getPaidAmount(), message);
     }
 
-    // ── Xử lý: Xác nhận / Từ chối ────────────────────────────────────────────
-
-    /**
-     * Xác nhận ĐÃ CHUYỂN KHOẢN xong (bước 2, sau khi staff quét QR ở bước 1
-     * và tự thực hiện chuyển khoản bằng app ngân hàng của họ). Cập nhật
-     * Refund → Processed, Invoice → Refunded/PartiallyRefunded tuỳ số tiền
-     * hoàn có phủ hết tổng đã thu hay không, rồi gửi email cho khách.
-     */
+    //  Xử lý: Xác nhận / Từ chối
     public void confirmProcessed(int refundId, int staffId) throws Exception {
         Refund refund = refundDAO.findById(refundId);
         if (refund == null) throw new IllegalArgumentException("Không tìm thấy yêu cầu hoàn tiền.");
@@ -74,7 +55,7 @@ public class RefundService {
         boolean updated = refundDAO.markProcessed(refundId, staffId);
         if (!updated) {
             throw new IllegalStateException(
-                    "Yêu cầu này vừa được xử lý (có thể ở tab khác) — vui lòng tải lại trang.");
+                    "Yêu cầu này vừa được xử lý - vui lòng tải lại trang.");
         }
 
         Invoice invoice = invoiceDAO.findByAppointment(refund.getAppointmentID());
@@ -89,7 +70,6 @@ public class RefundService {
         sendOutcomeEmail(refund, true);
     }
 
-    /** Từ chối yêu cầu - lý do bắt buộc, khác với Reason (lý do gốc của khách). */
     public void reject(int refundId, int staffId, String rejectReason) throws Exception {
         if (rejectReason == null || rejectReason.isBlank()) {
             throw new IllegalArgumentException("Vui lòng nhập lý do từ chối.");
@@ -103,7 +83,7 @@ public class RefundService {
         boolean updated = refundDAO.markRejected(refundId, staffId, rejectReason.trim());
         if (!updated) {
             throw new IllegalStateException(
-                    "Yêu cầu này vừa được xử lý (có thể ở tab khác) — vui lòng tải lại trang.");
+                    "Yêu cầu này vừa được xử lý - vui lòng tải lại trang.");
         }
 
         refund.setStatus("Rejected");
@@ -129,19 +109,13 @@ public class RefundService {
         return sum;
     }
 
-    // ── Tạo yêu cầu mới (staff tự khởi tạo, không qua luồng huỷ lịch) ────────────
-
-    /**
-     * @param statusFilter null/blank = tất cả 3 trạng thái hợp lệ; nếu có giá trị thì PHẢI
-     *                     nằm trong ELIGIBLE_APPOINTMENT_STATUSES - giá trị lạ (vd bị chỉnh
-     *                     tay trên query string) bị bỏ qua, không được dùng để lách qua danh
-     *                     sách trạng thái cho phép.
-     */
+    // Tạo yêu cầu mớ, staff tự khởi tạo
     public List<Appointment> getEligibleAppointments(String keyword, String statusFilter) throws SQLException {
-        List<String> statuses = (statusFilter != null && ELIGIBLE_APPOINTMENT_STATUSES.contains(statusFilter))
-                ? List.of(statusFilter)
-                : ELIGIBLE_APPOINTMENT_STATUSES;
-        return appointmentDAO.findByStatuses(statuses, keyword);
+        List<Appointment> appointments = appointmentDAO.findRefundEligibleAppointments(keyword);
+        if (statusFilter != null && ELIGIBLE_APPOINTMENT_STATUSES.contains(statusFilter)) {
+            appointments.removeIf(a -> !statusFilter.equals(a.getStatus()));
+        }
+        return appointments;
     }
 
     public Appointment getEligibleAppointment(int appointmentId) throws SQLException {
@@ -152,11 +126,6 @@ public class RefundService {
         return appt;
     }
 
-    /**
-     * Tạo yêu cầu hoàn tiền do STAFF khởi tạo. Luôn tính lại số tiền đã
-     * thanh toán thực tế (SUM Payments.Amount) từ DB - KHÔNG tin số fullRefund/
-     * customAmount client gửi lên vượt quá con số này.
-     */
     public int createManualRequest(int appointmentId, String reason, BigDecimal customAmount,
                                    boolean fullRefund, String bankCode, String accountNumber,
                                    String accountName) throws Exception {

@@ -209,6 +209,8 @@
   color: var(--warm-gray);
 }
 .appt-empty-icon { font-size: 52px; margin-bottom: 16px; }
+.btn-inline-icon { width: 1em; height: 1em; display: inline-block; flex: 0 0 auto; vertical-align: -0.14em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.appt-empty-icon svg { width: 1em; height: 1em; display: block; margin: 0 auto; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .appt-empty h3   { font-size: 18px; color: var(--text-dark); margin-bottom: 8px; }
 .appt-empty p    { font-size: 14px; }
 
@@ -565,17 +567,19 @@
 
 /* ── Yêu cầu hoàn tiền (trong Cancel modal, chỉ hiện khi appt Confirmed) ──── */
 .refund-toggle-field { margin-top: 4px; }
-.refund-checkbox-row {
+.refund-required-notice {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
   padding: 12px 14px;
-  background: var(--green-50);
-  border: 1.5px solid var(--green-100);
+  background: #fff3cd;
+  border: 1.5px solid #ffe28a;
   border-radius: 8px;
+  font-size: 13.5px;
+  color: #856404;
+  line-height: 1.55;
 }
-.refund-checkbox-row input { width: 16px; height: 16px; accent-color: var(--green-500); cursor: pointer; }
-.refund-checkbox-row label { font-size: 13.5px; font-weight: 600; color: var(--green-900); cursor: pointer; }
+.refund-required-icon { flex-shrink: 0; font-size: 16px; line-height: 1.4; }
 
 .refund-panel {
   display: none;

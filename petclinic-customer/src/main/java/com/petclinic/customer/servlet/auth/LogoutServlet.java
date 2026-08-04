@@ -22,7 +22,6 @@ public class LogoutServlet extends HttpServlet {
     protected void doPost(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
 
-        // Invalidate Remember-Me token in DB
         Cookie[] cookies = req.getCookies();
         if (cookies != null) {
             for (Cookie c : cookies) {
@@ -39,7 +38,6 @@ public class LogoutServlet extends HttpServlet {
             }
         }
 
-        // Invalidate session
         HttpSession session = req.getSession(false);
         if (session != null) session.invalidate();
 

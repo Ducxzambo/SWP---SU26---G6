@@ -4,9 +4,6 @@
   const CTX = window.APP_CTX || '';
   const state = {
     mode: 'normal',
-    // Không còn chọn thú cưng ở luồng booking (Appointments.PetID nullable)
-    // — chỉ còn DUY NHẤT 1 cấu hình dịch vụ/vaccine cho cả lượt đặt lịch,
-    // thay vì 1 Map theo từng pet như trước.
     config: { categoryIds: new Set(), serviceIds: new Set(), vaccineIds: new Set() },
     slotKey: null,
     inpatientDate: null,
@@ -30,6 +27,24 @@
     document.getElementById('notesPanel').style.display = '';
     updateSummary();
   };
+
+  function isPetSelected() {
+    const checked = document.querySelector('input[name="petId"]:checked');
+    if (checked) return true;
+    const nameInput = document.getElementById('newPetName');
+    return !!(nameInput && nameInput.value.trim());
+  }
+
+  function getSelectedPetLabel() {
+    const checked = document.querySelector('input[name="petId"]:checked');
+    if (checked) {
+      const chip = checked.closest('.pet-chip');
+      return chip ? chip.textContent.trim().replace(/\s+/g, ' ') : 'Đã chọn';
+    }
+    const nameInput = document.getElementById('newPetName');
+    if (nameInput && nameInput.value.trim()) return nameInput.value.trim() + ' (mới)';
+    return '';
+  }
 
   // Multi-select: chọn/bỏ chọn 1 dịch vụ trong danh sách, KHÔNG xoá các lựa
   // chọn khác.
@@ -316,8 +331,16 @@
   function updateSummary() {
     const svcSection = document.getElementById('sumSvcSection');
     const slotSection = document.getElementById('sumSlotSection');
+    const petSection = document.getElementById('sumPetSection');
     const btnBook = document.getElementById('btnBook');
     let ready = false;
+    const petOk = isPetSelected();
+
+    if (petSection) {
+      const label = getSelectedPetLabel();
+      petSection.style.display = label ? '' : 'none';
+      document.getElementById('sumPet').textContent = label;
+    }
 
     if (state.mode === 'inpatient') {
       svcSection.style.display = '';
@@ -325,7 +348,7 @@
       slotSection.style.display = (state.inpatientDate && state.inpatientPeriod) ? '' : 'none';
       document.getElementById('sumSlot').textContent = (state.inpatientDate || '') + ' · ' +
           (state.inpatientPeriod === 'morning' ? 'Sáng' : state.inpatientPeriod === 'afternoon' ? 'Chiều' : '');
-      ready = !!state.inpatientDate && !!state.inpatientPeriod;
+      ready = !!state.inpatientDate && !!state.inpatientPeriod && petOk;
     } else {
       const payload = buildPayload();
       const itemCount = payloadItemCount(payload);
@@ -333,7 +356,7 @@
       document.getElementById('sumSvcs').innerHTML = renderServiceSummary(payload);
       slotSection.style.display = state.slotKey ? '' : 'none';
       document.getElementById('sumSlot').textContent = state.slotKey ? state.slotKey.replace('|', ' · ') : '';
-      ready = itemCount >= 1 && !!state.slotKey;
+      ready = itemCount >= 1 && !!state.slotKey && petOk;
     }
 
     document.getElementById('sumPrice').textContent = formatVnd(currentTotal()) + 'đ';
@@ -359,6 +382,11 @@
     hidden.innerHTML = '';
     document.getElementById('bookingPayloadInput').value = '';
 
+    if (!isPetSelected()) {
+      e.preventDefault();
+      showCapacityError('Vui lòng chọn thú cưng hoặc nhập thông tin thú cưng mới.');
+      return;
+    }
     if (state.mode === 'inpatient') {
       if (!state.inpatientDate || !state.inpatientPeriod) {
         e.preventDefault();
@@ -434,6 +462,11 @@
     const resume = window.BOOKING_RESUME;
     if (!resume) return false;
 
+    if (resume.petId) {
+      const radio = document.querySelector('input[name="petId"][value="' + resume.petId + '"]');
+      if (radio) { radio.checked = true; window.onPetRadioChange(radio); }
+    }
+
     if (resume.isInpatient) {
       selectMode('inpatient');
       if (resume.inpatientDate) {
@@ -475,11 +508,13 @@
     selectMode('normal');
     await loadSlots([]);
 
+    document.querySelectorAll('input[name="petId"]').forEach(r => r.addEventListener('change', updateSummary));
+    const newPetNameEl = document.getElementById('newPetName');
+    if (newPetNameEl) newPetNameEl.addEventListener('input', updateSummary);
+
     const resumed = applyResumeIfAny();
     if (resumed && state.mode === 'normal' && configHasAnything()) {
       document.getElementById('slotPanel').style.display = '';
-      // Tai lai slot theo dung lua chon vua khoi phuc (applySlotData se tu
-      // kiem tra state.slotKey con hop le khong va huy neu khong con).
       await loadSlots(selectedServiceIdsForCapacity());
     }
 

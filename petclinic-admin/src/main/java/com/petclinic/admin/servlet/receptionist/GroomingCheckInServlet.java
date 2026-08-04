@@ -8,7 +8,10 @@ import com.petclinic.backend.service.ExaminationService;
 import com.petclinic.backend.service.ExaminationService.CheckInResult;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
-import jakarta.servlet.http.*;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 
 import java.io.IOException;
 import java.time.LocalDate;
@@ -16,12 +19,6 @@ import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
 import java.util.List;
 
-/**
- * BP-03 Step 1 — Receptionist grooming check-in.
- *
- * GET  /receptionist/grooming-checkin → danh sách Confirmed có dịch vụ Grooming
- * POST /receptionist/grooming-checkin → check-in (Confirmed → Arrived), gán groomer tùy chọn
- */
 @WebServlet("/receptionist/grooming-checkin")
 public class GroomingCheckInServlet extends HttpServlet {
 

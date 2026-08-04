@@ -9,12 +9,6 @@ import com.petclinic.backend.service.AuthService;
 
 import java.io.IOException;
 
-/**
- * Forgot-password flow (3 pages):
- *   /auth/forgot            – enter email
- *   /auth/forgot/verify     – enter OTP (sent to email)
- *   /auth/forgot/reset      – enter new password
- */
 @WebServlet(urlPatterns = {"/auth/forgot", "/auth/forgot/verify", "/auth/forgot/reset"})
 public class ForgotPasswordServlet extends HttpServlet {
 
@@ -23,7 +17,6 @@ public class ForgotPasswordServlet extends HttpServlet {
     private static final java.util.regex.Pattern EMAIL_RE =
             java.util.regex.Pattern.compile("^[\\w.+\\-]+@[\\w\\-]+(\\.[\\w\\-]+)+$");
 
-    // ── GET ───────────────────────────────────────────────────────────────────
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
@@ -51,7 +44,6 @@ public class ForgotPasswordServlet extends HttpServlet {
         }
     }
 
-    // ── POST ──────────────────────────────────────────────────────────────────
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
@@ -67,7 +59,7 @@ public class ForgotPasswordServlet extends HttpServlet {
         }
     }
 
-    // ── Step 1: nhập email ────────────────────────────────────────────────────
+    // Step 1: nhập email
     private void handleForgotStep1(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
 
@@ -115,7 +107,7 @@ public class ForgotPasswordServlet extends HttpServlet {
         resp.sendRedirect(req.getContextPath() + "/auth/forgot/verify");
     }
 
-    // ── Step 2: xác minh OTP ─────────────────────────────────────────────────
+    // Step 2: xác minh OTP
     private void handleForgotStep2(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
 
@@ -141,7 +133,7 @@ public class ForgotPasswordServlet extends HttpServlet {
         resp.sendRedirect(req.getContextPath() + "/auth/forgot/reset");
     }
 
-    // ── Step 3: đặt lại mật khẩu ─────────────────────────────────────────────
+    // Step 3: đặt lại mật khẩu
     private void handleForgotStep3(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
 

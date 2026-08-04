@@ -5,8 +5,6 @@ import com.petclinic.backend.dao.StaffDAO;
 import com.petclinic.backend.model.*;
 import com.petclinic.backend.service.ExaminationService;
 import com.petclinic.backend.service.ExaminationService.CheckInResult;
-import jakarta.mail.Session;
-import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
@@ -19,25 +17,14 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
-import java.util.Enumeration;
 import java.util.List;
 
-/**
- * BP-02 Step 1 — Receptionist check-in.
- *
- * GET  /receptionist/checkin                → danh sách Confirmed, lọc ngày + ca
- * POST /receptionist/checkin                → check-in bình thường (Confirmed → Arrived)
- * POST /receptionist/checkin?action=walkinLookup → Bước 1 walk-in: tra SĐT
- * POST /receptionist/checkin?action=walkinSubmit → Bước 2 walk-in: tạo lịch (nhiều service, mỗi service 1 staff riêng)
- * POST /receptionist/checkin?action=assignStaff  → gán/đổi staff cho 1 dòng dịch vụ cụ thể
- */
 @WebServlet("/receptionist/checkin")
 public class CheckInServlet extends HttpServlet {
 
     private final ExaminationService examinationService = new ExaminationService();
     private final StaffDAO           staffDAO           = new StaffDAO();
 
-    // ── GET ───────────────────────────────────────────────────────────────────
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
@@ -84,7 +71,6 @@ public class CheckInServlet extends HttpServlet {
             req.getRequestDispatcher("/WEB-INF/views/receptionist/checkin.jsp").forward(req, resp);
         }
     }
-
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp)
@@ -201,13 +187,14 @@ public class CheckInServlet extends HttpServlet {
         }
     }
 
-    // ── WALK-IN Bước 2: tạo lịch nhiều dịch vụ, mỗi dịch vụ 1 staff riêng ───────
+    //  Walk-in Bước 2: tạo lịch nhiều dịch vụ, mỗi dịch vụ 1 staff riêng
     private void handleWalkInSubmit(HttpServletRequest req, HttpServletResponse resp,
                                     HttpSession session) throws ServletException, IOException {
         String phone         = req.getParameter("phone");
         String customerIdStr = req.getParameter("customerID");
         String petIdStr      = req.getParameter("petID");
         String fullName      = req.getParameter("fullName");
+        String email         = req.getParameter("email");
         String petName       = req.getParameter("petName");
         String species       = req.getParameter("species");
         String breed         = req.getParameter("breed");
@@ -248,13 +235,18 @@ public class CheckInServlet extends HttpServlet {
                         serviceIDs, staffIDs);
 
             } else {
+                if (isBlank(email)) {
+                    reloadCheckinWithWalkInError(req, resp,
+                            "Vui lòng nhập email liên hệ.", phone);
+                    return;
+                }
                 if (isBlank(fullName) || isBlank(petName)) {
                     reloadCheckinWithWalkInError(req, resp,
                             "Vui lòng nhập đầy đủ Họ tên và Tên thú cưng.", phone);
                     return;
                 }
                 apptID = examinationService.createWalkInWithNewCustomer(
-                        fullName.trim(), phone.trim(), petName.trim(),
+                        fullName.trim(), phone.trim(), email.trim(), petName.trim(),
                         blankToDefault(species, "Chưa rõ"), blankToDefault(breed, "Chưa rõ"),
                         serviceIDs, staffIDs);
             }
@@ -266,9 +258,6 @@ public class CheckInServlet extends HttpServlet {
                 return;
             }
 
-            // BP-04: tạo Invoice + InvoiceItems ngay sau khi Appointment +
-            // AppointmentServices đã có, rồi chuyển sang màn hình tổng hợp hóa
-            // đơn để lễ tân thu tiền (tiền mặt/chuyển khoản QR PayOS).
             int invoiceId;
             try {
                 invoiceId = examinationService.createInvoiceForWalkIn(apptID, serviceIDs);
@@ -290,8 +279,7 @@ public class CheckInServlet extends HttpServlet {
         }
     }
 
-    // ── Helpers: reload trang checkin kèm trạng thái modal walk-in ─────────────
-
+    // Helpers: reload trang checkin kèm trạng thái modal walk-in
     private void reloadCheckinWithWalkInStep2(HttpServletRequest req, HttpServletResponse resp,
                                               String phone, Customer customer, List<Pet> pets)
             throws ServletException, IOException {
@@ -338,7 +326,7 @@ public class CheckInServlet extends HttpServlet {
         }
     }
 
-    /** Load danh sách vet, groomer, service, vetWorkload — dùng chung cho GET và mọi reload. */
+    // Load danh sách vet, groomer, service, vetWorkload
     private void loadFormOptions(HttpServletRequest req) {
         try {
             List<Staff> vets     = staffDAO.findAllVets();

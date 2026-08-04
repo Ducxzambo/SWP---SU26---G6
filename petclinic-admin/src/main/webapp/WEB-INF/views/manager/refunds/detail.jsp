@@ -128,6 +128,10 @@
                 <span class="alert-icon">✓</span>
                 Đã hoàn tất chuyển khoản lúc ${refund.formattedRefundedAt}. Email thông báo đã được gửi cho khách hàng.
             </div>
+            <div class="page-actions">
+                <a href="${pageContext.request.contextPath}/manager/refunds/receipt?id=${refund.refundID}" class="btn btn-outline">Xem biên lai</a>
+                <a href="${pageContext.request.contextPath}/manager/refunds/receipt?id=${refund.refundID}&format=pdf" class="btn btn-primary">Tải PDF</a>
+            </div>
         </c:if>
 
         <c:if test="${refund.rejected}">

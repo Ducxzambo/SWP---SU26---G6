@@ -9,7 +9,6 @@ import com.petclinic.backend.model.Customer;
 
 import java.io.IOException;
 
-/** GET /appointments/status?id=123 → {"status":"Confirmed"} */
 @WebServlet("/appointments/status")
 public class AppointmentStatusServlet extends HttpServlet {
 

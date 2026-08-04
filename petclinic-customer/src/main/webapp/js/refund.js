@@ -13,16 +13,12 @@
  */
 (function () {
   var refundPanel = document.getElementById('refundPanel');
-  if (!refundPanel) return; // trang không có checkbox "Yêu cầu hoàn tiền" (appt không Confirmed)
+  if (!refundPanel) return; // appt không Confirmed → không có panel này
 
   var BANKS_API_URL = 'https://api.vietqr.io/v2/banks';
-
   var bankListCache   = null;
   var bankListLoading = false;
 
-  /* ============================================================
-   * 1) DANH SÁCH NGÂN HÀNG (Option 2 — dropdown)
-   * ============================================================ */
   function ensureBankListLoaded() {
     if (bankListCache || bankListLoading) return;
     bankListLoading = true;
@@ -69,13 +65,8 @@
   }
 
   /* ============================================================
-   * 2) TOGGLE PANEL + CHUYỂN TAB Option 1 / Option 2
+   * 2) CHUYỂN TAB Option 1 / Option 2
    * ============================================================ */
-  function toggleRefundPanel(checked) {
-    refundPanel.classList.toggle('open', !!checked);
-    if (checked) ensureBankListLoaded();
-    updateConfirmButtonState();
-  }
 
   function switchRefundMethod(method) {
     document.querySelectorAll('.refund-method-btn').forEach(function (b) {
@@ -86,10 +77,7 @@
   }
 
   function resetRefundPanel() {
-    var cb = document.getElementById('refundRequested');
-    if (cb) cb.checked = false;
-    refundPanel.classList.remove('open');
-
+    refundPanel.classList.add('open');
     var bank = document.getElementById('refundBankSelect');
     if (bank) bank.value = '';
     var accNo = document.getElementById('refundAccountNumber');
@@ -100,8 +88,8 @@
     if (fileInput) fileInput.value = '';
     var statusEl = document.getElementById('refundQrStatus');
     if (statusEl) { statusEl.textContent = ''; statusEl.className = 'refund-qr-status'; }
-
     switchRefundMethod('qr');
+    if (typeof window.updateConfirmButtonState === 'function') window.updateConfirmButtonState();
   }
 
   /* ============================================================
@@ -195,15 +183,6 @@
     updateConfirmButtonState();
   }
 
-  /**
-   * Tag 59 (Merchant Name) trong QR EMVCo KHÔNG được đảm bảo là tên chủ tài
-   * khoản — có thể trống, có thể là chuỗi generic của ngân hàng/hệ thống QR
-   * (vd "VIETQR", "NAPAS") thay vì tên khách. Chỉ coi là tên hợp lệ khi:
-   *   - không rỗng, đủ dài tối thiểu, có chứa chữ cái (không phải toàn số)
-   *   - KHÔNG trùng 1 trong các chuỗi generic thường gặp
-   *   - KHÔNG trùng tên/tên viết tắt của chính ngân hàng vừa nhận diện được
-   * Không hợp lệ → trả về null, KHÔNG điền gì cả, để khách tự gõ tay.
-   */
   function sanitizeAccountHolderName(rawName, matchedBank) {
     if (!rawName) return null;
     var name = rawName.trim().replace(/\s+/g, ' ');
@@ -231,12 +210,6 @@
     el.className = 'refund-qr-status' + (kind ? ' ' + kind : '');
   }
 
-  /* ============================================================
-   * 4) Parser EMVCo QR (chuẩn VietQR) — tag-length-value đệ quy
-   *    Tag gốc quan trọng: 38 = Merchant Account Info (NAPAS/VietQR),
-   *    59 = Merchant Name. Bên trong tag 38: sub-tag chứa {00: bank BIN
-   *    6 số, 01: số tài khoản}.
-   * ============================================================ */
   function parseEmvTlv(payload) {
     var root = {};
     var i = 0;
@@ -279,13 +252,9 @@
     }
   }
 
-  /* ============================================================
-   * 5) VALIDATE trước khi cho bấm "Xác nhận huỷ"
-   * ============================================================ */
+  window.switchRefundMethod = switchRefundMethod;
+  window.handleRefundQrFile = handleRefundQrFile;
+  window.resetRefundPanel   = resetRefundPanel;
 
-  // Expose cho inline onclick/onchange trong JSP + cho appointment.js gọi khi đóng modal
-  window.toggleRefundPanel      = toggleRefundPanel;
-  window.switchRefundMethod     = switchRefundMethod;
-  window.handleRefundQrFile     = handleRefundQrFile;
-  window.resetRefundPanel       = resetRefundPanel;
+  ensureBankListLoaded();
 })();

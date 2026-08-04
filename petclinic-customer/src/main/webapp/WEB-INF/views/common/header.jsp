@@ -10,7 +10,7 @@
   <nav class="nav-inner">
 
     <!-- Logo -->
-    <a href="${ctx}/" class="nav-logo">🐾 Pet<span>Clinic</span></a>
+    <a href="${ctx}/" class="nav-logo"><svg class="nav-inline-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="7" cy="8" r="2"/><circle cx="12" cy="5" r="2"/><circle cx="17" cy="8" r="2"/><path d="M12 11c-3 0-5 2-5 5 0 2 1 3 3 2l2-1 2 1c2 1 3 0 3-2 0-3-2-5-5-5z"/></svg> Pet<span>Clinic</span></a>
 
     <!-- Main nav links -->
     <ul class="nav-links">
@@ -23,7 +23,7 @@
       <c:if test="${empty customer}">
         <!-- Giới thiệu -->
         <li class="nav-item">
-        <span class="nav-link">Giới thiệu <span class="chevron">▾</span></span>
+        <span class="nav-link">Giới thiệu <svg class="nav-inline-icon chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5"/></svg></span>
         <div class="nav-dropdown">
         <a href="${ctx}/#intro">Lời giới thiệu</a>
         <a href="${ctx}/#facility">Cơ sở vật chất</a>
@@ -36,13 +36,13 @@
 
       <!-- Dịch vụ (dynamic from DB) -->
       <li class="nav-item">
-        <a href="${ctx}/services" class="nav-link">Dịch vụ <span class="chevron">▾</span></a>
+        <a href="${ctx}/services" class="nav-link">Dịch vụ <svg class="nav-inline-icon chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5"/></svg></a>
         <div class="nav-dropdown" style="min-width:240px;">
           <c:forEach var="cat" items="${navCategories}">
             <div class="dd-group">
               <div class="dd-group-label">
                 <span>${cat.name}</span>
-                <c:if test="${not empty cat.services}"><span class="arr">›</span></c:if>
+                <c:if test="${not empty cat.services}"><svg class="nav-inline-icon arr" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></c:if>
               </div>
               <c:if test="${not empty cat.services}">
                 <div class="dd-sub">
@@ -75,16 +75,6 @@
 
       <!-- ── Customer-only nav items ──────────────────────────────────── -->
             <c:if test="${not empty customer}">
-              <li class="nav-item">
-                <a href="${ctx}/notifications" class="nav-link">Thông báo
-                  <c:if test="${unreadCount > 0}">
-                    <span style="background:var(--green-400);color:var(--green-900);
-                      border-radius:10px;padding:1px 7px;font-size:11px;font-weight:700;">
-                      ${unreadCount}
-                    </span>
-                  </c:if>
-                </a>
-              </li>
             </c:if>
 
     </ul><!-- /nav-links -->
@@ -95,19 +85,11 @@
       <c:choose>
         <c:when test="${not empty customer}">
 
-          <!-- Notification bell -->
-          <button class="notif-btn" id="notifBtn" title="Thông báo" onclick="toggleNotif()">
-            🔔
-            <c:if test="${unreadCount > 0}">
-              <span class="notif-badge">${unreadCount > 9 ? '9+' : unreadCount}</span>
-            </c:if>
-          </button>
-
           <!-- Big quick-access buttons -->
           <div class="nav-big-btns">
             <a href="${ctx}/pets" class="nav-big-btn pets">Thú cưng</a>
             <a href="${ctx}/appointments" class="nav-big-btn schedule">Lịch khám</a>
-            <a href="${ctx}/booking/new" class="nav-big-btn booking">➕ Đặt lịch</a>
+            <a href="${ctx}/booking/new" class="nav-big-btn booking"><svg class="nav-inline-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg> Đặt lịch</a>
           </div>
 
           <!-- Profile dropdown -->
@@ -117,13 +99,13 @@
               <div class="nav-avatar">
                 ${customer.fullName.substring(0,1).toUpperCase()}
               </div>
-              <span class="chevron">▾</span>
+              <svg class="nav-inline-icon chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5"/></svg>
             </button>
             <div class="nav-profile-panel" id="navProfilePanel">
-              <a href="${ctx}/profile" class="nav-profile-item">👤 Hồ sơ của tôi</a>
+              <a href="${ctx}/profile" class="nav-profile-item">Hồ sơ của tôi</a>
               <div class="nav-profile-divider"></div>
               <form action="${ctx}/auth/logout" method="post" style="margin:0;">
-                <button type="submit" class="nav-profile-item nav-profile-item-danger">🚪 Đăng xuất</button>
+                <button type="submit" class="nav-profile-item nav-profile-item-danger">Đăng xuất</button>
               </form>
             </div>
           </div>
@@ -139,35 +121,6 @@
     </div><!-- /nav-actions -->
   </nav>
 </header>
-
-<!-- Notification slide-down panel (customer only) -->
-<c:if test="${not empty customer}">
-  <div class="notif-panel" id="notifPanel">
-    <div class="notif-panel-head">
-      <h4>Thông báo</h4>
-      <a href="${ctx}/notifications" style="font-size:12px;color:var(--green-500);">Xem tất cả</a>
-    </div>
-    <%-- Pill filters --%>
-    <div style="display:flex;gap:6px;padding:8px 14px;overflow-x:auto;border-bottom:1px solid var(--border);scrollbar-width:none;">
-      <button class="notif-pill active" onclick="filterDropdown('ALL',this)">Tất cả</button>
-      <button class="notif-pill" onclick="filterDropdown('REMINDER',this)">Nhắc lịch</button>
-      <button class="notif-pill" onclick="filterDropdown('PAYMENT',this)">Thanh toán</button>
-      <button class="notif-pill" onclick="filterDropdown('EXAM_RESULT',this)">Kết quả</button>
-      <button class="notif-pill" onclick="filterDropdown('CARE_TIP',this)">Chăm sóc</button>
-    </div>
-    <div class="notif-list" id="notifList" style="max-height:380px;overflow-y:auto;">
-      <div class="notif-dropdown-loading">Đang tải...</div>
-    </div>
-    <div class="notif-dropdown-footer">
-      <form action="${ctx}/notifications/mark-read" method="post" style="display:inline;">
-        <button type="submit" style="background:none;border:none;cursor:pointer;
-                font-size:12.5px;color:var(--warm-gray);font-family:'DM Sans',sans-serif;">
-          ✓ Đánh dấu tất cả đã đọc
-        </button>
-      </form>
-    </div>
-  </div>
-</c:if>
 
 <!-- Flash messages -->
 <c:if test="${not empty sessionScope.flashSuccess}">

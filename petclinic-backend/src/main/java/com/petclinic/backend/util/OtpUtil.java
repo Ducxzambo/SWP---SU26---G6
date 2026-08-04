@@ -9,7 +9,6 @@ import java.util.Properties;
 
 public class OtpUtil {
 
-    // ── Email config (replace with real SMTP credentials) ──────────────────
     private static final String SMTP_HOST = "smtp.gmail.com";
     private static final int SMTP_PORT = 587;
 
@@ -21,13 +20,11 @@ public class OtpUtil {
     private static final SecureRandom RANDOM = new SecureRandom();
     public  static final int OTP_EXPIRE_MINUTES = 10;
 
-    /** Generate a 6-digit numeric OTP. */
     public static String generateOtp() {
         int otp = 100_000 + RANDOM.nextInt(900_000);
         return String.valueOf(otp);
     }
 
-    /** Send OTP via email using JavaMail. */
     public static void sendOtpEmail(String toEmail, String otp, String purpose) throws MessagingException, UnsupportedEncodingException {
         Properties props = new Properties();
         props.put("mail.smtp.auth",            "true");
@@ -53,7 +50,6 @@ public class OtpUtil {
         Transport.send(msg);
     }
 
-    // ── Private helpers ─────────────────────────────────────────────────────
 
     private static String buildEmailSubject(String purpose) {
         switch (purpose) {

@@ -9,7 +9,6 @@ import java.util.List;
 
 public class VaccineDAO {
 
-    /** Chỉ trả Vaccine còn đủ tồn kho (StockQty >= minStockLevel) — theo yêu cầu ẩn loại sắp hết hàng. */
     public List<Vaccine> findAvailable() throws SQLException {
         String sql = "SELECT * FROM Vaccines WHERE StockQty >= MinStockLevel ORDER BY Name";
         List<Vaccine> list = new ArrayList<>();
@@ -43,10 +42,6 @@ public class VaccineDAO {
         }
     }
 
-    /**
-     * Trừ kho vaccine sau khi sử dụng. Chạy trong cùng connection/transaction
-     * với bước ghi StockTransactions (xem InvoiceSyncService).
-     */
     public void deductStock(Connection c, int vaccineId, int qty) throws SQLException {
         String sql = "UPDATE Vaccines SET StockQty = StockQty - ? WHERE VaccineID = ? AND StockQty >= ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {

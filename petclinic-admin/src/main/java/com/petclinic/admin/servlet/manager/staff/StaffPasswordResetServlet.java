@@ -11,13 +11,6 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
 
-/**
- * Staff &gt; Đặt lại mật khẩu (POST-only action, no screen of its own).
- * Kept separate from StaffEditServlet on purpose: password is a credential,
- * not a profile field, so it shouldn't be one more input silently sitting in
- * the general edit form (same "don't overload one form with two different
- * concerns" rule already applied to Inventory's stock-in vs thresholds).
- */
 @WebServlet("/manager/staff/reset-password")
 public class StaffPasswordResetServlet extends HttpServlet {
 

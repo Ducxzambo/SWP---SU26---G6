@@ -2,7 +2,7 @@ package com.petclinic.backend.service;
 
 import com.petclinic.backend.dao.MedicineDAO;
 import com.petclinic.backend.dto.StockMovementReport;
-import com.petclinic.backend.dto.StockTransaction;
+import com.petclinic.backend.model.StockTransaction;
 import com.petclinic.backend.model.*;
 
 import java.math.BigDecimal;
@@ -13,9 +13,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
-/**
- * Service layer for BP-07: Stock Management.
- */
+
 public class StockService {
 
     private static final int DEFAULT_THRESHOLD = 10;
@@ -73,11 +71,6 @@ public class StockService {
             }
         }
 
-        // Threshold is only ever set here when creating a brand-new item
-        // (Medicine or Vaccine). Adjusting the threshold of an existing
-        // item is the Thresholds screen's job, not Stock-In's - keeping
-        // that concern in one place avoids a restock accidentally
-        // overwriting an alert level someone else configured.
         int threshold = newItem
                 ? (minStockLevel == null || minStockLevel <= 0 ? DEFAULT_THRESHOLD : minStockLevel)
                 : 0;

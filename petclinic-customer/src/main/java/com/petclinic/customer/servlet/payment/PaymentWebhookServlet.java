@@ -1,5 +1,7 @@
 package com.petclinic.customer.servlet.payment;
 
+import com.petclinic.backend.dto.ReceiptData;
+import com.petclinic.backend.service.*;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
@@ -7,36 +9,26 @@ import com.petclinic.backend.dao.*;
 import com.petclinic.backend.model.Appointment;
 import com.petclinic.backend.model.Customer;
 import com.petclinic.backend.model.Invoice;
-import com.petclinic.backend.service.AssignmentService;
-import com.petclinic.backend.service.BookingService;
-import com.petclinic.backend.service.NotificationService;
-import com.petclinic.backend.service.PaymentService;
 
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
-/**
- *   POST /payment/webhook   – PayOS async webhook (server-to-server, không thay đổi)
- *   GET  /payment/result    – Customer return URL sau khi PayOS checkout
- */
 @WebServlet(urlPatterns = {"/payment/webhook", "/payment/result"})
 public class PaymentWebhookServlet extends HttpServlet {
 
     private static final Logger LOG = Logger.getLogger(PaymentWebhookServlet.class.getName());
 
     private final PaymentService paymentSvc     = new PaymentService();
-    private final AssignmentService assignmentSvc  = new AssignmentService();
-    private final NotificationService notifSvc      = new NotificationService();
     private final AppointmentDAO appointmentDAO = new AppointmentDAO();
     private final CustomerDAO customerDAO    = new CustomerDAO();
     private final InvoiceDAO invoiceDAO     = new InvoiceDAO();
     private final ServiceDAO serviceDAO     = new ServiceDAO();
+    private final ReceiptService receiptService = new ReceiptService();
+    private final EmailService emailService = new EmailService();
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // POST /payment/webhook
-    // ═══════════════════════════════════════════════════════════════════════════
+
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
@@ -58,26 +50,11 @@ public class PaymentWebhookServlet extends HttpServlet {
         resp.getWriter().write(ok ? "{\"error\":0}" : "{\"error\":1,\"message\":\"ignored\"}");
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // GET /payment/result
-    //
-    // PayOS redirect URL params:
-    //   code       = "00"   - giao dịch thành công
-    //   status     = "PAID" | "CANCELLED" | "PENDING"
-    //   cancel     = "true" - khách bấm Cancel
-    //   orderCode  = order code đã tạo
-    //   id         = PayOS internal transaction ID
-    //
-    // own params (appended khi tạo payment link):
-    //   apptId     = AppointmentID
-    //   invoiceId  = InvoiceID
-    //   full       = "true" nếu chọn Fully Paid, "false" nếu deposit
-    // ═══════════════════════════════════════════════════════════════════════════
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
 
-        // ── 1. Đọc params ────────────────────────────────────────────────────
+        //  1. Đọc params
         String code        = req.getParameter("code");    // "00" = success
         String statusParam = req.getParameter("status");  // "PAID" | "CANCELLED" | "PENDING"
         String cancelParam = req.getParameter("cancel");  // "true" nếu user huỷ
@@ -89,7 +66,7 @@ public class PaymentWebhookServlet extends HttpServlet {
                 + " cancel=" + cancelParam
                 + " apptId=" + apptIdStr + " invoiceId=" + invoiceIdStr);
 
-        // ── 2. Auth check ────────────────────────────────────────────────────
+        // 2. Auth check
         HttpSession session  = req.getSession(false);
         Customer customer = session != null
                 ? (Customer) session.getAttribute("customer") : null;
@@ -98,17 +75,16 @@ public class PaymentWebhookServlet extends HttpServlet {
             return;
         }
 
-        // ── 3. Parse IDs ─────────────────────────────────────────────────────
+        // 3. Parse IDs
         int apptId    = parseId(apptIdStr);
         int invoiceId = parseId(invoiceIdStr);
 
         if (apptId <= 0) {
-            // Không có apptId → về danh sách
             resp.sendRedirect(req.getContextPath() + "/appointments");
             return;
         }
 
-        // ── 4. Xác định kết quả từ PayOS ────────────────────────────────────
+        // 4. Xác định kết quả từ PayOS
         boolean cancelled = "true".equalsIgnoreCase(cancelParam)
                 || "CANCELLED".equalsIgnoreCase(statusParam);
         boolean paid      = !cancelled
@@ -116,7 +92,7 @@ public class PaymentWebhookServlet extends HttpServlet {
                 && "PAID".equalsIgnoreCase(statusParam);
         boolean full      = "true".equalsIgnoreCase(fullStr);
 
-        // ── 5. Nếu PAID → update DB (idempotent) ────────────────────────────
+        // 5. Nếu PAID → update DB (idempotent)
         if (paid && invoiceId > 0) {
             try {
                 Invoice current = invoiceDAO.findById(invoiceId);
@@ -126,34 +102,30 @@ public class PaymentWebhookServlet extends HttpServlet {
                     Appointment appt = appointmentDAO.findById(apptId);
                     boolean isInpatient = appt != null && appt.getStartTime() != null && appt.getEndTime() != null
                             && java.time.Duration.between(appt.getStartTime(), appt.getEndTime()).toMinutes() >= 240;
-                    long deposit = computeDeposit(isInpatient);
+
                     BigDecimal invoiceTotal = current.getTotalAmount();
+                    long deposit = computeDeposit(isInpatient, invoiceTotal);
+
                     if (isInpatient && (invoiceTotal == null || invoiceTotal.signum() <= 0)) {
                         invoiceTotal = BigDecimal.valueOf(deposit);
                     }
                     BigDecimal paidAmount = full ? invoiceTotal : BigDecimal.valueOf(deposit);
 
-                    // Ghi payment record — insertPayment tự tính lại và cập
-                    // nhật Status invoice (Unpaid/PrePaid/Paid) bên trong dựa
-                    // trên tổng đã thu, không cần gọi updateStatus riêng nữa.
                     invoiceDAO.insertPayment(invoiceId, paidAmount, "E-Wallet");
-
-                    // Cập nhật Appointment → Confirmed
                     if (appt != null && "Pending".equals(appt.getStatus())) {
                         appointmentDAO.updateStatus(apptId, "Confirmed");
                     }
 
-                    // Tự động assign nhân viên phụ trách (giống PaymentService.handleWebhook)
-                    // — autoAssign() tự bỏ qua các dịch vụ đã có AssignedStaffID nên gọi
-                    // lại nhiều lần (nếu webhook thật của PayOS sau đó cũng chạy) vẫn an toàn.
-                    assignmentSvc.autoAssign(apptId);
-
-                    // Tạo thông báo trong app + gửi email xác nhận + lên lịch nhắc 48h/18h
                     Appointment freshAppt = appointmentDAO.findById(apptId);
                     Invoice freshInv  = invoiceDAO.findById(invoiceId);
                     if (freshAppt != null && freshInv != null) {
-                        notifSvc.onBookingConfirmed(customer, freshAppt,
-                                freshInv.getTotalAmount(), paidAmount, full);
+                        try {
+                            ReceiptData receipt = receiptService.buildPrepayReceipt(freshInv, freshAppt, customer, full, paidAmount);
+                            String pdfUrl = absoluteBaseUrl(req) + req.getContextPath() + "/invoices/pdf?invoiceId=" + invoiceId;
+                            emailService.sendInvoiceEmail(customer, receipt, pdfUrl);
+                        } catch (Exception ex) {
+                            LOG.warning("Không gửi được biên lai lần 1: " + ex.getMessage());
+                        }
                     }
 
                     LOG.info("[PaymentResult] Updated: invoice #" + invoiceId
@@ -170,7 +142,7 @@ public class PaymentWebhookServlet extends HttpServlet {
             }
         }
 
-        // ── 6. Cleanup session payment attrs ────────────────────────────────
+        //  6. Cleanup session payment attrs
         if (session != null) {
             session.removeAttribute("pay_apptId");
             session.removeAttribute("pay_invoiceId");
@@ -179,21 +151,27 @@ public class PaymentWebhookServlet extends HttpServlet {
             session.removeAttribute("pay_inpatient");
         }
 
-        // ── 7. Forward tới JSP ───────────────────────────────────────────────
+        // 7. Forward tới JSP
         try {
+            Invoice invoiceForView = invoiceId > 0 ? invoiceDAO.findById(invoiceId) : null;
+            if (invoiceForView != null && "PrePaid".equals(invoiceForView.getStatus())) {
+                try {
+                    BigDecimal justPaid = invoiceForView.getPayments().isEmpty()
+                            ? BigDecimal.ZERO : invoiceForView.getPayments().get(0).getAmount();
+                    ReceiptData receiptView = receiptService.buildPrepayReceipt(
+                            invoiceForView, appointmentDAO.findById(apptId), customer, full, justPaid);
+                    req.setAttribute("receipt", receiptView);
+                } catch (Exception ex) { LOG.warning("Build receipt view failed: " + ex.getMessage()); }
+            }
             Appointment appt    = appointmentDAO.findById(apptId);
-            Invoice invoice = invoiceId > 0 ? invoiceDAO.findById(invoiceId) : null;
 
             req.setAttribute("appt",         appt);
-            req.setAttribute("invoice",       invoice);
+            req.setAttribute("invoice",       invoiceForView);
             req.setAttribute("paid",          paid);
             req.setAttribute("cancelled",     cancelled);
             req.setAttribute("full",          full);
             req.setAttribute("customer",      customer);
             req.setAttribute("navCategories", serviceDAO.findAllCategoriesWithServices());
-            req.setAttribute("unreadCount",
-                    new NotificationDAO().countUnread(customer.getCustomerID()));
-
             req.getRequestDispatcher("/WEB-INF/views/booking/payment-result.jsp")
                     .forward(req, resp);
 
@@ -210,8 +188,6 @@ public class PaymentWebhookServlet extends HttpServlet {
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // ═══════════════════════════════════════════════════════════════════════════
 
     private void sendConfirmationEmailFromWebhook(String webhookBody) {
         try {
@@ -231,8 +207,6 @@ public class PaymentWebhookServlet extends HttpServlet {
             Customer customer = customerDAO.findById(appt.getCustomerID());
             if (customer == null) return;
 
-            notifSvc.onBookingConfirmed(customer, appt,
-                    invoice.getTotalAmount(), BigDecimal.valueOf(amount), isFull);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -264,8 +238,12 @@ public class PaymentWebhookServlet extends HttpServlet {
         catch (Exception e) { return -1; }
     }
 
-    /** Tiền cọc cố định — CHỈ còn áp dụng cho Nội trú, booking thường = 0 (không còn cọc). */
-    private long computeDeposit(boolean isInpatient) {
-        return isInpatient ? BookingService.DEPOSIT_INPATIENT : 0L;
+    private long computeDeposit(boolean isInpatient, BigDecimal total) {
+        return isInpatient ? BookingService.DEPOSIT_INPATIENT : total.longValue() / 2;
+    }
+
+    private String absoluteBaseUrl(HttpServletRequest req) {
+        return req.getScheme() + "://" + req.getServerName()
+                + (req.getServerPort() != 80 && req.getServerPort() != 443 ? ":" + req.getServerPort() : "");
     }
 }

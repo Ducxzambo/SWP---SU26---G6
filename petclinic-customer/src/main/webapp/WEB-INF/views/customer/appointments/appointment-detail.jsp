@@ -245,7 +245,7 @@
           </c:if>
           <c:if test="${groomingRecord.flagForVet}">
             <div class="detail-block" style="border-left:3px solid var(--warm-gray);padding-left:12px;">
-              <div class="detail-block-label" style="color:#b45309;">⚠ Được đánh dấu cần bác sĩ thú y kiểm tra</div>
+              <div class="detail-block-label" style="color:#b45309;">Được đánh dấu cần bác sĩ thú y kiểm tra</div>
               <c:if test="${not empty groomingRecord.flagReason}">
                 <div class="detail-block-text">${groomingRecord.flagReason}</div>
               </c:if>
@@ -286,10 +286,15 @@
 
     <!-- Invoice & Payments -->
     <c:if test="${not empty invoice}">
+
       <div class="detail-section">
         <div class="detail-section-head">
           Hoá đơn
           <span class="inv-status inv-status--${fn:toLowerCase(invoice.status)}">${invoice.status}</span>
+          <a href="${ctx}/invoices/pdf?invoiceId=${invoice.invoiceID}" target="_blank"
+             style="margin-left:auto;font-size:12.5px;color:var(--green-500);font-weight:600;">
+            Tải hóa đơn PDF
+          </a>
         </div>
         <div class="detail-section-body" style="padding:0;">
 
@@ -332,16 +337,16 @@
                           text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">
                 Lịch sử thanh toán
               </div>
-               <c:forEach var="pay" items="${invoice.payments}">
-                 <div class="payment-row">
-                   <span class="pay-method">${pay.method}</span>
-                   <span class="pay-amount"><fmt:formatNumber value="${pay.amount}" type="number" groupingUsed="true"/>₫</span>
-                   <span class="pay-by">bởi ${pay.processedByName}</span>
-                   <c:if test="${not empty pay.paidAt}">
-                     <span class="pay-date">${pay.formattedPaidAt}</span>
-                   </c:if>
-                 </div>
-               </c:forEach>
+              <c:forEach var="pay" items="${invoice.payments}">
+                <div class="payment-row">
+                  <span class="pay-method">${pay.method}</span>
+                  <span class="pay-amount"><fmt:formatNumber value="${pay.amount}" type="number" groupingUsed="true"/>₫</span>
+                  <span class="pay-by">bởi ${pay.processedByName}</span>
+                  <c:if test="${not empty pay.paidAt}"><span class="pay-date">${pay.formattedPaidAt}</span></c:if>
+                  <a href="${ctx}/invoices/pdf?invoiceId=${invoice.invoiceID}&paymentId=${pay.paymentID}" target="_blank"
+                     style="font-size:12px;color:var(--green-500);font-weight:600;">Tải biên lai</a>
+                </div>
+              </c:forEach>
             </div>
           </c:if>
 
@@ -378,22 +383,19 @@
         <input type="hidden" name="appointmentId" value="${appt.appointmentID}">
 
         <div class="modal-field">
-          <label for="cancelReason">Lý do huỷ <span style="color:var(--warm-gray);font-size:12px;">(Vui lòng ghi chi tiết lý do nếu bạn có nhu cầu hoàn tiền)</span></label>
+          <label for="cancelReason">Lý do huỷ <span style="color:var(--warm-gray);font-size:12px;">(không bắt buộc)</span></label>
           <textarea id="cancelReason" name="cancelReason" rows="3"
                     placeholder="Ví dụ: Thú cưng đã khỏi, thay đổi lịch cá nhân..."></textarea>
         </div>
-
-        <%-- Yêu cầu hoàn tiền: chỉ cho appointment đang Confirmed. --%>
         <c:if test="${appt.status eq 'Confirmed'}">
-        <div class="modal-field refund-toggle-field">
-          <div class="refund-checkbox-row">
-            <input type="checkbox" id="refundRequested" name="refundRequested" value="1"
-                   onchange="toggleRefundPanel(this.checked)">
-            <label for="refundRequested">Yêu cầu hoàn tiền</label>
-          </div>
+        <input type="hidden" name="refundRequested" value="1">
+        <div class="modal-field refund-required-notice">
+          <span class="refund-required-icon">⚠</span>
+          <span>Lịch hẹn này đã được xác nhận và thanh toán. Vui lòng cung cấp thông tin
+    tài khoản ngân hàng bên dưới để PetClinic hoàn lại số tiền đã thanh toán sau khi huỷ.</span>
         </div>
 
-        <div class="refund-panel" id="refundPanel">
+        <div class="refund-panel open" id="refundPanel">
           <div class="refund-panel-head">
             Cung cấp thông tin tài khoản ngân hàng để nhận lại số tiền đã thanh toán
           </div>

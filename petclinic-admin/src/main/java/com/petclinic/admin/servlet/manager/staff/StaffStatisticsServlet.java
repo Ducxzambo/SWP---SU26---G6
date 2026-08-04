@@ -17,13 +17,6 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
-/**
- * Staff &gt; Thống kê hiệu suất (statistics screen).
- * Compares every active staff member's completed/cancelled/no-show case
- * counts and revenue over a date range, optionally scoped to one role -
- * this is the "phân tích" screen; StaffDetailServlet shows the same shape
- * of data but scoped to one person, all-time.
- */
 @WebServlet("/manager/staff/statistics")
 public class StaffStatisticsServlet extends HttpServlet {
 

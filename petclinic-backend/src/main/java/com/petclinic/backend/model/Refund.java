@@ -5,52 +5,21 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
-/**
- * 1 dong bang [Refunds].
- *
- * Bang nay phuc vu 2 giai doan trong vong doi 1 khoan hoan tien:
- *
- *  1) YEU CAU (Status = "Requested") - dong duoc tao khi:
- *     a) khach hang tick "Yeu cau hoan tien" luc huy 1 appointment dang
- *        Confirmed (xem AppointmentServlet.handleCancel()), HOAC
- *     b) staff tu tao yeu cau cho 1 appointment da Cancelled/NoShow/Done tu
- *        truoc (xem RefundCreateServlet) - vd khach lien he rieng ngoai
- *        luong huy lich thong thuong.
- *     O buoc nay CHUA co nhan vien nao xu ly - processedByID/refundedAt con
- *     NULL.
- *
- *  2) DA XU LY (Status = "Processed"/"Rejected") - staff cap nhat sau khi
- *     thuc su chuyen khoan hoan tien (hoac tu choi yeu cau). Xem
- *     RefundProcessServlet / RefundRejectServlet.
- *
- * KHONG luu PaymentID: appointmentID la du de tra ra Invoice tuong ung
- * (Invoices.AppointmentID) roi tra tiep cac Payment co InvoiceID do (1-N
- * truc tiep qua Payments.InvoiceID) bat cu luc nao can doi chieu lai.
- * totalAmount la SNAPSHOT Invoice.TotalAmount luc tao yeu cau. paidAmount la
- * SO TIEN SE DUOC HOAN - mac dinh bang tong Payments.Amount da thu (hoan
- * 100%), nhung co the la 1 so nho hon neu staff tu tao yeu cau hoan mot
- * phan (xem RefundService.createManualRequest). Ca 2 deu KHONG doc lai truc
- * tiep tu Invoice/Payments moi lan hien thi, vi invoice co the bi thay doi
- * sau do (vd phu phi qua gio o noi tru).
- */
 public class Refund {
     private int            refundID;
     private int             appointmentID;
-    private BigDecimal      totalAmount;   // snapshot Invoice.TotalAmount luc yeu cau
-    private BigDecimal      paidAmount;    // so tien SE DUOC HOAN (xem javadoc class)
-    private String          reason;        // ly do cua KHACH khi yeu cau
+    private BigDecimal      totalAmount;
+    private BigDecimal      paidAmount;
+    private String          reason;
     private String          bankCode;
     private String          accountNumber;
     private String          accountName;
     private String          status;        // Requested | Processed | Rejected
     private LocalDateTime   requestedAt;
-    private Integer         processedByID; // null cho toi khi staff xu ly
-    private LocalDateTime   refundedAt;    // null cho toi khi staff XAC NHAN DA CHUYEN KHOAN
-    private String          rejectReason;  // ly do cua STAFF khi tu choi - null neu chua tu choi
+    private Integer         processedByID;
+    private LocalDateTime   refundedAt;
+    private String          rejectReason;
 
-    // Cac truong HIEN THI tong hop, duoc RefundDAO gan tu JOIN Appointments/
-    // Customers/Pets - khong luu trong bang Refunds, chi phuc vu man hinh
-    // danh sach/chi tiet (cung quy uoc voi Appointment.petName/serviceName).
     private String          customerName;
     private String          customerPhone;
     private String          petName;

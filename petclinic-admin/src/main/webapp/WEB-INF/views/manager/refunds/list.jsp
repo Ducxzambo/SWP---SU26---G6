@@ -43,19 +43,18 @@
         </div>
 
         <form action="${pageContext.request.contextPath}/manager/refunds" method="get" class="filter-bar report-filter">
-            <select name="status" class="form-control no-icon">
+            <select name="status" class="form-control no-icon" onchange="this.form.submit()">
                 <option value="">Tất cả trạng thái</option>
                 <option value="Requested" ${status == 'Requested' ? 'selected' : ''}>Đang chờ xử lý</option>
                 <option value="Processed" ${status == 'Processed' ? 'selected' : ''}>Đã hoàn tiền</option>
                 <option value="Rejected" ${status == 'Rejected' ? 'selected' : ''}>Đã từ chối</option>
             </select>
-            <select name="sort" class="form-control no-icon">
-                <option value="date_desc" ${sort == 'date_desc' || empty sort ? 'selected' : ''}>Mới nhất</option>
-                <option value="date_asc" ${sort == 'date_asc' ? 'selected' : ''}>Cũ nhất</option>
+            <select name="sort" class="form-control no-icon" onchange="this.form.submit()">
+                <option value="date_asc" ${sort == 'date_asc' || empty sort ? 'selected' : ''}>Cũ nhất</option>
+                <option value="date_desc" ${sort == 'date_desc'  ? 'selected' : ''}>Mới nhất</option>
                 <option value="amount_desc" ${sort == 'amount_desc' ? 'selected' : ''}>Số tiền giảm dần</option>
                 <option value="amount_asc" ${sort == 'amount_asc' ? 'selected' : ''}>Số tiền tăng dần</option>
             </select>
-            <button type="submit" class="btn btn-secondary">Lọc</button>
         </form>
 
         <div class="card">

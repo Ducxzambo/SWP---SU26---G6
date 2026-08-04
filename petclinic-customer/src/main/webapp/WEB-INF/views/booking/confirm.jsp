@@ -15,33 +15,38 @@
 <%@ include file="/WEB-INF/views/common/header.jsp" %>
 
 <div class="confirm-card">
-  <div style="text-align:center;margin-bottom:28px;">
-    <h1 style="font-family:'Playfair Display',serif;font-size:26px;color:var(--green-900);margin-bottom:6px;">
-      Xác nhận đặt lịch
-    </h1>
-    <p style="color:var(--warm-gray);font-size:14px;">
-      Vui lòng kiểm tra lại thông tin trước khi xác nhận
-    </p>
+
+  <div class="confirm-page-header">
+    <h1>Xác nhận đặt lịch</h1>
+    <p>Vui lòng kiểm tra lại thông tin trước khi xác nhận</p>
   </div>
 
   <div class="confirm-box">
     <div class="confirm-box-head">Thông tin đặt lịch</div>
 
+    <c:if test="${not empty selectedPet}">
+      <div class="confirm-box-subhead">Thú cưng</div>
+      <table class="confirm-table">
+        <tr>
+          <td>Tên</td>
+          <td><strong><c:out value="${selectedPet.name}"/></strong></td>
+        </tr>
+        <tr>
+          <td>Loài / Giống</td>
+          <td>
+            <c:out value="${selectedPet.speciesName}"/>
+            <c:if test="${not empty selectedPet.breedName}"> / <c:out value="${selectedPet.breedName}"/></c:if>
+          </td>
+        </tr>
+      </table>
+    </c:if>
+
     <c:choose>
       <c:when test="${isInpatient}">
         <table class="confirm-table">
-          <tr>
-            <td>Dịch vụ</td>
-            <td><span class="confirm-chip">Nội trú</span></td>
-          </tr>
-          <tr>
-            <td>Ngày nhập viện</td>
-            <td><strong>${inpatientDate}</strong></td>
-          </tr>
-          <tr>
-            <td>Buổi</td>
-            <td>${inpatientPeriod}</td>
-          </tr>
+          <tr><td>Dịch vụ</td><td><span class="confirm-chip">Nội trú</span></td></tr>
+          <tr><td>Ngày nhập viện</td><td><strong>${inpatientDate}</strong></td></tr>
+          <tr><td>Buổi</td><td>${inpatientPeriod}</td></tr>
         </table>
       </c:when>
 
@@ -61,51 +66,22 @@
           </c:forEach>
         </div>
 
-        <div class="confirm-box-head" style="background:var(--green-50);color:var(--text-dark);font-size:14px;border-top:1px solid var(--border);">
-          Khung giờ đã chọn
-        </div>
+        <div class="confirm-box-subhead">Khung giờ đã chọn</div>
         <table class="confirm-table">
-          <tr>
-            <td>Thời gian</td>
-            <td id="slot-0">${slotKey}</td>
-          </tr>
+          <tr><td>Thời gian</td><td id="slot-0">${slotKey}</td></tr>
         </table>
       </c:otherwise>
     </c:choose>
 
     <c:if test="${not empty notes}">
-      <div class="confirm-box-head" style="background:var(--green-50);color:var(--text-dark);font-size:14px;border-top:1px solid var(--border);">
-        Ghi chú
-      </div>
+      <div class="confirm-box-subhead">Ghi chú</div>
       <table class="confirm-table">
         <tr><td colspan="2">${notes}</td></tr>
       </table>
     </c:if>
-
-    <div class="confirm-box-head" style="background:var(--green-50);color:var(--text-dark);font-size:14px;border-top:1px solid var(--border);">
-      Ước tính chi phí
-    </div>
-    <table class="confirm-table">
-      <c:if test="${!isInpatient}">
-        <tr style="background:var(--green-50);">
-          <td style="font-weight:600;color:var(--green-900);">Cần thanh toán (100%)</td>
-          <td style="font-weight:700;color:var(--green-700);font-size:16px;">
-            <fmt:formatNumber value="${totalPrice}" type="number" groupingUsed="true"/>đ
-          </td>
-        </tr>
-      </c:if>
-      <c:if test="${isInpatient}">
-        <tr style="background:var(--green-50);">
-          <td style="font-weight:600;color:var(--green-900);">Đặt cọc nội trú</td>
-          <td style="font-weight:700;color:var(--green-700);font-size:16px;">
-            <fmt:formatNumber value="${depositAmount}" type="number" groupingUsed="true"/>đ
-          </td>
-        </tr>
-      </c:if>
-    </table>
   </div>
 
-  <div style="background:var(--green-50);border:1px solid var(--green-100);border-radius:10px;padding:14px 18px;margin-top:20px;font-size:13.5px;color:var(--green-700);line-height:1.7;">
+  <div class="confirm-info-note">
     <strong>Lưu ý:</strong> Sau khi đặt lịch, trạng thái sẽ là <strong>Chờ xác nhận</strong>.
     Nếu có bất kỳ yêu cầu hay thay đổi, vui lòng liên hệ trước lịch hẹn 12 tiếng.
     Bạn có thể mở rộng các dịch vụ khi đến khám.
@@ -113,10 +89,8 @@
 
   <div class="confirm-actions">
     <a href="${ctx}/booking/new" class="btn-back">Quay lại chỉnh sửa</a>
-    <form action="${ctx}/booking/confirm" method="post" style="flex:2;">
-      <button type="submit" class="btn-confirm" style="width:100%;">
-        Xác nhận đặt lịch
-      </button>
+    <form action="${ctx}/booking/confirm" method="post" class="confirm-submit-form">
+      <button type="submit" class="btn-confirm">Xác nhận đặt lịch</button>
     </form>
   </div>
 </div>

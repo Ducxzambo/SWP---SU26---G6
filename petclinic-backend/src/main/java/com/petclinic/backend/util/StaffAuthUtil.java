@@ -8,21 +8,6 @@ import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
 import java.util.function.Predicate;
 
-/**
- * Shared session-based role checks for staff-only (manager/vet) screens.
- * <p>
- * Every screen used to repeat its own copy of "read staff from session,
- * check role, redirect to login if missing". Centralizing it here means
- * new screens (e.g. the split-out Inventory servlets) get consistent
- * behavior for free and any future change (session key, login URL) only
- * needs to happen in one place.
- * <p>
- * Usage:
- * <pre>
- *   Staff manager = StaffAuthUtil.requireManager(req, resp);
- *   if (manager == null) return; // response already redirected
- * </pre>
- */
 public final class StaffAuthUtil {
 
     private static final String SESSION_KEY = "staff";

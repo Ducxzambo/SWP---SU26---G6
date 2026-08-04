@@ -11,12 +11,6 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
 
-/**
- * Staff &gt; Kích hoạt / Vô hiệu hoá (POST-only action, no screen of its own).
- * Called from either the List row or the Detail page; "redirectTo" tells it
- * where to bounce back to. Only relative paths under /manager/staff are
- * honored, so a tampered hidden field can't be turned into an open redirect.
- */
 @WebServlet("/manager/staff/status")
 public class StaffStatusServlet extends HttpServlet {
 

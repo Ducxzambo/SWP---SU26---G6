@@ -1,7 +1,7 @@
 package com.petclinic.backend.dao;
 
 import com.petclinic.backend.dto.StockMovementReport;
-import com.petclinic.backend.dto.StockTransaction;
+import com.petclinic.backend.model.StockTransaction;
 import com.petclinic.backend.model.InventoryItem;
 import com.petclinic.backend.model.Medicine;
 import com.petclinic.backend.util.DBConnection;
@@ -12,14 +12,8 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Data access for the Medicines table.
- */
 public class MedicineDAO {
 
-    /**
-     * All active medicines with stock > 0 (for prescription drop-down).
-     */
     public List<Medicine> findAllInStock() throws SQLException {
         String sql = "SELECT * FROM Medicines WHERE StockQty > 0 ORDER BY Name";
         try (Connection conn = DBConnection.getConnection();
@@ -31,9 +25,6 @@ public class MedicineDAO {
         }
     }
 
-    /**
-     * All medicines regardless of stock (admin view).
-     */
     public List<Medicine> findAll() throws SQLException {
         String sql = "SELECT * FROM Medicines ORDER BY Name";
         try (Connection conn = DBConnection.getConnection();
@@ -45,10 +36,6 @@ public class MedicineDAO {
         }
     }
 
-    /**
-     * Deduct quantity from stock after prescription is saved.
-     * Called inside the same logical transaction as MedicalRecord save.
-     */
     public void deductStock(Connection conn, int medicineID, int qty) throws SQLException {
         String sql = "UPDATE Medicines SET StockQty = StockQty - ? WHERE MedicineID = ? AND StockQty >= ?";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -62,10 +49,6 @@ public class MedicineDAO {
         }
     }
 
-
-    /**
-     * Returns true if stock for the given medicine is below threshold (default 10).
-     */
     public boolean isBelowThreshold(Connection conn, int medicineID) throws SQLException {
         String sql = "SELECT StockQty, MinStockLevel FROM Medicines WHERE MedicineID = ?";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -81,7 +64,7 @@ public class MedicineDAO {
         return false;
     }
 
-    // ── Mapping ───────────────────────────────────────────────────────────────
+    // Mapping
 
     private Medicine mapRow(ResultSet rs) throws SQLException {
         Medicine m = new Medicine();
@@ -214,11 +197,6 @@ public class MedicineDAO {
         }
     }
 
-    /**
-     * Updates the low-stock threshold for a Medicine or Vaccine.
-     * The itemType is matched against a fixed whitelist to pick the SQL
-     * literal to run, so it is never concatenated into the statement.
-     */
     public void updateThreshold(String itemType, int itemID, int minStockLevel) throws SQLException {
         String sql;
         if ("Medicine".equals(itemType)) {
@@ -314,10 +292,6 @@ public class MedicineDAO {
                                 String unit, BigDecimal unitPrice, int quantity,
                                 int minStockLevelForNewItem) throws SQLException {
         if (itemID != null && itemID > 0) {
-            // Existing item: stock-in only ever touches quantity/unit/price.
-            // Threshold changes go through updateThreshold() on the
-            // dedicated Thresholds screen instead, so restocking can never
-            // accidentally overwrite an alert level someone else configured.
             String sql = """
                     UPDATE Medicines
                     SET StockQty = StockQty + ?,
@@ -360,8 +334,6 @@ public class MedicineDAO {
                                BigDecimal unitPrice, int quantity,
                                int minStockLevelForNewItem) throws SQLException {
         if (itemID != null && itemID > 0) {
-            // Same rule as Medicine above: restocking never touches the
-            // threshold of an existing item.
             String sql = """
                     UPDATE Vaccines
                     SET StockQty = StockQty + ?,
@@ -380,11 +352,7 @@ public class MedicineDAO {
             return itemID;
         }
 
-        // NOTE: Vaccines.MinStockLevel is NOT NULL in the schema. The old
-        // INSERT here omitted it entirely, which would throw a NOT NULL
-        // constraint violation the first time a brand-new vaccine was
-        // stocked in. Fixed by always supplying a value, same as Medicine.
-        String sql = "INSERT INTO Vaccines (Name, UnitPrice, StockQty, MinStockLevel) VALUES (?, ?, ?, ?)";
+       String sql = "INSERT INTO Vaccines (Name, UnitPrice, StockQty, MinStockLevel) VALUES (?, ?, ?, ?)";
         try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setString(1, itemName);
             ps.setBigDecimal(2, unitPrice);
@@ -402,9 +370,9 @@ public class MedicineDAO {
                                         BigDecimal quantityChange, String reason,
                                         int performedByID) throws SQLException {
         String sql = """
-                INSERT INTO StockTransactions (ItemType, ItemID, QuantityChange, Reason, PerformedByID)
-                VALUES (?, ?, ?, ?, ?)
-                """;
+            INSERT INTO StockTransactions (ItemType, ItemID, QuantityChange, Reason, PerformedByID, TransactionType)
+            VALUES (?, ?, ?, ?, ?, 'Import')
+            """;
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, itemType);
             ps.setInt(2, itemID);

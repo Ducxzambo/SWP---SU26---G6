@@ -16,8 +16,6 @@ public class PaymentServlet extends HttpServlet {
     private final ServiceDAO serviceDAO = new ServiceDAO();
     private final PaymentService paymentSvc = new PaymentService();
 
-    // ── GET ───────────────────────────────────────────────────────────────────
-
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         Customer customer = requireLogin(req, resp);
@@ -44,8 +42,6 @@ public class PaymentServlet extends HttpServlet {
         }
     }
 
-    // ── POST ──────────────────────────────────────────────────────────────────
-
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         HttpSession sess = req.getSession(false);
@@ -60,12 +56,7 @@ public class PaymentServlet extends HttpServlet {
         BigDecimal total = (BigDecimal) sess.getAttribute("pay_total");
         long deposit = ((Number) sess.getAttribute("pay_deposit")).longValue();
         boolean isInpatient = Boolean.TRUE.equals(sess.getAttribute("pay_inpatient"));
-
-        // Booking thường KHÔNG còn lựa chọn đặt cọc — luôn thanh toán 100%
-        // tổng chi phí, bất kể payType gửi lên là gì (phòng vệ thêm ở tầng
-        // server, vì payment.jsp giờ chỉ còn render 1 lựa chọn cho trường
-        // hợp này). Nội trú giữ nguyên chỉ có lựa chọn đặt cọc cố định.
-        boolean isFullPayment = isInpatient ? "full".equals(payType) : true;
+        boolean isFullPayment = "full".equals(payType);
         long amountVnd = isFullPayment ? total.longValue() : deposit;
         String desc = "PetClinic " + invoiceId;
 
@@ -88,7 +79,7 @@ public class PaymentServlet extends HttpServlet {
         resp.sendRedirect(checkoutUrl);
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
+    // Helpers
     private Customer requireLogin(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         HttpSession sess = req.getSession(false);
         Customer c = sess != null ? (Customer) sess.getAttribute("customer") : null;

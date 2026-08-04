@@ -2,6 +2,8 @@ package com.petclinic.backend.service;
 
 import com.petclinic.backend.model.Appointment;
 import com.petclinic.backend.model.Customer;
+import com.petclinic.backend.dto.ReceiptData;
+
 
 import com.petclinic.backend.model.Refund;
 import jakarta.mail.*;
@@ -13,24 +15,12 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.logging.Logger;
 
-/**
- * Email service: invoice delivery + reminder scheduler.
- *
- * Reminder rules:
- *   – Email 1: 48 hours before appointment
- *   – Email 2: 18 hours before appointment
- *
- * Scheduling: uses a single ScheduledExecutorService.
- * In production, replace with Quartz or a DB-persisted job table
- * so reminders survive server restarts.
- */
 public class EmailService {
 
     private static final Logger LOG = Logger.getLogger(EmailService.class.getName());
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("HH:mm, dd/MM/yyyy");
     private static final DateTimeFormatter DATE_ONLY = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
-    // Shared scheduler
     private static final ScheduledExecutorService SCHEDULER =
             Executors.newScheduledThreadPool(2, r -> {
                 Thread t = new Thread(r, "petclinic-email-scheduler");
@@ -38,12 +28,7 @@ public class EmailService {
                 return t;
             });
 
-    // ── Public API ────────────────────────────────────────────────────────────
 
-    /**
-     * Sent when a Pending/Confirmed appointment's end time has passed
-     * but the customer did not show up or the slot was not completed.
-     */
     public void sendOverdueNotification(Customer customer, Appointment appt) {
         sendAsync(() -> {
             String subject = "[PetClinic] Thông báo: Lịch hẹn #" + appt.getAppointmentID()
@@ -77,10 +62,7 @@ public class EmailService {
         });
     }
 
-    /**
-     * Called after payment confirmed.
-     * Sends invoice + booking confirmation, then schedules two reminders.
-     */
+
     public void onPaymentConfirmed(Customer customer, Appointment appt,
                                    BigDecimal total, BigDecimal paid,
                                    boolean isFullPayment) {
@@ -88,12 +70,7 @@ public class EmailService {
         scheduleReminders(customer, appt);
     }
 
-    /**
-     * Gửi email thông báo nội bộ khi có tin nhắn liên hệ mới từ trang /contact.
-     * Đây là kênh ghi nhận DUY NHẤT cho tin nhắn liên hệ (không có bảng
-     * ContactMessages trong DB hiện tại) — best-effort: nếu SMTP lỗi/chưa
-     * cấu hình, chỉ log cảnh báo, không throw, để không chặn phản hồi cho người dùng.
-     */
+
     public void sendContactNotification(String fullName, String fromEmail, String phone,
                                         String subject, String messageBody) {
         sendAsync(() -> {
@@ -119,7 +96,7 @@ public class EmailService {
         });
     }
 
-    /** Schedule 48h and 18h reminders. */
+
     public void scheduleReminders(Customer customer, Appointment appt) {
         if (appt.getAppointmentDate() == null || appt.getStartTime() == null) return;
 
@@ -130,8 +107,7 @@ public class EmailService {
         scheduleAt(apptDt.minusHours(18), now, () -> sendReminderEmail(customer, appt, 18));
     }
 
-    // ── Email builders ────────────────────────────────────────────────────────
-
+    // Email builders
     private void sendConfirmationEmail(Customer customer, Appointment appt,
                                        BigDecimal total, BigDecimal paid, boolean isFullPayment) {
         String subject = "[PetClinic] Xác nhận đặt lịch #" + appt.getAppointmentID();
@@ -157,7 +133,6 @@ public class EmailService {
         }
     }
 
-    /** Called after staff confirms a refund has actually been transferred. */
     public void onRefundProcessed(Customer customer, Refund refund, Appointment appt) {
         sendAsync(() -> {
             String subject = "[PetClinic] Đã hoàn tiền cho lịch hẹn #" + refund.getAppointmentID();
@@ -173,7 +148,6 @@ public class EmailService {
         });
     }
 
-    /** Called after staff rejects a refund request. */
     public void onRefundRejected(Customer customer, Refund refund, Appointment appt) {
         sendAsync(() -> {
             String subject = "[PetClinic] Yêu cầu hoàn tiền #" + refund.getAppointmentID() + " bị từ chối";
@@ -189,8 +163,7 @@ public class EmailService {
         });
     }
 
-    // ── HTML templates ────────────────────────────────────────────────────────
-
+    //  HTML templates
     private String buildConfirmHtml(Customer customer, Appointment appt,
                                     BigDecimal total, BigDecimal paid, boolean isFullPayment) {
         String paymentNote = isFullPayment
@@ -285,8 +258,53 @@ public class EmailService {
                 + "</div></body></html>";
     }
 
-    // ── Core send ─────────────────────────────────────────────────────────────
+    // Gửi email hóa đơn/biên lai + tóm tắt số liệu + link tải PDF
+    public void sendInvoiceEmail(Customer customer, ReceiptData receipt, String pdfUrl) {
+        if (customer == null || customer.getEmail() == null || customer.getEmail().isBlank()) return;
+        sendAsync(() -> {
+            String subject = "[PetClinic] " + receipt.getDocumentLabel() + " " + receipt.getInvoiceCode();
+            String body = buildInvoiceEmailHtml(receipt, pdfUrl);
+            boolean ok = send(customer.getEmail(), subject, body);
+            if (ok) LOG.info("Invoice email sent to " + customer.getEmail() + " (" + receipt.getInvoiceCode() + ")");
+            else LOG.warning("Invoice email NOT sent to " + customer.getEmail());
+        });
+    }
 
+    private String buildInvoiceEmailHtml(ReceiptData r, String pdfUrl) {
+        StringBuilder rows = new StringBuilder();
+        rows.append(row("Tổng số lượng", fmt(r.getTotalQuantity())));
+        rows.append(row("Tổng tiền hàng", fmt(r.getSubTotal()) + "₫"));
+        rows.append(row("Chiết khấu", fmt(r.getDiscountAmount()) + "₫"));
+        rows.append(row("Tổng phải trả", fmt(r.getTotalPayable()) + "₫"));
+        if (r.getPrepaidAmount() != null) rows.append(row("Đã trả trước", fmt(r.getPrepaidAmount()) + "₫"));
+        if (r.getAmountDue() != null && "HÓA ĐƠN".equals(r.getDocumentLabel()))
+            rows.append(row("Khách còn phải trả", fmt(r.getAmountDue()) + "₫"));
+        if (r.getPaidStatusLabel() != null)
+            rows.append(row("Đã trả (" + r.getPaidStatusLabel() + ")", fmt(r.getPaidAmount()) + "₫"));
+        if (r.getRemainingAmount() != null)
+            rows.append(row("Còn phải thanh toán vào ngày " + r.getRemainingDueDate(), fmt(r.getRemainingAmount()) + "₫"));
+        if (r.getChangeAmount() != null && r.getChangeAmount().signum() > 0)
+            rows.append(row("Tiền trả lại", fmt(r.getChangeAmount()) + "₫"));
+
+        return "<!DOCTYPE html><html><head><meta charset='UTF-8'></head><body>"
+                + "<div style='font-family:sans-serif;max-width:560px;margin:auto;padding:24px;'>"
+                + "<h2 style='color:#0f3d24;'>🐾 PetClinic – " + esc(r.getDocumentLabel()) + "</h2>"
+                + "<p>Xin chào <strong>" + esc(r.getCustomerName()) + "</strong>,</p>"
+                + "<p>Đây là " + esc(r.getDocumentLabel().toLowerCase()) + " cho mã đơn hàng <strong>"
+                +   esc(r.getInvoiceCode()) + "</strong>.</p>"
+                + "<div style='background:#f0faf4;border:1px solid #d6f0e2;border-radius:10px;padding:18px 20px;margin:20px 0;'>"
+                + "<table style='width:100%;border-collapse:collapse;font-size:14px;'>" + rows + "</table></div>"
+                + (r.getNote() != null ? "<p><em>Ghi chú: " + esc(r.getNote()) + "</em></p>" : "")
+                + "<p><a href='" + pdfUrl + "' style='display:inline-block;padding:10px 20px;background:#1a5c38;"
+                +   "color:#fff;border-radius:8px;text-decoration:none;font-weight:600;'>Xem / Tải hóa đơn PDF</a></p>"
+                + "<p style='font-size:13px;color:#8c8680;'>Quý khách được phép khiếu nại hoàn tiền trong vòng 48h "
+                +   "kể từ ngày thanh toán.</p>"
+                + "<hr style='border:none;border-top:1px solid #d8d4cc;margin:20px 0;'>"
+                + "<p style='font-size:12px;color:#b8b4ae;text-align:center;'>© 2026 PetClinic</p>"
+                + "</div></body></html>";
+    }
+
+    // Core send
     private boolean send(String to, String subject, String htmlBody) {
         try {
             Properties props = new Properties();
@@ -335,8 +353,7 @@ public class EmailService {
         }, delayMs, TimeUnit.MILLISECONDS);
     }
 
-    // ── HTML helpers ──────────────────────────────────────────────────────────
-
+    // HTML helpers
     private String row(String label, String value) {
         return "<tr><td style='padding:7px 0;color:#8c8680;width:130px;'>" + label + "</td>"
                 + "<td style='padding:7px 0;font-weight:500;'>" + value + "</td></tr>";
@@ -360,7 +377,6 @@ public class EmailService {
         return s.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;");
     }
 
-    /** appt.getPetName() co the null (PetID chua duoc gan luc dat lich) - tranh de trong hang trong email. */
     private String petOrPlaceholder(Appointment appt) {
         if (appt == null) return "-";
         if (appt.getPetName() == null || appt.getPetName().isBlank()) return "(chưa chọn thú cưng)";

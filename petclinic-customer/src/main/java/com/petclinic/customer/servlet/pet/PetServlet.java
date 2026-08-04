@@ -1,29 +1,23 @@
 package com.petclinic.customer.servlet.pet;
 
+import com.petclinic.backend.dao.*;
+import com.petclinic.backend.dto.PetTimelineEvent;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
-import com.petclinic.backend.dao.AppointmentDAO;
-import com.petclinic.backend.dao.NotificationDAO;
-import com.petclinic.backend.dao.PetDAO;
-import com.petclinic.backend.dao.ServiceDAO;
 import com.petclinic.backend.model.*;
 import com.petclinic.backend.service.PetService;
 
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-/**
- * URL map:
- *   GET  /pets                  → list of customer's pets
- *   GET  /pets/profile?id=      → pet profile + medical history + vaccines
- *   GET  /pets/edit?id=         → edit pet form
- *   POST /pets/edit             → save edits
- *   POST /pets/delete           → soft delete pet
- */
 @WebServlet(urlPatterns = {
     "/pets", "/pets/profile", "/pets/edit", "/pets/delete"
 })
@@ -32,13 +26,15 @@ public class PetServlet extends HttpServlet {
     private final PetDAO petDAO         = new PetDAO();
     private final AppointmentDAO appointmentDAO = new AppointmentDAO();
     private final ServiceDAO serviceDAO     = new ServiceDAO();
-    private final NotificationDAO notifDAO      = new NotificationDAO();
+    private final VaccinationRecordDAO vaccinationRecordDAO = new VaccinationRecordDAO();
+    private final MedicalRecordDAO medicalRecordDAO = new MedicalRecordDAO();
 
     private final PetService petSvc = new PetService();
 
     private static final DateTimeFormatter ISO = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
-    // ── GET ───────────────────────────────────────────────────────────────────
+    private static final Pattern FOLLOWUP_PATTERN = Pattern.compile("Tai kham:\\s*(\\d{4}-\\d{2}-\\d{2})");
+
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
@@ -54,7 +50,6 @@ public class PetServlet extends HttpServlet {
         } catch (Exception e) { e.printStackTrace(); throw new ServletException(e); }
     }
 
-    // ── POST ──────────────────────────────────────────────────────────────────
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
@@ -70,20 +65,20 @@ public class PetServlet extends HttpServlet {
         } catch (Exception e) { e.printStackTrace(); throw new ServletException(e); }
     }
 
-    // ══════════════════════════════════════════════════════════════════════════
-    //  LIST
-    // ══════════════════════════════════════════════════════════════════════════
     private void handleList(HttpServletRequest req, HttpServletResponse resp, Customer customer)
             throws Exception {
         List<Pet> pets = petDAO.findByCustomer(customer.getCustomerID());
         setCommonAttrs(req, customer);
+
+        int totalVisits = 0;
+        for (Pet p : pets) totalVisits += p.getDoneAppointments();
+
         req.setAttribute("pets", pets);
+        req.setAttribute("totalPets", pets.size());
+        req.setAttribute("totalVisits", totalVisits);
         req.getRequestDispatcher("/WEB-INF/views/customer/pets/list.jsp").forward(req, resp);
     }
 
-    // ══════════════════════════════════════════════════════════════════════════
-    //  PROFILE
-    // ══════════════════════════════════════════════════════════════════════════
     private void handleProfile(HttpServletRequest req, HttpServletResponse resp, Customer customer)
             throws Exception {
         int id = parseId(req.getParameter("id"));
@@ -91,24 +86,85 @@ public class PetServlet extends HttpServlet {
         if (pet == null || pet.getCustomerID() != customer.getCustomerID()) {
             resp.sendError(404, "Không tìm thấy thú cưng."); return;
         }
-        List<Appointment> appointments = appointmentDAO.findByPet(id);
 
-        Map<Integer, MedicalRecord> medicalMap = petSvc.getMedicalRecordsByPet(id);
-        Map<Integer, VaccinationRecord> vaccineMap = petSvc.getVaccinationRecordsByPet(id);
-        Map<Integer, GroomingRecord> groomingMap = petSvc.getGroomingRecordsByPet(id);
+        List<Appointment> appointments = appointmentDAO.findByPet(id);
+        List<VaccinationRecord> vaccineRecords = vaccinationRecordDAO.findByPet(id);
+        List<MedicalRecord> medicalRecords = medicalRecordDAO.findByPet(id);
+
+        LocalDate today = LocalDate.now();
+        Appointment firstDone = null, lastDone = null, nextUpcoming = null;
+        int doneCount = 0, cancelledCount = 0, noShowCount = 0;
+
+        List<PetTimelineEvent> timeline = new ArrayList<>();
+
+        for (Appointment a : appointments) {
+            if (a.getAppointmentDate() == null) continue;
+            if ("Done".equals(a.getStatus())) {
+                doneCount++;
+                if (firstDone == null || a.getAppointmentDate().isBefore(firstDone.getAppointmentDate())) firstDone = a;
+                if (lastDone == null || a.getAppointmentDate().isAfter(lastDone.getAppointmentDate())) lastDone = a;
+                timeline.add(new PetTimelineEvent(a.getAppointmentDate(), PetTimelineEvent.Type.DONE,
+                        a.getServiceName(), a.getAppointmentID()));
+            } else if ("Cancelled".equals(a.getStatus())) {
+                cancelledCount++;
+            } else if ("NoShow".equals(a.getStatus())) {
+                noShowCount++;
+            } else if ("Confirmed".equals(a.getStatus())) {
+                timeline.add(new PetTimelineEvent(a.getAppointmentDate(), PetTimelineEvent.Type.CONFIRMED,
+                        a.getServiceName(), a.getAppointmentID()));
+            }
+            boolean active = "Pending".equals(a.getStatus()) || "Confirmed".equals(a.getStatus()) || "InProgress".equals(a.getStatus());
+            if (active && !a.getAppointmentDate().isBefore(today)) {
+                if (nextUpcoming == null || a.getAppointmentDate().isBefore(nextUpcoming.getAppointmentDate())) nextUpcoming = a;
+            }
+        }
+
+        VaccinationRecord latestVaccine = null, nextDueVaccine = null;
+        for (VaccinationRecord vr : vaccineRecords) {
+            if (vr.getAdministeredDate() != null) {
+                timeline.add(new PetTimelineEvent(vr.getAdministeredDate(), PetTimelineEvent.Type.VACCINE,
+                        vr.getVaccineName(), vr.getAppointmentID()));
+                if (latestVaccine == null || vr.getAdministeredDate().isAfter(latestVaccine.getAdministeredDate())) {
+                    latestVaccine = vr;
+                }
+            }
+            if (vr.getNextDueDate() != null && !vr.getNextDueDate().isBefore(today)
+                    && (nextDueVaccine == null || vr.getNextDueDate().isBefore(nextDueVaccine.getNextDueDate()))) {
+                nextDueVaccine = vr;
+            }
+        }
+
+        for (MedicalRecord mr : medicalRecords) {
+            if (mr.getTreatmentPlan() == null) continue;
+            Matcher m = FOLLOWUP_PATTERN.matcher(mr.getTreatmentPlan());
+            while (m.find()) {
+                try {
+                    LocalDate followUp = LocalDate.parse(m.group(1));
+                    timeline.add(new PetTimelineEvent(followUp, PetTimelineEvent.Type.FOLLOWUP,
+                            "Tái khám", mr.getAppointmentID()));
+                } catch (Exception ignored) {
+
+                }
+            }
+        }
+
+        timeline.sort(java.util.Comparator.comparing(PetTimelineEvent::getDate));
 
         setCommonAttrs(req, customer);
-        req.setAttribute("pet",          pet);
-        req.setAttribute("appointments", appointments);
-        req.setAttribute("medicalMap",   medicalMap);
-        req.setAttribute("vaccineMap",   vaccineMap);
-        req.setAttribute("groomingMap",  groomingMap);
+        req.setAttribute("pet",            pet);
+        req.setAttribute("doneCount",      doneCount);
+        req.setAttribute("cancelledCount", cancelledCount);
+        req.setAttribute("noShowCount",    noShowCount);
+        req.setAttribute("vaccineCount",   vaccineRecords.size());
+        req.setAttribute("firstDone",      firstDone);
+        req.setAttribute("lastDone",       lastDone);
+        req.setAttribute("nextUpcoming",   nextUpcoming);
+        req.setAttribute("latestVaccine",  latestVaccine);
+        req.setAttribute("nextDueVaccine", nextDueVaccine);
+        req.setAttribute("timeline",       timeline);
         req.getRequestDispatcher("/WEB-INF/views/customer/pets/profile.jsp").forward(req, resp);
     }
 
-    // ══════════════════════════════════════════════════════════════════════════
-    //  EDIT FORM
-    // ══════════════════════════════════════════════════════════════════════════
     private void handleEditForm(HttpServletRequest req, HttpServletResponse resp, Customer customer)
             throws Exception {
         int id = parseId(req.getParameter("id"));
@@ -122,9 +178,6 @@ public class PetServlet extends HttpServlet {
         req.getRequestDispatcher("/WEB-INF/views/customer/pets/form.jsp").forward(req, resp);
     }
 
-    // ══════════════════════════════════════════════════════════════════════════
-    //  EDIT SAVE — CHỈ sửa được name + dateOfBirth.
-    // ══════════════════════════════════════════════════════════════════════════
     private void handleEditSave(HttpServletRequest req, HttpServletResponse resp, Customer customer)
             throws Exception {
         int id = parseId(req.getParameter("petId"));
@@ -147,9 +200,6 @@ public class PetServlet extends HttpServlet {
         resp.sendRedirect(req.getContextPath() + "/pets/profile?id=" + id);
     }
 
-    // ══════════════════════════════════════════════════════════════════════════
-    //  DELETE
-    // ══════════════════════════════════════════════════════════════════════════
     private void handleDelete(HttpServletRequest req, HttpServletResponse resp, Customer customer)
             throws Exception {
         int id = parseId(req.getParameter("petId"));
@@ -162,12 +212,22 @@ public class PetServlet extends HttpServlet {
         resp.sendRedirect(req.getContextPath() + "/pets");
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
     private void applyEditableFields(Pet pet, HttpServletRequest req) {
         pet.setName(trim(req.getParameter("name")));
+
+        String species = trim(req.getParameter("speciesName"));
+        if (!species.isEmpty()) pet.setSpeciesName(species);
+
+        pet.setBreedName(trim(req.getParameter("breedName")));
+
+        String gender = req.getParameter("gender");
+        if (gender != null && !gender.isBlank()) pet.setGender(gender);
+
         String dob = trim(req.getParameter("dateOfBirth"));
         if (!dob.isEmpty()) {
             try { pet.setDateOfBirth(LocalDate.parse(dob, ISO)); } catch (Exception ignored) {}
+        } else {
+            pet.setDateOfBirth(null);
         }
     }
 
@@ -182,8 +242,6 @@ public class PetServlet extends HttpServlet {
     private void setCommonAttrs(HttpServletRequest req, Customer customer) throws Exception {
         req.setAttribute("navCategories",
                 serviceDAO.findAllCategoriesWithServices());
-        req.setAttribute("unreadCount",
-                notifDAO.countUnread(customer.getCustomerID()));
     }
 
     private Customer requireLogin(HttpServletRequest req, HttpServletResponse resp)

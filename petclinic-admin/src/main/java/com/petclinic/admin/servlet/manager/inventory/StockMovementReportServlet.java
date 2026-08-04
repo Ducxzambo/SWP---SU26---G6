@@ -15,12 +15,6 @@ import java.io.PrintWriter;
 import java.time.LocalDate;
 import java.util.List;
 
-/**
- * Inventory &gt; Báo cáo biến động kho (movement report screen).
- * Aggregated stock-in / stock-out / net totals per item over a date range,
- * with a CSV export action. See StockTransactionServlet for the raw,
- * per-transaction log this report is built from.
- */
 @WebServlet("/manager/inventory/report")
 public class StockMovementReportServlet extends HttpServlet {
 

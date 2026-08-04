@@ -13,24 +13,21 @@ import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
 import java.sql.SQLException;
 
-/**
- * Staff login / logout.
- * <p>
- * GET  /auth/staff/login  → show login form
- * POST /auth/staff/login  → authenticate and create staff session
- * GET  /auth/staff/logout → invalidate session → redirect to login
- */
 @WebServlet(urlPatterns = {"/auth/staff/login", "/auth/staff/logout"})
 public class StaffAuthServlet extends HttpServlet {
 
     private final StaffDAO staffDAO = new StaffDAO();
 
-    // ── GET ───────────────────────────────────────────────────────────────────
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
 
         String path = req.getServletPath();
+
+        if ("".equals(path)) {
+            resp.sendRedirect(req.getContextPath() + "/auth/staff/login");
+            return;
+        }
 
         if ("/auth/staff/logout".equals(path)) {
             HttpSession session = req.getSession(false);
@@ -39,7 +36,6 @@ public class StaffAuthServlet extends HttpServlet {
             return;
         }
 
-        // Already logged in?
         HttpSession session = req.getSession(false);
         if (session != null && session.getAttribute("staff") != null) {
             redirectByRole((Staff) session.getAttribute("staff"), req, resp);
@@ -49,7 +45,6 @@ public class StaffAuthServlet extends HttpServlet {
         req.getRequestDispatcher("/WEB-INF/views/auth/staff-login.jsp").forward(req, resp);
     }
 
-    // ── POST ──────────────────────────────────────────────────────────────────
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
@@ -82,8 +77,6 @@ public class StaffAuthServlet extends HttpServlet {
         }
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
-
     private void redirectByRole(Staff staff, HttpServletRequest req, HttpServletResponse resp)
             throws IOException {
         String ctx = req.getContextPath();
@@ -97,9 +90,10 @@ public class StaffAuthServlet extends HttpServlet {
             case "Groomer":
                 resp.sendRedirect(ctx + "/groomer/session");
                 break;
-            case "Admin": case "Manager":
+            case "Manager":
                 resp.sendRedirect(ctx + "/manager/inventory");
                 break;
+            case "Admin":
             default:
                 resp.sendRedirect(ctx + "/");
         }

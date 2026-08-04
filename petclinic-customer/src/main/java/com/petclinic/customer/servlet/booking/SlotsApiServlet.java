@@ -19,9 +19,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-/**
- * GET /booking/slots?serviceIds=1,2,3
- */
 @WebServlet("/booking/slots")
 public class SlotsApiServlet extends HttpServlet {
 
@@ -30,8 +27,7 @@ public class SlotsApiServlet extends HttpServlet {
     private final VaccineDAO vaccineDAO = new VaccineDAO();
 
     @Override
-    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        // Auth check
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {// Auth check
         HttpSession sess = req.getSession(false);
         if (sess == null || sess.getAttribute("customer") == null) {
             resp.sendError(401);
@@ -73,9 +69,6 @@ public class SlotsApiServlet extends HttpServlet {
         }
     }
 
-    /**
-     * Service "placeholder" đầu tiên (IsActive) của 1 category — dùng cho Vaccine/Inpatient.
-     */
     private int firstServiceIdOfCategory(int categoryId) throws Exception {
         List<Service> svcs = serviceDAO.findByCategory(categoryId);
         return svcs.isEmpty() ? -1 : svcs.get(0).getServiceID();

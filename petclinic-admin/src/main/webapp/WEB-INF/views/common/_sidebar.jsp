@@ -12,6 +12,10 @@
            class="nav-item ${activeModule == 'staff' ? 'active' : ''}">Quản lý nhân viên</a>
         <a href="${pageContext.request.contextPath}/manager/refunds"
            class="nav-item ${activeModule == 'refunds' ? 'active' : ''}">Quản lý hoàn tiền</a>
+        <a href="${pageContext.request.contextPath}/manager/attendance"
+           class="nav-item ${activeModule == 'attendance' ? 'active' : ''}">Chấm công nhân viên</a>
+        <a href="${pageContext.request.contextPath}/manager/capacity"
+           class="nav-item ${activeModule == 'capacity' ? 'active' : ''}">Sức chứa theo ca</a>
     </nav>
     <div class="sidebar-user">
         ${sessionScope.staff.fullName}

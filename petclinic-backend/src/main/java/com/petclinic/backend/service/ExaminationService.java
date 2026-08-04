@@ -2,6 +2,7 @@ package com.petclinic.backend.service;
 
 import com.petclinic.backend.dao.*;
 import com.petclinic.backend.model.*;
+import com.petclinic.backend.service.PaymentService;
 
 import java.math.BigDecimal;
 import java.sql.SQLException;
@@ -23,18 +24,12 @@ public class ExaminationService {
     private final CustomerDAO      customerDAO      = new CustomerDAO();
     private final PetDAO           petDAO           = new PetDAO();
     private final StaffDAO         staffDAO         = new StaffDAO();
-    private final PaymentService   paymentService   = new PaymentService();
-    private final AssignmentService assignmentSvc = new AssignmentService();
+    private final PaymentService paymentService   = new PaymentService();
     private final SupplyDAO    supplyDAO    = new SupplyDAO();
 
     //CHECK-IN
     public enum CheckInResult { SUCCESS, NOT_FOUND, WRONG_STATUS, ALREADY_CHECKED_IN }
 
-    /**
-     * Check-in đơn thuần: đổi Confirmed → Arrived. KHÔNG còn gán staff kèm theo
-     * (vì staff giờ gán riêng theo từng dòng dịch vụ — dùng assignStaffToServiceLine
-     * hoặc assignStaffToCategory sau khi check-in).
-     */
     public CheckInResult checkIn(int appointmentID) throws SQLException {
         Appointment appt = appointmentDAO.findById(appointmentID);
         if (appt == null)                          return CheckInResult.NOT_FOUND;
@@ -68,7 +63,7 @@ public class ExaminationService {
         appointmentDAO.assignStaffToService(appointmentServiceID, staffID);
     }
 
-    /** Gán 1 nhân viên cho TOÀN BỘ dịch vụ thuộc 1 category trong appointment (gán nhanh hàng loạt). */
+    // Gán 1 nhân viên cho TOÀN BỘ dịch vụ thuộc 1 category trong appointment
     public void assignStaffToCategory(int appointmentID, String categoryName, int staffID) throws SQLException {
         appointmentDAO.assignStaffToCategory(appointmentID, categoryName, staffID);
     }
@@ -82,14 +77,7 @@ public class ExaminationService {
         return petDAO.findByCustomerId(customerID);
     }
 
-    //WALK-IN: TẠO LỊCH HẸN NHIỀU DỊCH VỤ, MỖI DỊCH VỤ 1 STAFF RIÊNG
-
-    /**
-     * Walk-in cho khách/pet ĐÃ tồn tại. serviceIDs và staffIDs đi song song theo index
-     * (staffIDs[i] có thể null nếu chưa gán). Các service có thể thuộc NHIỀU category
-     * khác nhau trong cùng 1 lần gọi (VD vừa khám vừa grooming).
-     * Trả về appointmentID, hoặc -1 nếu ca hiện tại đã đầy slot.
-     */
+    //  WALK-IN: TẠO LỊCH HẸN NHIỀU DỊCH VỤ, MỖI DỊCH VỤ 1 STAFF RIÊNG
     public int createWalkInExisting(int customerID, int petID,
                                     List<Integer> serviceIDs, List<Integer> staffIDs) throws SQLException {
         LocalDate today = LocalDate.now();
@@ -101,7 +89,7 @@ public class ExaminationService {
         return appointmentDAO.createWalkIn(customerID, petID, serviceIDs, unitPrices, staffIDs);
     }
 
-    /** Walk-in cho khách ĐÃ tồn tại nhưng thú cưng MỚI (chưa có trong hệ thống). */
+    // Walk-in cho khách đã tồn tại nhưng thú cưng mới
     public int createWalkInWithNewPet(int customerID, String petName, String species, String breed,
                                       List<Integer> serviceIDs, List<Integer> staffIDs) throws SQLException {
         LocalDate today = LocalDate.now();
@@ -120,8 +108,8 @@ public class ExaminationService {
         return appointmentDAO.createWalkIn(customerID, petID, serviceIDs, unitPrices, staffIDs);
     }
 
-    /** Walk-in cho khách HOÀN TOÀN mới (chưa có SĐT trong hệ thống). */
-    public int createWalkInWithNewCustomer(String fullName, String phone,
+    // Walk-in cho khách hoàn toàn mới
+    public int createWalkInWithNewCustomer(String fullName, String phone, String email,
                                            String petName, String species, String breed,
                                            List<Integer> serviceIDs, List<Integer> staffIDs) throws SQLException {
         LocalDate today = LocalDate.now();
@@ -129,7 +117,7 @@ public class ExaminationService {
         if (shift == -1) shift = 1;
         if (appointmentDAO.isSlotFull(today, shift)) return -1;
 
-        int customerID = customerDAO.insertWalkIn(fullName, phone);
+        int customerID = customerDAO.insertWalkIn(fullName, phone, email);
 
         Pet pet = new Pet();
         pet.setCustomerID(customerID);
@@ -142,7 +130,7 @@ public class ExaminationService {
         return appointmentDAO.createWalkIn(customerID, petID, serviceIDs, unitPrices, staffIDs);
     }
 
-    /** Lấy giá hiện tại của từng ServiceID để snapshot vào AppointmentServices.UnitPrice. */
+    // Lấy giá hiện tại của từng ServiceID để snapshot vào AppointmentServices.UnitPrice
     private List<BigDecimal> resolveUnitPrices(List<Integer> serviceIDs) throws SQLException {
         List<BigDecimal> prices = new ArrayList<>();
         for (int sid : serviceIDs) {
@@ -152,14 +140,7 @@ public class ExaminationService {
         return prices;
     }
 
-    /**
-     * BP-04 — Sau khi walk-in "Tạo & Check-in" thành công (Appointments +
-     * AppointmentServices đã có), tạo luôn Invoice + InvoiceItems tương ứng
-     * với các dịch vụ đã chọn, để chuyển sang màn hình tổng hợp hóa đơn thu
-     * tiền ngay (tiền mặt/chuyển khoản). customerID được lấy lại từ chính
-     * appointment vừa tạo (đơn giản hóa lời gọi cho 3 nhánh walk-in ở trên,
-     * kể cả nhánh tạo khách/thú cưng mới).
-     */
+
     public int createInvoiceForWalkIn(int appointmentID, List<Integer> serviceIDs) throws Exception {
         Appointment appt = appointmentDAO.findById(appointmentID);
         if (appt == null) throw new IllegalStateException("Không tìm thấy lịch hẹn #" + appointmentID);
@@ -282,7 +263,6 @@ public class ExaminationService {
         return SaveRecordResult.SUCCESS;
     }
 
-    // ══ QUERY HELPERS ═════════════════════════════════════════════════════════
     public List<Appointment> getConfirmedByDate(LocalDate date, Integer shift, String categoryFilter) throws SQLException {
         return appointmentDAO.findConfirmedByDate(date == null ? LocalDate.now() : date, shift, categoryFilter);
     }
@@ -291,11 +271,6 @@ public class ExaminationService {
         return appointmentDAO.searchForCheckIn(keyword, date == null ? LocalDate.now() : date, categoryFilter);
     }
 
-    /**
-     * Hàng chờ bác sĩ: Arrived/InProgress có dịch vụ Chẩn đoán/Phác đồ gán cho vetID,
-     * LOẠI TRỪ appointment mà vet này ĐÃ lưu MedicalRecord rồi (đã xong phần việc
-     * của mình, dù Status vẫn "InProgress" chờ lễ tân xác nhận Done).
-     */
     public List<Appointment> getVetQueue(int vetID, LocalDate date) throws SQLException {
         LocalDate d = date == null ? LocalDate.now() : date;
         List<Appointment> result = appointmentDAO.findStaffQueue(vetID, d, CAT_LAB_TEST, "MedicalRecords");
@@ -304,11 +279,6 @@ public class ExaminationService {
         return result;
     }
 
-    /**
-     * Các ca mà bác sĩ này ĐÃ lưu xong MedicalRecord trong 1 ngày — để xem lại
-     * bệnh án. Dựa trên "record đã tồn tại", KHÔNG dựa Status='Done' (vì
-     * appointment có thể còn dịch vụ Grooming khác đang chờ groomer xử lý).
-     */
     public List<Appointment> getVetCompletedToday(int vetID, LocalDate date) throws SQLException {
         LocalDate d = date == null ? LocalDate.now() : date;
         List<Appointment> result = appointmentDAO.findStaffCompletedToday(vetID, d, CAT_LAB_TEST, "MedicalRecords");
@@ -348,33 +318,22 @@ public class ExaminationService {
         return serviceDAO.findTreatmentPlans();
     }
 
-    /** Tất cả dịch vụ (mọi category) — dùng cho walk-in đầy đủ. */
     public List<Service> getAllActiveServices() throws SQLException {
         return serviceDAO.findAllActive();
     }
 
 
 
-    //LỊCH SỬ LỊCH HẸN + HOÀN TẤT (Receptionist)
-
-    /** Toàn bộ lịch hẹn trong 1 ngày (mọi trạng thái) — dùng cho tab "Lịch sử" của lễ tân. */
     public List<Appointment> getAppointmentHistory(LocalDate date, Integer shift) throws SQLException {
         return appointmentDAO.findAppointmentHistory(date == null ? LocalDate.now() : date, shift);
     }
 
     public enum FinalizeResult { SUCCESS, NOT_FOUND, WRONG_STATUS, NOT_READY }
 
-    /**
-     * Lễ tân xác nhận hoàn tất 1 lịch hẹn. Chỉ cho phép khi MỌI category dịch vụ
-     * trong appointment đã có record tương ứng (MedicalRecord cho Khám,
-     * GroomingRecord cho Grooming). Nếu còn thiếu, trả về NOT_READY kèm danh
-     * sách category còn thiếu để servlet hiển thị thông báo cụ thể.
-     */
     public FinalizeResult finalizeAppointment(int appointmentID) throws SQLException {
         return finalizeAppointment(appointmentID, null);
     }
 
-    /** Overload cho phép lấy ra danh sách category còn thiếu (để hiển thị chi tiết). */
     public FinalizeResult finalizeAppointment(int appointmentID, List<String> outMissingCategories) throws SQLException {
         Appointment appt = appointmentDAO.findById(appointmentID);
         if (appt == null) return FinalizeResult.NOT_FOUND;
@@ -388,6 +347,13 @@ public class ExaminationService {
         }
 
         boolean updated = appointmentDAO.finalizeAppointment(appointmentID);
+        if (updated) {
+            try {
+                new InvoiceDAO().recomputeStatusForAppointment(appointmentID);
+            } catch (SQLException e) {
+
+            }
+        }
         return updated ? FinalizeResult.SUCCESS : FinalizeResult.WRONG_STATUS;
     }
 
@@ -413,7 +379,7 @@ public class ExaminationService {
     }
 
     /** Tổng tiền vật tư của 1 appointment — để cộng vào InvoiceItems. */
-    public java.math.BigDecimal getSupplyTotal(int appointmentID) throws SQLException {
+    public BigDecimal getSupplyTotal(int appointmentID) throws SQLException {
         return supplyDAO.sumByAppointmentId(appointmentID);
     }
 }

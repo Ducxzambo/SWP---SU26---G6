@@ -11,8 +11,6 @@ import java.util.List;
 
 public class StaffDAO {
 
-    // ── Lookup ────────────────────────────────────────────────────────────────
-
     public Staff findByEmail(String email) throws SQLException {
         String sql = """
                 SELECT s.*, r.RoleName
@@ -45,11 +43,6 @@ public class StaffDAO {
         }
     }
 
-    /**
-     * Same as findById but does NOT filter out inactive staff - the Staff
-     * Management screens need to be able to view (and reactivate) someone
-     * who has already been deactivated, unlike the login-time lookups above.
-     */
     public Staff findByIdForManagement(int staffID) throws SQLException {
         String sql = """
                 SELECT s.*, r.RoleName
@@ -96,12 +89,10 @@ public class StaffDAO {
             return roles;
         }
     }
-    /** All active veterinarians. */
     public List<Staff> findAllVets() throws SQLException {
         return findAllByRole("Veterinarian");
     }
 
-    /** All active groomers (for receptionist grooming-checkin assignment). */
     public List<Staff> findAllGroomers() throws SQLException {
         return findAllByRole("Groomer");
     }
@@ -109,7 +100,6 @@ public class StaffDAO {
     public List<Staff> findAllVetsGroomers() throws SQLException {
         return findAllBy2Role("Veterinarian", "Groomer");
     }
-    /** Generic role lookup. */
     private List<Staff> findAllByRole(String roleName) throws SQLException {
         String sql = """
                 SELECT s.*, r.RoleName
@@ -149,7 +139,6 @@ public class StaffDAO {
         }
     }
 
-    /** Số appointment (chưa Cancelled/NoShow) đang gán cho staff này, đúng ca (SlotShift) trong ngày. */
     public int countAssignedInSlot(int staffId, LocalDate date, int slotShift)
             throws SQLException {
         String sql = "SELECT COUNT(DISTINCT a.AppointmentID) FROM Appointments a "
@@ -167,7 +156,6 @@ public class StaffDAO {
         }
     }
 
-    /** Số appointment (chưa Cancelled/NoShow) đang gán cho staff này trong CẢ NGÀY (mọi slot). */
     public int countAssignedOnDate(int staffId, LocalDate date) throws SQLException {
         String sql = "SELECT COUNT(DISTINCT a.AppointmentID) FROM Appointments a "
                 + "JOIN AppointmentServices asvc ON asvc.AppointmentID = a.AppointmentID "
@@ -203,13 +191,6 @@ public class StaffDAO {
         return s;
     }
 
-    /**
-     * Search/browse for the Staff Management list screen.
-     *
-     * @param keyword      matched against FullName/Email (nullable/blank = no filter)
-     * @param roleName     exact role match, e.g. "Veterinarian" (nullable/blank = all roles)
-     * @param statusFilter "active" | "inactive" (nullable/blank = both)
-     */
     public List<Staff> search(String keyword, String roleName, String statusFilter) throws SQLException {
         StringBuilder sql = new StringBuilder("""
                 SELECT s.*, r.RoleName
@@ -253,13 +234,6 @@ public class StaffDAO {
         }
     }
 
-    // ── Write ─────────────────────────────────────────────────────────────────
-
-    /**
-     * Inserts a brand-new staff account. staff.getPasswordHash() must already
-     * hold a hashed password (see StaffService/PasswordUtil) - this DAO never
-     * hashes anything itself.
-     */
     public int insert(Staff staff) throws SQLException {
         String sql = """
                 INSERT INTO Staff (FullName, Email, Phone, PasswordHash, RoleID,
@@ -286,10 +260,6 @@ public class StaffDAO {
         throw new SQLException("Failed to retrieve generated StaffID.");
     }
 
-    /**
-     * Updates profile fields only. Password changes go through updatePassword()
-     * so a routine profile edit can never accidentally touch credentials.
-     */
     public void update(Staff staff) throws SQLException {
         String sql = """
                 UPDATE Staff

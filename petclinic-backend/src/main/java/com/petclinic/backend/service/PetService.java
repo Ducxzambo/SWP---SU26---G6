@@ -17,11 +17,10 @@ public class PetService {
 
     public Map<Integer, MedicalRecord> getMedicalRecordsByPet(int petID) throws SQLException {
         List<MedicalRecord> list = medicalDAO.findByPet(petID);
-        // Chuyển List thành Map với Key là appointmentID
         return list.stream().collect(Collectors.toMap(
                 MedicalRecord::getAppointmentID,
                 record -> record,
-                (existing, replacement) -> existing // Xử lý nếu có trùng ID
+                (existing, replacement) -> existing
         ));
     }
     public Map<Integer, VaccinationRecord> getVaccinationRecordsByPet(int petID) throws SQLException {

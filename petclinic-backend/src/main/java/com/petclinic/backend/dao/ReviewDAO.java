@@ -9,10 +9,7 @@ import java.util.List;
 
 public class ReviewDAO {
 
-    // -- Write --------------------------------------------------------------
-
-    /** Insert review. Return reviewID */
-    public int insert(Review r) throws SQLException {
+     public int insert(Review r) throws SQLException {
         String sql = "INSERT INTO Reviews "
                 + "(AppointmentID, CustomerID, Rating, Comment, IsPublic, CreatedAt) "
                 + "VALUES (?, ?, ?, ?, ?, GETDATE())";
@@ -46,9 +43,6 @@ public class ReviewDAO {
         }
     }
 
-    // Read
-
-    /** Tìm review cho 1 appointment */
     public Review findByAppointment(int appointmentId) throws SQLException {
         String sql = buildBaseQuery()
                 + " WHERE r.AppointmentID = ?";
@@ -61,23 +55,6 @@ public class ReviewDAO {
         }
     }
 
-    /** Review của 1 customers (nếu có My Review) */
-    public List<Review> findByCustomer(int customerId) throws SQLException {
-        String sql = buildBaseQuery()
-                + " WHERE r.CustomerID = ? ORDER BY r.CreatedAt DESC";
-        return queryList(sql, customerId);
-    }
-
-    /**
-     * Reviews for the community page
-     *
-     * @param categoryId  0 = all
-     * @param serviceId   0 = all
-     * @param staffId       0 = all
-     * @param petSpecies  null/blank = all
-     * @param minRating   1-5, 0 = all
-     * @param sortBy      "newest" | "rating_desc" | "rating_asc"
-     */
     public List<Review> findPublic(int categoryId, int serviceId, int staffId,
                                    String petSpecies, int minRating, String sortBy)
             throws SQLException {
@@ -149,7 +126,6 @@ public class ReviewDAO {
         return result;
     }
 
-    /** Pet species đã có review (dùng ở filter) */
     public List<String> findPublicSpecies() throws SQLException {
         String sql = "SELECT DISTINCT p.SpeciesName "
                 + "FROM Reviews r "
@@ -166,8 +142,7 @@ public class ReviewDAO {
         return list;
     }
 
-    // -- Helpers ----------------------------------------------------------------
-
+    // helpers
     private String buildBaseQuery() {
         return "SELECT r.*, "
                 + "  svcAgg.ServiceNames  AS ServiceName, "
@@ -232,7 +207,6 @@ public class ReviewDAO {
         r.setStaffName(rs.getString("StaffName"));
         int vid = rs.getInt("StaffID"); if (!rs.wasNull()) r.setStaffID(vid);
         r.setPetSpecies(rs.getString("PetSpecies"));
-        // Anonymous label: "Khach hang an danh" by default
         r.setAnonymousLabel("Khách hàng ẩn danh");
         return r;
     }

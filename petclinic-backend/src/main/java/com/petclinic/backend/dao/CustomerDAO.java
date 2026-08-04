@@ -10,8 +10,7 @@ import java.util.List;
 
 public class CustomerDAO {
 
-    // ── Lookup ───────────────────────────────────────────────────────────────
-
+    // Lookup
     public List<Customer> findAllActive(int max) throws SQLException {
         List<Customer> list = new ArrayList<>();
         String sql = "SELECT * FROM Customers WHERE IsActive = 1" +
@@ -78,7 +77,6 @@ public class CustomerDAO {
         }
     }
 
-    /** Same as existsByEmail, but ignores the customer's own row (for profile edits). */
     public boolean existsByEmailExcluding(String email, int excludeCustomerId) throws SQLException {
         String sql = "SELECT 1 FROM Customers WHERE Email = ? AND CustomerID <> ?";
         try (Connection c = DBConnection.getConnection();
@@ -89,7 +87,6 @@ public class CustomerDAO {
         }
     }
 
-    /** Same as existsByPhone, but ignores the customer's own row (for profile edits). */
     public boolean existsByPhoneExcluding(String phone, int excludeCustomerId) throws SQLException {
         String sql = "SELECT 1 FROM Customers WHERE Phone = ? AND CustomerID <> ?";
         try (Connection c = DBConnection.getConnection();
@@ -100,8 +97,7 @@ public class CustomerDAO {
         }
     }
 
-    // ── Write ────────────────────────────────────────────────────────────────
-
+    //  Write
     public int insert(Customer customer) throws SQLException {
         String sql = "INSERT INTO Customers (FullName, Email, Phone, PasswordHash, IsActive) "
                    + "VALUES (?, ?, ?, ?, 1)";
@@ -119,14 +115,7 @@ public class CustomerDAO {
         return -1;
     }
 
-    /**
-     * Quick-create a walk-in customer with ONLY phone + full name (no email/password required).
-     * Email is auto-generated as a placeholder so the UNIQUE/NOT NULL constraints still hold;
-     * the customer can complete registration with a real email later if they choose to.
-     * Returns the generated CustomerID.
-     */
-    public int insertWalkIn(String fullName, String phone) throws SQLException {
-        String placeholderEmail = "walkin_" + phone.trim() + "@petclinic.local";
+    public int insertWalkIn(String fullName, String phone, String email) throws SQLException {
         String randomHash = com.petclinic.backend.util.PasswordUtil.hashPassword(
                 java.util.UUID.randomUUID().toString());
 
@@ -135,7 +124,7 @@ public class CustomerDAO {
         try (Connection c = DBConnection.getConnection();
              PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setString(1, fullName.trim());
-            ps.setString(2, placeholderEmail);
+            ps.setString(2, email);
             ps.setString(3, phone.trim());
             ps.setString(4, randomHash);
             ps.executeUpdate();
@@ -186,8 +175,7 @@ public class CustomerDAO {
         }
     }
 
-    // ── Remember-Me token ────────────────────────────────────────────────────
-
+    // Remember-Me token
     public void saveRememberMeToken(int customerId, String token, LocalDateTime expiredTime)
             throws SQLException {
         String sql = "UPDATE Customers SET RememberMeToken = ?, TokenExpiredTime = ? "
@@ -222,7 +210,7 @@ public class CustomerDAO {
         }
     }
 
-    // ── Mapping ──────────────────────────────────────────────────────────────
+    // Mapping
 
     private Customer mapRow(ResultSet rs) throws SQLException {
         Customer cust = new Customer();

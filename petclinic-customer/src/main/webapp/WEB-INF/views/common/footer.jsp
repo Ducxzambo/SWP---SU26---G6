@@ -5,7 +5,7 @@
   <div class="footer-grid">
 
     <div class="footer-brand">
-      <div class="logo">🐾 Pet<span>Clinic</span></div>
+      <div class="logo"><svg class="nav-inline-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="7" cy="8" r="2"/><circle cx="12" cy="5" r="2"/><circle cx="17" cy="8" r="2"/><path d="M12 11c-3 0-5 2-5 5 0 2 1 3 3 2l2-1 2 1c2 1 3 0 3-2 0-3-2-5-5-5z"/></svg> Pet<span>Clinic</span></div>
       <p>Chúng tôi cung cấp dịch vụ thú y toàn diện với đội ngũ bác sĩ giàu kinh nghiệm,
          tận tâm chăm sóc mỗi người bạn bốn chân của bạn.</p>
     </div>

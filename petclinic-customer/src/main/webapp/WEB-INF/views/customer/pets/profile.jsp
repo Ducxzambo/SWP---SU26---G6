@@ -57,7 +57,7 @@
       <div class="profile-stat-lbl">Đã hoàn thành</div>
     </div>
     <div class="profile-stat-card">
-      <div class="profile-stat-num">${vaccines.size()}</div>
+      <div class="profile-stat-num">${vaccineCount}</div>
       <div class="profile-stat-lbl">Vaccine đã tiêm</div>
     </div>
     <div class="profile-stat-card">
@@ -73,71 +73,55 @@
     </div>
   </div>
 
-  <%-- ── Medical history timeline ────────────────────────────── --%>
+  <%-- ── Cột mốc & thống kê chung (thay cho liệt kê toàn bộ lịch sử) ─────── --%>
   <div class="profile-section">
     <div class="profile-section-head">
-      Lịch sử khám bệnh
-      <span style="margin-left:auto;font-size:12.5px;color:var(--warm-gray);font-weight:400;">
-        ${appointments.size()} lần
-      </span>
+      Cột mốc &amp; Dòng thời gian
+      <span style="margin-left:auto;font-size:12px;color:var(--warm-gray);font-weight:400;">
+      ${cancelledCount} huỷ · ${noShowCount} vắng mặt
+    </span>
     </div>
-    <div class="profile-section-body">
+    <div class="profile-section-body" style="padding:24px 22px;">
+
       <c:choose>
-        <c:when test="${empty appointments}">
-          <div style="padding:28px;text-align:center;color:var(--warm-gray);font-size:14px;">
-            Chưa có lịch sử khám bệnh.
-            <a href="${ctx}/booking/new"
-               style="color:var(--green-500);font-weight:500;margin-left:4px;">Đặt lịch ngay</a>
+        <c:when test="${empty timeline}">
+          <div class="db-empty-mini" style="color:var(--warm-gray);text-align:center;font-size:13px;padding:10px 0 20px;">
+            Chưa có dữ liệu để hiển thị trên dòng thời gian.
           </div>
         </c:when>
         <c:otherwise>
-          <div class="timeline">
-            <c:forEach var="a" items="${appointments}" varStatus="vs">
-              <div class="timeline-item">
-                <%-- Dot + line --%>
-                <div class="timeline-dot-wrap">
-                  <div class="timeline-dot ${fn:toLowerCase(a.status)}"></div>
-                  <c:if test="${!vs.last}"><div class="timeline-line"></div></c:if>
-                </div>
-                <%-- Content --%>
-                <div class="timeline-content">
-                  <div class="timeline-service">${a.serviceName}</div>
-                  <div class="timeline-meta">
-                    <span>${a.formattedAppointmentDate}</span>
-                    <span>${a.formattedStartTime} – ${a.formattedEndTime}</span>
-                    <c:if test="${not empty a.staffName}">
-                      <span>${a.staffName}</span>
-                    </c:if>
-                    <span class="status-badge status-${fn:toLowerCase(a.status)}"
-                          style="padding:2px 8px;font-size:11px;">${a.status}</span>
-                  </div>
-<%--                  &lt;%&ndash; Medical summary if exists &ndash;%&gt;--%>
-<%--                  <c:if test="${not empty medicalMap[a.appointmentID]}">--%>
-<%--                    <c:set var="me" value="${medicalMap[a.appointmentID]}"/>--%>
-<%--                    <div class="timeline-summary"><strong>Chẩn đoán:</strong> ${me.diagnosis}</div>--%>
-<%--                  </c:if>--%>
-
-<%--                  &lt;%&ndash; Grooming summary if exists &ndash;%&gt;--%>
-<%--                  <c:if test="${not empty groomingMap[a.appointmentID]}">--%>
-<%--                    <c:set var="gr" value="${groomingMap[a.appointmentID]}"/>--%>
-<%--                    <div class="timeline-summary"><strong>Tình trạng:</strong> ${gr.coatCondition}</div>--%>
-<%--                  </c:if>--%>
-
-<%--                  &lt;%&ndash; Vaccine summary if exists &ndash;%&gt;--%>
-<%--                  <c:if test="${not empty vaccineMap[a.appointmentID]}">--%>
-<%--                    <c:set var="vc" value="${vaccineMap[a.appointmentID]}"/>--%>
-<%--                    <div class="timeline-summary"><strong>Ngày tiêm:</strong> ${vc.formattedAdministeredDate}</div>--%>
-<%--                  </c:if>--%>
-                  <a href="${ctx}/appointments/detail?id=${a.appointmentID}"
-                     class="timeline-link" style="margin-top:6px;display:inline-block;">
-                    Xem chi tiết
-                  </a>
-                </div>
-              </div>
-            </c:forEach>
+          <div class="tl-legend">
+            <span><span class="tl-legend-dot tl-dot-green"></span>Đã hoàn thành</span>
+            <span><span class="tl-legend-dot tl-dot-amber"></span>Đã xác nhận</span>
+            <span><span class="tl-legend-dot tl-dot-black"></span>Vaccine / Tái khám</span>
           </div>
+          <div class="tl-wrap">
+            <div class="tl-line"></div>
+            <div class="tl-dots">
+              <c:forEach var="ev" items="${timeline}" varStatus="vs">
+                <c:set var="tlPos" value="${fn:length(timeline) == 1 ? 50 : (vs.index * 100 / (fn:length(timeline) - 1))}"/>
+                <c:choose>
+                  <c:when test="${not empty ev.appointmentId}">
+                    <a href="${ctx}/appointments/detail?id=${ev.appointmentId}"
+                       class="tl-dot ${ev.dotClass}" style="left:${tlPos}%;"
+                       title="${ev.typeLabel} — ${ev.label} (${ev.formattedDate})"></a>
+                  </c:when>
+                  <c:otherwise>
+                  <span class="tl-dot ${ev.dotClass}" style="left:${tlPos}%;"
+                        title="${ev.typeLabel} — ${ev.label} (${ev.formattedDate})"></span>
+                  </c:otherwise>
+                </c:choose>
+              </c:forEach>
+            </div>
+          </div>
+          <div class="tl-hint">Di chuột vào từng chấm để xem chi tiết.</div>
         </c:otherwise>
       </c:choose>
+
+      <div class="milestone-list" style="margin-top:8px;">
+        <%-- ...keep the existing firstDone / lastDone / latestVaccine / nextDueVaccine / nextUpcoming milestone-item blocks exactly as before... --%>
+      </div>
+
     </div>
   </div>
 

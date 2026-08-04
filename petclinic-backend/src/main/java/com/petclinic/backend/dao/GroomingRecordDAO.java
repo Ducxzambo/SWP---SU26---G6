@@ -12,30 +12,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-/**
- * Data access cho GroomingRecords + hàng chờ Groomer.
- *
- * Theo schema AppointmentServices (N-N): Appointments KHÔNG có ServiceID hay
- * AssignedStaffID trực tiếp — mỗi dịch vụ trong 1 appointment là 1 dòng riêng
- * trong AppointmentServices, kèm AssignedStaffID RIÊNG cho dòng đó. Nhờ vậy
- * 1 appointment có thể trộn dịch vụ Khám + Grooming, mỗi loại có nhân viên
- * phụ trách khác nhau.
- *
- * DAO này KHÔNG tự viết lại SQL join Appointments/AppointmentServices/Services
- * — mọi truy vấn hàng chờ đều ủy quyền cho AppointmentDAO (đã có sẵn
- * findStaffQueue/findUnassignedArrived/findStaffCompletedToday tổng quát,
- * dùng chung được cho cả Vet lẫn Groomer qua tham số categoryFilter).
- * GroomingRecordDAO chỉ lo phần CRUD bảng GroomingRecords + việc gộp
- * (merge) danh sách "đã gán cho tôi" và "chưa ai nhận" cho đúng nghiệp vụ
- * self-assign của groomer.
- */
 public class GroomingRecordDAO {
 
     public static final String CATEGORY_GROOMING = "Grooming";
 
     private final AppointmentDAO appointmentDAO = new AppointmentDAO();
 
-    // ── Read: GroomingRecords ───────────────────────────────────────────────────
 
     public GroomingRecord findByAppointmentId(int appointmentID) throws SQLException {
         String sql = BASE_SELECT + " WHERE gr.AppointmentID = ?";
@@ -59,7 +41,6 @@ public class GroomingRecordDAO {
         }
     }
 
-    /** Lịch sử spa của 1 thú cưng — groomer xem lại trước khi bắt đầu phiên mới. */
     public List<GroomingRecord> findHistoryByPetId(int petID) throws SQLException {
         String sql = BASE_SELECT + " WHERE gr.PetID = ? ORDER BY gr.CreatedAt DESC";
         try (Connection c = DBConnection.getConnection();
@@ -73,26 +54,14 @@ public class GroomingRecordDAO {
         }
     }
 
-    // ── Hàng chờ Groomer (ủy quyền AppointmentDAO, category = Grooming) ─────────
 
-    /**
-     * Hàng chờ của 1 groomer trong 1 ngày: gồm 2 nhóm gộp lại (loại trùng theo AppointmentID)
-     *  1. Appointment có ÍT NHẤT 1 dòng dịch vụ Grooming ĐANG GÁN cho groomerID (Arrived/InProgress)
-     *  2. Appointment có ÍT NHẤT 1 dòng dịch vụ Grooming CHƯA AI NHẬN (self-assign pool)
-     * Cả 2 nhóm đều LOẠI TRỪ appointment mà groomer này ĐÃ lưu GroomingRecord rồi
-     * (đã xong phần việc của mình, dù Status vẫn "InProgress" chờ vet/lễ tân).
-     */
     public List<Appointment> findGroomerQueue(int groomerID, LocalDate date) throws SQLException {
         List<Appointment> assigned   = appointmentDAO.findStaffQueue(groomerID, date, CATEGORY_GROOMING, "GroomingRecords");
         List<Appointment> unassigned = appointmentDAO.findUnassignedArrived(date, CATEGORY_GROOMING, "GroomingRecords");
         return mergeDistinctById(assigned, unassigned);
     }
 
-    /**
-     * Các ca mà groomer này ĐÃ lưu xong GroomingRecord trong 1 ngày — để xem lại
-     * kết quả. Dựa trên "record đã tồn tại", KHÔNG dựa Status='Done' (appointment
-     * có thể còn dịch vụ Khám khác đang chờ vet xử lý).
-     */
+
     public List<Appointment> findGroomerCompletedToday(int groomerID, LocalDate date) throws SQLException {
         return appointmentDAO.findStaffCompletedToday(groomerID, date, CATEGORY_GROOMING, "GroomingRecords");
     }
@@ -108,8 +77,6 @@ public class GroomingRecordDAO {
         }
         return result;
     }
-
-    // ── Write: GroomingRecords ───────────────────────────────────────────────────
 
     public int save(GroomingRecord rec) throws SQLException {
         String sql = """
@@ -137,13 +104,7 @@ public class GroomingRecordDAO {
         throw new SQLException("Failed to save GroomingRecord.");
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
 
-    /**
-     * BASE_SELECT lấy ServiceName qua AppointmentServices (N-N) thay vì
-     * Appointments.ServiceID trực tiếp — 1 appointment có thể có nhiều dịch vụ,
-     * nên lấy dịch vụ Grooming đầu tiên gắn với appointment đó để hiển thị.
-     */
     private static final String BASE_SELECT = """
             SELECT gr.*,
                    p.Name      AS PetName,

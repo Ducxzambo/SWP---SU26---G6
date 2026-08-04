@@ -14,13 +14,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.List;
 
-/**
- * Staff &gt; Hồ sơ nhân viên (detail screen).
- * Read-only profile view plus an all-time performance snapshot (case counts,
- * revenue, top services). Editing and admin actions (deactivate, reset
- * password) live on their own screens/endpoints - this page only links out
- * to them, it doesn't process any of those POSTs itself.
- */
 @WebServlet("/manager/staff/detail")
 public class StaffDetailServlet extends HttpServlet {
 

@@ -11,9 +11,6 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
 
-/**
- * Refund &gt; Từ chối yêu cầu (POST-only action, no screen of its own).
- */
 @WebServlet("/manager/refunds/reject")
 public class RefundRejectServlet extends HttpServlet {
 

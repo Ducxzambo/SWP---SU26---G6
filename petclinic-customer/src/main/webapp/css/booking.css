@@ -618,6 +618,42 @@
 }
 .btn-result-secondary:hover { background: var(--sand); }
 
+/* ── Confirm page (booking/confirm.jsp) ─────────────────────────────────── */
+.confirm-page-header { text-align: center; margin-bottom: 28px; }
+.confirm-page-header h1 {
+  font-family: 'Playfair Display', serif;
+  font-size: 26px;
+  color: var(--green-900);
+  margin-bottom: 6px;
+}
+.confirm-page-header p { color: var(--warm-gray); font-size: 14px; }
+
+.confirm-box-subhead {
+  background: var(--green-50);
+  color: var(--text-dark);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 12px 28px;
+  border-top: 1px solid var(--border);
+}
+.confirm-box--invoice { margin-top: 20px; }
+.confirm-table-row--total { background: var(--green-50); }
+.confirm-table-row--total td:first-child { font-weight: 600; color: var(--green-900); }
+.confirm-table-total-value { font-weight: 700; color: var(--green-700); font-size: 16px; }
+
+.confirm-info-note {
+  background: var(--green-50);
+  border: 1px solid var(--green-100);
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin-top: 20px;
+  font-size: 13.5px;
+  color: var(--green-700);
+  line-height: 1.7;
+}
+.confirm-submit-form { flex: 2; }
+.confirm-submit-form .btn-confirm { width: 100%; }
+
 /* ── Responsive ──────────────────────────────────────────────────────────── */
 @media (max-width: 900px)  { .bk-layout { grid-template-columns: 1fr; } }
 @media (max-width: 540px)  { .slot-grid { grid-template-columns: repeat(2, 1fr); } .period-btns { flex-direction: column; } }

@@ -186,6 +186,17 @@ body {
     flex-shrink: 0;
     line-height: 1.5;
 }
+.alert-icon svg, .input-icon svg, .empty-icon svg, .pay-opt-icon svg, .pay-qr-note-icon svg, .result-icon svg {
+    width: 1em;
+    height: 1em;
+    display: inline-block;
+    vertical-align: middle;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
 
 .alert-success {
     background: var(--green-100);
@@ -996,6 +1007,23 @@ select.form-control {
 .metric-card-link:hover {
     border-color: var(--teal-400);
     transform: translateY(-1px);
+}
+
+/* Refund picker search bar */
+.refund-search-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    align-items: center;
+}
+.refund-search-input-wrap {
+    position: relative;
+    flex: 1 1 auto;
+}
+.refund-search-input-wrap .form-control { width: 100%; }
+.refund-status-select {
+    flex: 0 0 200px;
+    width: 200px;
 }
 
 /* ── Responsive ──────────────────────────────────────────────────────────── */

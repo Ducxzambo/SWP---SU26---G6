@@ -1,5 +1,6 @@
 package com.petclinic.backend.dao;
 
+import com.petclinic.backend.dao.MedicineDAO;
 import com.petclinic.backend.model.MedicalRecord;
 import com.petclinic.backend.model.PrescriptionItem;
 import com.petclinic.backend.util.DBConnection;
@@ -12,9 +13,6 @@ public class MedicalRecordDAO {
 
     private MedicineDAO medicineDAO = new MedicineDAO();
 
-    /**
-     * Find by appointmentID (1-1 relationship).
-     */
     public MedicalRecord findByAppointmentId(int appointmentID) throws SQLException {
         String sql = """
                 SELECT mr.*,
@@ -41,7 +39,6 @@ public class MedicalRecordDAO {
         }
     }
 
-    /** Load medical record cho một appointment */
     public MedicalRecord findByAppointment(int appointmentId) throws SQLException {
         String sql = "SELECT mr.*, s.FullName AS StaffName "
                 + "FROM MedicalRecords mr "
@@ -102,11 +99,6 @@ public class MedicalRecordDAO {
         return list;
     }
 
-    /**
-     * Cân nặng ở lần khám GẦN NHẤT có ghi nhận cân nặng cho 1 pet - dùng làm
-     * fallback khi Pets.Weight null. Trả về null nếu pet chưa có medical record
-     * nào ghi nhận cân nặng.
-     */
     public java.math.BigDecimal findLatestWeightByPet(int petId) throws SQLException {
         String sql = "SELECT TOP 1 Weight FROM MedicalRecords "
                 + "WHERE PetID = ? AND Weight IS NOT NULL "
@@ -138,13 +130,6 @@ public class MedicalRecordDAO {
         return mr;
     }
 
-    /**
-     * Save a new medical record with its prescription items in one transaction.
-     * Also deducts medicine stock and records StockTransactions.
-     * Returns the generated RecordID.
-     *
-     * @throws SQLException if stock is insufficient for any prescribed medicine.
-     */
     public int save(MedicalRecord record, List<PrescriptionItem> items) throws SQLException {
         Connection conn = DBConnection.getConnection();
         try {
@@ -177,8 +162,7 @@ public class MedicalRecordDAO {
         }
     }
 
-    // ── Private helpers ───────────────────────────────────────────────────────
-
+    // helpers
     private int insertRecord(Connection conn, MedicalRecord r) throws SQLException {
         String sql = """
                 INSERT INTO MedicalRecords
@@ -220,9 +204,6 @@ public class MedicalRecordDAO {
         }
     }
 
-    /**
-     * Append a stock-out transaction for audit trail (mirrors StockTransactions table).
-     */
     private void insertStockTransaction(Connection conn, PrescriptionItem item,
                                         int performedByVetID) throws SQLException {
         String sql = "INSERT INTO StockTransactions " +
@@ -266,9 +247,7 @@ public class MedicalRecordDAO {
             }
         }
     }
-    /**
-     * Full history for a pet (for Staff to review before examination).
-     */
+
     public List<MedicalRecord> findHistoryByPetId(int petID) throws SQLException {
         String sql = """
                 SELECT mr.*,

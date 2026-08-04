@@ -13,7 +13,6 @@ public class Medicine {
     public Medicine() {
     }
 
-    // ── Getters & Setters ────────────────────────────────────────────────────
     public int getMedicineID() {
         return medicineID;
     }
@@ -62,9 +61,6 @@ public class Medicine {
         minStockLevel = v;
     }
 
-    /**
-     * Convenience: display name with unit.
-     */
     public String getDisplayName() {
         return name + " (" + unit + ")";
     }

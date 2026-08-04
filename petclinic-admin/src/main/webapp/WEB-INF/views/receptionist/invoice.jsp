@@ -1,210 +1,250 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ taglib prefix="c"   uri="http://java.sun.com/jsp/jstl/core" %>
 <%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
-<c:set var="ctx" value="${pageContext.request.contextPath}"/>
 <!DOCTYPE html>
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Hóa đơn #${invoice.invoiceID} - PetClinic</title>
-  <link rel="stylesheet" href="${ctx}/css/main.css">
-  <link rel="stylesheet" href="${ctx}/css/booking.css">
+  <link rel="stylesheet" href="${pageContext.request.contextPath}/css/dashboard.css">
   <style>
-    /* Thanh trên cùng dành riêng cho nhân viên (không dùng header.jsp của khách hàng) */
-    .staff-topbar {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 16px 28px; background: var(--green-900); color: #fff;
+    .pay-flow-steps { display:flex; align-items:center; gap:0; margin-bottom:24px; flex-wrap:wrap; }
+    .pay-flow-step { display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text-soft); }
+    .pay-flow-step .pfs-num {
+      width:26px; height:26px; border-radius:50%; background:var(--border); color:#fff;
+      display:flex; align-items:center; justify-content:center; font-weight:700; font-size:12.5px; flex-shrink:0;
     }
-    .staff-topbar .brand { font-family: 'Playfair Display', serif; font-size: 18px; }
-    .staff-topbar .who   { font-size: 13.5px; color: var(--green-100); display: flex; align-items: center; gap: 14px; }
-    .staff-topbar a      { color: #fff; opacity: .85; }
-    .staff-topbar a:hover{ opacity: 1; text-decoration: underline; }
+    .pay-flow-step.done .pfs-num { background:var(--green-400); }
+    .pay-flow-step.active .pfs-num { background:var(--teal-700); }
+    .pay-flow-step.active { color:var(--teal-800); font-weight:600; }
+    .pay-flow-line { width:40px; height:2px; background:var(--border); margin:0 8px; }
+    .pay-flow-line.done { background:var(--green-400); }
 
-    .flash-warning { background: #fff3cd; color: #856404; border-bottom: 1px solid #ffe28a; }
+    .inv-summary-table { width:100%; border-collapse:collapse; font-size:13.5px; }
+    .inv-summary-table th {
+      border-bottom:2px solid var(--border); padding:8px 6px; text-align:left;
+      font-size:11px; text-transform:uppercase; letter-spacing:.4px; color:var(--text-soft);
+    }
+    .inv-summary-table td { padding:7px 6px; border-bottom:1px dashed var(--border); }
+    .inv-num { text-align:right; white-space:nowrap; }
+    .inv-item-name { font-weight:600; color:var(--text); }
+    .inv-totals-table { width:100%; font-size:14px; margin-top:8px; }
+    .inv-totals-table td { padding:5px 0; }
+    .inv-totals-table .val { text-align:right; font-weight:700; }
+    .inv-grand td { font-size:17px; color:var(--teal-800); border-top:2px solid var(--border); padding-top:10px; }
+    .inv-due-row td { color:#b91c1c; }
 
-    /* .pay-option ở booking.css vốn thiết kế cho <div onclick>; ở trang này mỗi
-       lựa chọn là 1 action submit ngay lập tức nên bọc trong <button> — reset
-       lại vài thuộc tính mặc định của <button> cho khớp style .pay-option cũ. */
-    button.pay-option {
-      width: 100%; text-align: left; font-family: inherit; color: inherit;
-      appearance: none; -webkit-appearance: none;
+    .pay-methods { display:flex; flex-direction:column; gap:14px; margin-top:8px; }
+    .pay-method-card { border:1.5px solid var(--border); border-radius:var(--radius); padding:18px 20px; background:#fff; transition:var(--transition); }
+    .pay-method-card:hover { border-color:var(--teal-400); }
+    .pay-method-head { display:flex; align-items:center; gap:12px; margin-bottom:6px; }
+    .pay-method-icon {
+      width:40px; height:40px; border-radius:10px; background:var(--teal-50); color:var(--teal-700);
+      display:flex; align-items:center; justify-content:center; font-size:19px; flex-shrink:0;
     }
-    button.pay-option:focus-visible { outline: 2px solid var(--green-400); outline-offset: 2px; }
+    .pay-method-title { font-size:15px; font-weight:700; color:var(--text); }
+    .pay-method-amount { font-size:19px; font-weight:700; color:var(--teal-700); margin-left:auto; white-space:nowrap; }
+    .pay-method-desc { font-size:13px; color:var(--text-soft); margin:0 0 12px 52px; line-height:1.6; }
+    .pay-method-redirect-hint {
+      display:flex; align-items:flex-start; gap:6px; margin:0 0 12px 52px;
+      font-size:12px; color:var(--teal-700); background:var(--teal-50); border-radius:6px; padding:6px 10px;
+    }
+    .pay-method-form { margin-left:52px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .pay-method-form input[type=number] {
+      flex:1; min-width:180px; padding:9px 12px; border:1.5px solid var(--border); border-radius:8px; font-size:13.5px;
+    }
+    .pay-mixed-preview { margin:8px 0 0 52px; font-size:12.5px; color:var(--teal-700); font-weight:600; }
 
-    .invoice-due-box {
-      background: var(--green-50); border: 1px solid var(--green-100); border-radius: var(--radius);
-      padding: 16px 20px; margin-bottom: 24px;
+    .fully-paid-banner { text-align:center; padding:28px 20px; }
+    .fully-paid-icon {
+      width:60px; height:60px; border-radius:50%; background:var(--green-100); color:#15803d;
+      display:flex; align-items:center; justify-content:center; font-size:28px; margin:0 auto 14px;
     }
-    .invoice-due-row {
-      display: flex; justify-content: space-between; font-size: 14px; padding: 5px 0; color: var(--text-mid);
-    }
-    .invoice-due-row--total {
-      border-top: 1px dashed var(--green-100); margin-top: 8px; padding-top: 10px;
-      color: var(--green-900); font-weight: 700; font-size: 16px;
-    }
+    .fully-paid-title { font-size:18px; font-weight:700; color:var(--teal-800); }
   </style>
 </head>
 <body>
-
-<div class="staff-topbar">
-  <span class="brand">🐾 PetClinic — Lễ tân</span>
-  <span class="who">
-    <c:if test="${not empty staff}">${staff.fullName}</c:if>
-    <a href="${ctx}/receptionist/${from}">← Quay lại ${from == 'history' ? 'Lịch sử' : 'Check-in'}</a>
-  </span>
-</div>
-
-<c:if test="${not empty sessionScope.flashSuccess}">
-  <div class="flash flash-success"><span>✓</span>&nbsp;${sessionScope.flashSuccess}</div>
-  <c:remove var="flashSuccess" scope="session"/>
-</c:if>
-<c:if test="${not empty sessionScope.flashWarning}">
-  <div class="flash flash-warning"><span>⚠</span>&nbsp;${sessionScope.flashWarning}</div>
-  <c:remove var="flashWarning" scope="session"/>
-</c:if>
-<c:if test="${not empty sessionScope.flashError}">
-  <div class="flash flash-error"><span>✕</span>&nbsp;${sessionScope.flashError}</div>
-  <c:remove var="flashError" scope="session"/>
-</c:if>
-
-<div class="confirm-card">
-
-  <div style="text-align:center;margin-bottom:28px;">
-    <h1 style="font-family:'Playfair Display',serif;font-size:26px;color:var(--green-900);margin-bottom:6px;">
-      Hóa đơn #${invoice.invoiceID}
-    </h1>
-    <p style="color:var(--warm-gray);font-size:14px;">
-      Lịch hẹn #${appointment.appointmentID}
-      <c:if test="${not empty appointment.customerName}"> — ${appointment.customerName}</c:if>
-      <c:if test="${not empty appointment.petName}"> — 🐾 ${appointment.petName}</c:if>
-    </p>
-  </div>
-
-  <!-- Thông tin lịch hẹn -->
-  <div class="confirm-box" style="margin-bottom:20px;">
-    <div class="confirm-box-head">Thông tin lịch hẹn</div>
-    <table class="confirm-table">
-      <tr>
-        <td>Ngày khám</td>
-        <td>${appointment.appointmentDate} · ${appointment.startTime}</td>
-      </tr>
-      <tr>
-        <td>Trạng thái</td>
-        <td><strong>${appointment.status}</strong></td>
-      </tr>
-    </table>
-  </div>
-
-  <!-- Chi tiết hóa đơn -->
-  <div class="confirm-box" style="margin-bottom:20px;">
-    <div class="confirm-box-head">Chi tiết hóa đơn</div>
-
-    <div class="confirm-item-list">
-      <c:forEach var="item" items="${invoice.items}">
-        <div class="confirm-item-row">
-          <span class="confirm-item-name">
-            ${item.description}
-            <c:if test="${item.quantity != 1}"> (x<fmt:formatNumber value="${item.quantity}" maxFractionDigits="2"/>)</c:if>
-          </span>
-          <span class="confirm-item-price"><fmt:formatNumber value="${item.lineTotal}" type="number" groupingUsed="true"/>đ</span>
-        </div>
-      </c:forEach>
-      <c:if test="${empty invoice.items}">
-        <div class="confirm-item-row">
-          <span class="confirm-item-name" style="color:var(--warm-gray);">Chưa có dòng dịch vụ nào</span>
-        </div>
-      </c:if>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo">🐾 PetClinic</div>
+    <nav>
+      <a href="${pageContext.request.contextPath}/receptionist/checkin" class="nav-item ${from == 'checkin' ? 'active' : ''}">Check-in</a>
+      <a href="${pageContext.request.contextPath}/receptionist/history" class="nav-item ${from == 'history' ? 'active' : ''}">Lịch sử</a>
+    </nav>
+    <div class="sidebar-user">
+      ${sessionScope.staff.fullName}
+      <a href="${pageContext.request.contextPath}/auth/staff/logout" class="logout-link">Đăng xuất</a>
     </div>
-  </div>
+  </aside>
 
-  <!-- Tổng hợp thanh toán -->
-  <div class="invoice-due-box">
-    <div class="invoice-due-row">
-      <span>Tổng cộng</span>
-      <strong><fmt:formatNumber value="${invoice.totalAmount}" type="number" groupingUsed="true"/>đ</strong>
-    </div>
-    <c:if test="${amountPaid > 0}">
-      <div class="invoice-due-row">
-        <span>Đã thanh toán</span>
-        <strong><fmt:formatNumber value="${amountPaid}" type="number" groupingUsed="true"/>đ</strong>
-      </div>
-    </c:if>
-    <div class="invoice-due-row invoice-due-row--total">
-      <span>${fullyPaid ? 'Đã thanh toán đủ' : 'Còn phải thu'}</span>
-      <span><fmt:formatNumber value="${amountDue}" type="number" groupingUsed="true"/>đ</span>
-    </div>
-  </div>
-
-  <c:choose>
-
-    <%-- ── Đã thanh toán đủ: hiện trạng thái xác nhận, không còn action gì ── --%>
-    <c:when test="${fullyPaid}">
-      <div style="text-align:center;padding:12px 0 8px;">
-        <div class="result-icon result-icon--success" style="margin:0 auto 16px;">✓</div>
-        <div class="result-title result-title--success" style="font-size:20px;">Hóa đơn đã thanh toán đủ</div>
-        <p class="result-subtitle" style="margin-bottom:8px;">Cảm ơn quý khách đã sử dụng dịch vụ tại PetClinic.</p>
-      </div>
-      <div class="confirm-actions">
-        <a href="${ctx}/receptionist/${from}" class="btn-confirm" style="text-align:center;">
-          Xong, quay lại ${from == 'history' ? 'Lịch sử' : 'Check-in'}
+  <main class="main-content">
+    <div class="page-header">
+      <h1>Hóa đơn #${invoice.invoiceID}</h1>
+      <p class="page-sub">
+        Lịch hẹn #${appointment.appointmentID}
+        <c:if test="${not empty appointment.customerName}"> — <c:out value="${appointment.customerName}"/></c:if>
+        <c:if test="${not empty appointment.petName}"> — 🐾 <c:out value="${appointment.petName}"/></c:if>
+      </p>
+      <div class="page-actions">
+        <a href="${pageContext.request.contextPath}/receptionist/${from}" class="btn btn-outline">
+          ← Quay lại ${from == 'history' ? 'Lịch sử' : 'Check-in'}
         </a>
       </div>
-    </c:when>
+    </div>
 
-    <%-- ── Còn phải thu: 2 lựa chọn thu tiền ── --%>
-    <c:otherwise>
+    <%@ include file="/WEB-INF/views/common/_flash.jsp" %>
 
-      <div class="pay-options">
+    <div class="pay-flow-steps">
+      <div class="pay-flow-step done"><span class="pfs-num">✓</span> Tạo hóa đơn</div>
+      <div class="pay-flow-line ${fullyPaid ? 'done' : ''}"></div>
+      <div class="pay-flow-step ${fullyPaid ? 'done' : 'active'}"><span class="pfs-num">${fullyPaid ? '✓' : '2'}</span> Chọn phương thức thanh toán</div>
+      <div class="pay-flow-line ${fullyPaid ? 'done' : ''}"></div>
+      <div class="pay-flow-step ${fullyPaid ? 'active' : ''}"><span class="pfs-num">3</span> Biên lai</div>
+    </div>
 
-        <form action="${ctx}/receptionist/invoice" method="post" style="margin:0;">
-          <input type="hidden" name="invoiceId" value="${invoice.invoiceID}">
-          <input type="hidden" name="from" value="${from}">
-          <input type="hidden" name="action" value="cash">
-          <button type="submit" class="pay-option">
-            <div class="pay-opt-icon">💵</div>
-            <div class="pay-opt-body">
-              <div class="pay-opt-title">Nhận tiền mặt</div>
-              <div class="pay-opt-desc">Khách thanh toán trực tiếp bằng tiền mặt tại quầy.</div>
-              <div class="pay-opt-amount">
-                <fmt:formatNumber value="${amountDue}" type="number" groupingUsed="true"/>đ
-              </div>
-            </div>
-          </button>
-        </form>
-
-        <form action="${ctx}/receptionist/invoice" method="post" style="margin:0;">
-          <input type="hidden" name="invoiceId" value="${invoice.invoiceID}">
-          <input type="hidden" name="from" value="${from}">
-          <input type="hidden" name="action" value="bank">
-          <button type="submit" class="pay-option">
-            <div class="pay-opt-icon">🏦</div>
-            <div class="pay-opt-body">
-              <div class="pay-opt-title">Chuyển khoản (QR PayOS)</div>
-              <div class="pay-opt-desc">Khách quét mã QR VietQR để chuyển khoản qua PayOS.</div>
-              <div class="pay-opt-amount">
-                <fmt:formatNumber value="${amountDue}" type="number" groupingUsed="true"/>đ
-              </div>
-            </div>
-          </button>
-        </form>
-
-      </div><!-- /pay-options -->
-
-      <div class="pay-qr-note">
-        <div class="pay-qr-note-icon">ℹ</div>
-        <div>
-          <strong>Chuyển khoản QR PayOS</strong><br>
-          Nếu chọn chuyển khoản, màn hình sẽ chuyển sang trang mã QR của PayOS để khách quét
-          bằng app ngân hàng. Sau khi chuyển khoản thành công, hệ thống sẽ tự động quay lại
-          trang này và cập nhật trạng thái hóa đơn.
+    <div class="card">
+      <div class="card-header"><span class="card-title">Thông tin lịch hẹn</span></div>
+      <div class="card-body">
+        <div class="detail-grid">
+          <div><span class="detail-label">Ngày khám</span>
+            <span class="detail-value">${appointment.appointmentDate} · ${appointment.startTime}</span></div>
+          <div><span class="detail-label">Trạng thái</span>
+            <span class="detail-value"><span class="badge badge-neutral">${appointment.status}</span></span></div>
         </div>
       </div>
+    </div>
 
-    </c:otherwise>
-  </c:choose>
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">${invoicePreview.documentLabel}</span>
+        <span class="text-soft">Mã đơn: ${invoicePreview.invoiceCode}</span>
+      </div>
+      <div class="card-body">
+        <table class="inv-summary-table">
+          <thead>
+          <tr><th>Sản phẩm / Dịch vụ</th><th class="inv-num">SL</th><th class="inv-num">Đ.Giá</th><th class="inv-num">CK</th><th class="inv-num">T.Tiền</th></tr>
+          </thead>
+          <tbody>
+          <c:forEach var="li" items="${invoicePreview.items}">
+            <tr>
+              <td class="inv-item-name"><c:out value="${li.name}"/></td>
+              <td class="inv-num"><fmt:formatNumber value="${li.quantity}" maxFractionDigits="2"/></td>
+              <td class="inv-num"><fmt:formatNumber value="${li.unitPrice}" type="number" groupingUsed="true"/></td>
+              <td class="inv-num"><fmt:formatNumber value="${li.discount}" type="number" groupingUsed="true"/></td>
+              <td class="inv-num"><fmt:formatNumber value="${li.lineTotal}" type="number" groupingUsed="true"/></td>
+            </tr>
+          </c:forEach>
+          </tbody>
+        </table>
 
+        <table class="inv-totals-table">
+          <tr><td>Tổng số lượng</td><td class="val"><fmt:formatNumber value="${invoicePreview.totalQuantity}" maxFractionDigits="2"/></td></tr>
+          <tr><td>Tổng tiền hàng</td><td class="val"><fmt:formatNumber value="${invoicePreview.subTotal}" type="number" groupingUsed="true"/>đ</td></tr>
+          <tr><td>Chiết khấu</td><td class="val"><fmt:formatNumber value="${invoicePreview.discountAmount}" type="number" groupingUsed="true"/>đ</td></tr>
+          <tr class="inv-grand"><td>Tổng phải trả</td><td class="val"><fmt:formatNumber value="${invoicePreview.totalPayable}" type="number" groupingUsed="true"/>đ</td></tr>
+          <c:if test="${amountPaid > 0}">
+            <tr><td>Đã trả trước</td><td class="val"><fmt:formatNumber value="${amountPaid}" type="number" groupingUsed="true"/>đ</td></tr>
+            <tr class="inv-grand inv-due-row">
+              <td>${fullyPaid ? 'Đã thanh toán đủ' : 'Khách còn phải trả'}</td>
+              <td class="val"><fmt:formatNumber value="${amountDue}" type="number" groupingUsed="true"/>đ</td>
+            </tr>
+          </c:if>
+        </table>
+      </div>
+    </div>
+
+    <c:choose>
+      <c:when test="${fullyPaid}">
+        <div class="card">
+          <div class="card-body fully-paid-banner">
+            <div class="fully-paid-icon">✓</div>
+            <div class="fully-paid-title">Hóa đơn đã thanh toán đủ</div>
+            <p class="page-sub" style="margin-top:6px;">Bạn có thể xem hoặc in lại biên lai bên dưới.</p>
+            <div style="margin-top:18px;">
+              <a href="${pageContext.request.contextPath}/receptionist/invoice/receipt?invoiceId=${invoice.invoiceID}&from=${from}"
+                 class="btn btn-primary">Xem / In biên lai →</a>
+            </div>
+          </div>
+        </div>
+      </c:when>
+
+      <c:otherwise>
+        <div class="card">
+          <div class="card-header"><span class="card-title">Chọn phương thức thanh toán</span></div>
+          <div class="card-body">
+            <div class="pay-methods">
+
+              <div class="pay-method-card">
+                <div class="pay-method-head">
+                  <div class="pay-method-title">Tiền mặt</div>
+                  <div class="pay-method-amount"><fmt:formatNumber value="${amountDue}" type="number" groupingUsed="true"/>đ</div>
+                </div>
+                <p class="pay-method-desc">Thu đủ toàn bộ số tiền còn lại bằng tiền mặt, xác nhận ngay tại quầy.</p>
+                <form action="${pageContext.request.contextPath}/receptionist/invoice" method="post" class="pay-method-form">
+                  <input type="hidden" name="invoiceId" value="${invoice.invoiceID}">
+                  <input type="hidden" name="from" value="${from}">
+                  <input type="hidden" name="action" value="cash">
+                  <button type="submit" class="btn btn-primary">Xác nhận đã thu tiền mặt</button>
+                </form>
+              </div>
+
+              <div class="pay-method-card">
+                <div class="pay-method-head">
+                  <div class="pay-method-title">Chuyển khoản (QR PayOS)</div>
+                  <div class="pay-method-amount"><fmt:formatNumber value="${amountDue}" type="number" groupingUsed="true"/>đ</div>
+                </div>
+                <p class="pay-method-desc">Toàn bộ số tiền còn lại sẽ được thu qua mã QR chuyển khoản.</p>
+                <div class="pay-method-redirect-hint">
+                  ↳ Bấm nút bên dưới sẽ <strong>chuyển bạn sang trang quét mã QR của PayOS</strong>.
+                  Sau khi khách chuyển khoản xong, hệ thống tự động quay lại trang này.
+                </div>
+                <form action="${pageContext.request.contextPath}/receptionist/invoice" method="post" class="pay-method-form">
+                  <input type="hidden" name="invoiceId" value="${invoice.invoiceID}">
+                  <input type="hidden" name="from" value="${from}">
+                  <input type="hidden" name="action" value="bank">
+                  <button type="submit" class="btn btn-secondary">Tạo mã QR chuyển khoản →</button>
+                </form>
+              </div>
+
+              <div class="pay-method-card">
+                <div class="pay-method-head">
+                  <div class="pay-method-title">Tiền mặt + Chuyển khoản</div>
+                </div>
+                <p class="pay-method-desc">Khách trả một phần bằng tiền mặt, phần còn lại quét QR chuyển khoản.</p>
+                <div class="pay-method-redirect-hint">
+                  ↳ Sau khi ghi nhận tiền mặt, bạn sẽ <strong>được chuyển sang trang QR PayOS</strong>
+                  cho đúng phần còn lại. Quay lại trang này tự động sau khi chuyển khoản xong.
+                </div>
+                <form action="${pageContext.request.contextPath}/receptionist/invoice" method="post" class="pay-method-form">
+                  <input type="hidden" name="invoiceId" value="${invoice.invoiceID}">
+                  <input type="hidden" name="from" value="${from}">
+                  <input type="hidden" name="action" value="mixed">
+                  <input type="number" id="cashPart" name="cashPart" min="0" step="1000"
+                         placeholder="Số tiền mặt khách trả" oninput="updateMixedRemaining()">
+                  <button type="submit" class="btn btn-secondary">Tạo QR cho phần còn lại</button>
+                </form>
+                <div id="mixedRemainingPreview" class="pay-mixed-preview"></div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </c:otherwise>
+    </c:choose>
+  </main>
 </div>
 
+<script>
+  const AMOUNT_DUE = ${amountDue};
+  function updateMixedRemaining() {
+    const cash = parseFloat(document.getElementById('cashPart').value || '0');
+    const el = document.getElementById('mixedRemainingPreview');
+    el.textContent = (cash > 0 && cash < AMOUNT_DUE)
+            ? 'Số tiền cần chuyển khoản: ' + (AMOUNT_DUE - cash).toLocaleString('vi-VN') + 'đ'
+            : '';
+  }
+</script>
+<script src="${pageContext.request.contextPath}/js/dashboard.js"></script>
 </body>
 </html>
