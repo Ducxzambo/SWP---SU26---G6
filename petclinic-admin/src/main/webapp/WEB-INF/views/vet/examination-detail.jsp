@@ -295,19 +295,18 @@
             </c:if>
 
             <%-- Vật tư tiêu hao --%>
-            <c:if test="${not empty appt.supplyUsageItems}">
-                <p style="font-size:12px;font-weight:600;color:var(--text-soft);
-                                      text-transform:uppercase;letter-spacing:.5px;margin:10px 0 6px;">
-                    Vật tư
-                </p>
-                <table class="rx-table">
+            <c:if test="${not empty record.supplyUsageItems}">
+            <div class="card">
+                <div class="card-header"><span class="card-title">Đơn thuốc</span></div>
+                <div class="card-body" style="padding:0;">
+                    <table class="data-table">
                     <thead>
                     <tr><th>#</th><th>Vật tư</th><th>Ghi chú</th>
                         <th>Số lượng</th><th>Đơn giá</th><th>Thành tiền</th></tr>
                     </thead>
                     <tbody>
                     <c:set var="histSupTotal" value="0"/>
-                    <c:forEach items="${appt.supplyUsageItems}" var="su" varStatus="ss">
+                    <c:forEach items="${record.supplyUsageItems}" var="su" varStatus="ss">
                         <tr>
                             <td>${ss.count}</td>
                             <td><c:out value="${su.supplyName}"/>
@@ -331,7 +330,9 @@
                         </td>
                     </tr>
                     </tfoot>
-                </table>
+                    </table>
+                </div>
+            </div>
             </c:if>
 
         </c:if>

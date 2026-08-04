@@ -82,6 +82,11 @@ public class MedicalRecord {
         this.prescriptionItems = prescriptionItems;
     }
 
+    private List<SupplyUsageItem> supplyUsageItems;
+
+    public List<SupplyUsageItem> getSupplyUsageItems() { return supplyUsageItems; }
+    public void setSupplyUsageItems(List<SupplyUsageItem> v) { supplyUsageItems = v; }
+
     public boolean hasPrescription() {
         return prescriptionItems != null && !prescriptionItems.isEmpty();
     }
